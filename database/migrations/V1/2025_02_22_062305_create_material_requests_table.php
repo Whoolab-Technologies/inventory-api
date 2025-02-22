@@ -10,14 +10,11 @@ return new class extends Migration {
      */
     public function up(): void
     {
-        Schema::create('engineers', function (Blueprint $table) {
+        Schema::create('material_requests', function (Blueprint $table) {
             $table->id();
-            $table->string('first_name');
-            $table->string('last_name')->nullable();
-            $table->string('email')->unique();
-            $table->string('password');
+            $table->bigInteger('engineer_id');
             $table->bigInteger('store_id');
-            $table->rememberToken();
+            $table->enum('status', ['pending', 'approved', 'rejected', 'completed']);
             $table->bigInteger('created_by')->nullable();
             $table->string('created_type')->nullable();
             $table->bigInteger('updated_by')->nullable();
@@ -31,6 +28,6 @@ return new class extends Migration {
      */
     public function down(): void
     {
-        Schema::dropIfExists('engineers');
+        Schema::dropIfExists('material_requests');
     }
 };

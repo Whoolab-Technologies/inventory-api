@@ -4,23 +4,17 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-class CreateProductsTable extends Migration
-{
+return new class extends Migration {
     /**
      * Run the migrations.
-     *
-     * @return void
      */
-    public function up()
+    public function up(): void
     {
-        Schema::create('products', function (Blueprint $table) {
+        Schema::create('stock_transfers', function (Blueprint $table) {
             $table->id();
-            $table->string('item');
-            $table->string('item_description')->nullable();
-            $table->decimal('quantity', 8, 2);
-            $table->bigInteger('unit_id')->index();
-            $table->string('qr_code')->nullable();
-            $table->string('image')->nullable();
+            $table->bigInteger('from_store_id')->index(); // Store sending stock
+            $table->bigInteger('to_store_id')->index();   // Store receiving stock
+            $table->enum('status', ['in_transit', 'received', 'partial_received', 'canceled'])->notNull();
             $table->text('remarks')->nullable();
             $table->bigInteger('created_by')->nullable();
             $table->string('created_type')->nullable();
@@ -32,11 +26,9 @@ class CreateProductsTable extends Migration
 
     /**
      * Reverse the migrations.
-     *
-     * @return void
      */
-    public function down()
+    public function down(): void
     {
-        Schema::dropIfExists('products');
+        Schema::dropIfExists('stock_transfers');
     }
-}
+};

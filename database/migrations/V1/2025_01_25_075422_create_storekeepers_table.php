@@ -17,6 +17,11 @@ return new class extends Migration {
             $table->string('email')->unique();
             $table->string('password');
             $table->rememberToken();
+            $table->bigInteger('store_id');
+            $table->bigInteger('created_by')->nullable();
+            $table->string('created_type')->nullable();
+            $table->bigInteger('updated_by')->nullable();
+            $table->string('updated_type')->nullable();
             $table->timestamps();
         });
     }

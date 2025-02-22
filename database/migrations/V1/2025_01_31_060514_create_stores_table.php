@@ -14,9 +14,11 @@ return new class extends Migration {
             $table->id();
             $table->string('name');
             $table->string('location');
-            $table->unsignedBigInteger('storekeeper_id')->nullable();
-            $table->foreign('storekeeper_id')->references('id')->on('storekeepers')->onDelete('set null');
             $table->enum('type', ['site', 'central']);
+            $table->bigInteger('created_by')->nullable();
+            $table->string('created_type')->nullable();
+            $table->bigInteger('updated_by')->nullable();
+            $table->string('updated_type')->nullable();
             $table->timestamps();
         });
     }
