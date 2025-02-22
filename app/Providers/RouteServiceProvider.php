@@ -33,7 +33,8 @@ class RouteServiceProvider extends ServiceProvider
                 ->middleware('api')
                 ->group(function () {
                     require base_path('routes/api/V1/admin.php');
-                    require base_path('routes/api/V1/storekeeper.php'); // Ensure this file exists
+                    require base_path('routes/api/V1/engineer.php');
+                    require base_path('routes/api/V1/storekeeper.php');
                 });
 
             Route::middleware('web')

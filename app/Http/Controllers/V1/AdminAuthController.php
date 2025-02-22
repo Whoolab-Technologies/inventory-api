@@ -28,7 +28,7 @@ class AdminAuthController extends Controller
             ]);
 
 
-            $token = $admin->createToken('admin-token', ['admin'])->plainTextToken;
+            $token = $admin->createToken('admin', ['admin'])->plainTextToken;
 
             $admin->token = $token;
 
@@ -63,7 +63,7 @@ class AdminAuthController extends Controller
                 // Invalidate existing tokens
                 $admin->tokens()->delete();
                 // Create a new token
-                $newToken = $admin->createToken('admin-token', ['admin']);
+                $newToken = $admin->createToken('admin', ['admin']);
                 $token = $newToken->accessToken;
                 // Set the expiration time for the token
                 $token->expires_at = now()->addMinutes(config('sanctum.expiration'));

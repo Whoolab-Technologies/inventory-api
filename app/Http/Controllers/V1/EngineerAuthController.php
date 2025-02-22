@@ -22,7 +22,7 @@ class EngineerAuthController extends Controller
         $storekeeper = Engineer::where('email', $request->email)->first();
 
         if ($storekeeper && Hash::check($request->password, $storekeeper->password)) {
-            $token = $storekeeper->createToken('engineer-token', ['engineer'])->plainTextToken;
+            $token = $storekeeper->createToken('engineer', ['engineer'])->plainTextToken;
             $storekeeper->token = $token;
 
             return Helpers::sendResponse(

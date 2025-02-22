@@ -27,12 +27,19 @@ class Product extends Model
         parent::boot();
 
         static::created(function ($product) {
-            $stores = Store::all(); // Get all stores
+            $stores = Store::all();
+            $user = request()->user();
+
+            if ($user->token()->name !== 'engineer') {
+
+            }
+            log(" user " . json_encode($user));
             foreach ($stores as $store) {
                 ProductStock::create([
                     'product_id' => $product->id,
                     'store_id' => $store->id,
-                    'quantity' => $store->type == 'central' ? $product->quantity : 0
+                    'quantity' => $store->type == 'central' ? $product->quantity : 0,
+                    //'created_by' => $user->id // Assuming you have a created_by field in ProductStock
                 ]);
             }
         });

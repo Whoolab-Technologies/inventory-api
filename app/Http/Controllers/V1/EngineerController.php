@@ -130,12 +130,39 @@ class EngineerController extends Controller
         try {
             $engineer = Engineer::findOrFail($id);
             $engineer->delete();
-            return response()->json(['message' => 'Engineer deleted successfully']);
+            return Helpers::sendResponse(
+                status: 200,
+                data: [],
+                messages: 'Engineer deleted successfully',
+            );
         } catch (ModelNotFoundException $e) {
             return Helpers::sendResponse(
                 status: 404,
                 data: [],
                 messages: 'Engineer not found',
+            );
+        } catch (\Throwable $th) {
+            return Helpers::sendResponse(
+                status: 400,
+                data: [],
+                messages: $th->getMessage(),
+            );
+        }
+    }
+
+    function getProducts()
+    {
+        try {
+
+            $user = auth()->user();
+
+            if (!$user->tokenCan('engineer')) {
+                return Helpers::sendResponse(403, [], 'Access denied', );
+            }
+            $stores = $user->load("stores.products");
+            return Helpers::sendResponse(
+                status: 200,
+                data: $stores,
             );
         } catch (\Throwable $th) {
             return Helpers::sendResponse(
