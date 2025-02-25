@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\V1\EngineerController;
+use App\Http\Controllers\V1\StockController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\V1\AdminAuthController;
 use App\Http\Controllers\V1\StorekeeperController;
@@ -59,7 +60,13 @@ Route::prefix('admin')->group(function () {
         Route::put('engineers/{id}', [EngineerController::class, 'update']);
         Route::delete('engineers/{id}', [EngineerController::class, 'destroy']);
 
-        // Add more admin routes here
+        // Add Enginner-related routes
+        Route::post('stocks', [StockController::class, 'store']);
+        Route::get('stocks', [StockController::class, 'index']);
+        Route::get('stocks/{id}', [StockController::class, 'show']);
+        Route::put('stocks/{id}', [StockController::class, 'update']);
+        Route::delete('stocks/{id}', [StockController::class, 'destroy']);
+
     });
 
 });

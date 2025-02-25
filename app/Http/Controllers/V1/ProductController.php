@@ -15,7 +15,7 @@ class ProductController extends Controller
     public function index()
     {
         try {
-            $Product = Product::all();
+            $Product = Product::get();
             return Helpers::sendResponse(200, $Product, 'Product retrieved successfully');
         } catch (\Exception $e) {
             return Helpers::sendResponse(500, [], $e->getMessage());
@@ -38,9 +38,8 @@ class ProductController extends Controller
     {
         $this->validate($request, [
             'item' => 'required|string|max:255',
-            'item_description' => 'string|max:255',
-            'quantity' => 'required|numeric',
-            'unit_id' => 'required|integer',
+            'description' => 'nullable|string|max:255',
+            'unit_id' => 'required|numeric|exists:units,id',
             'remarks' => 'nullable|string',
         ]);
 
@@ -131,11 +130,8 @@ class ProductController extends Controller
     {
         $this->validate($request, [
             'item' => 'required|string|max:255',
-            'item_description' => 'required|string|max:255',
-            'brand_id' => 'required|integer',
-            'quantity' => 'required|numeric',
-            'unit_id' => 'required|integer',
-            'cost' => 'required|numeric',
+            'description' => 'nullable|string|max:255',
+            'unit_id' => 'required|numeric|exists:units,id',
             'remarks' => 'nullable|string',
         ]);
 

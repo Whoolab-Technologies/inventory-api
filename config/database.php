@@ -48,7 +48,7 @@ return [
             'url' => env('DATABASE_URL'),
             'host' => env('DB_HOST', '127.0.0.1'),
             'port' => env('DB_PORT', '8889'),
-            'database' => env('DB_DATABASE', 'MVP'),
+            'database' => env('DB_DATABASE', 'mvp_inventory_mgmt'),
             'username' => env('DB_USERNAME', 'mamp'),
             'password' => env('DB_PASSWORD', 'XLLFY9gqHgm9l8Gy'),
             'unix_socket' => env('DB_SOCKET', ''),

@@ -6,49 +6,46 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Support\Facades\Auth;
+
 class Product extends Model
 {
     protected $table = 'products';
-    protected $hidden = ['created_at', 'updated_at'];
-    protected $appends = ['code', "image_url"];
+    protected $hidden = ['created_by', 'created_type', 'updated_by', 'updated_type', 'created_at', 'updated_at'];
+    protected $appends = ['code', 'symbol', 'image_url'];
     protected $fillable = [
         'item',
-        'cost',
-        'quantity',
         'unit_id',
-        'item_description',
-        'qr_code'
+        'description',
+        'qr_code',
+        'image',
+        'remarks'
     ];
     use HasFactory;
-
-
     protected static function boot()
     {
         parent::boot();
 
-        static::created(function ($product) {
-            $stores = Store::all();
-            $user = request()->user();
+        static::creating(function ($model) {
 
-            if ($user->token()->name !== 'engineer') {
-
+            if (Auth::check()) {
+                $user = Auth::user();
+                $model->created_by = $user->id;
+                $model->created_type = optional($user->currentAccessToken())->name; // Get token name if exists
+                $model->updated_by = $user->id;
+                $model->updated_type = optional($user->currentAccessToken())->name;
             }
-            log(" user " . json_encode($user));
-            foreach ($stores as $store) {
-                ProductStock::create([
-                    'product_id' => $product->id,
-                    'store_id' => $store->id,
-                    'quantity' => $store->type == 'central' ? $product->quantity : 0,
-                    //'created_by' => $user->id // Assuming you have a created_by field in ProductStock
-                ]);
+        });
+
+        static::updating(function ($model) {
+            if (Auth::check()) {
+                $user = Auth::user();
+                $model->updated_by = $user->id;
+                $model->updated_type = optional($user->currentAccessToken())->name;
             }
         });
     }
 
-    public function stock()
-    {
-        return $this->hasMany(ProductStock::class, 'product_id');
-    }
 
     public function unit()
     {
@@ -60,13 +57,18 @@ class Product extends Model
     //     return $this->belongsTo(Brand::class);
     // }
 
-    public function getUnitCodeAttribute()
+    public function getSymbolAttribute()
     {
-        return $this->unit?->short_code;
+        $symbol = $this->unit?->symbol;
+        unset($this->unit);
+        return $symbol;
     }
     public function getImageUrlAttribute()
     {
-        return URL::to(Storage::url($this->image));
+        if (!empty($this->image)) {
+            return URL::to(Storage::url($this->image));
+        }
+        return "";
     }
     public function getCodeAttribute()
     {
@@ -78,5 +80,13 @@ class Product extends Model
         return $url;
     }
 
+    public function stocks()
+    {
+        return $this->hasMany(Stock::class);
+    }
 
+    public function engineersStock()
+    {
+        return $this->hasMany(EngineerStock::class);
+    }
 }

@@ -19,16 +19,16 @@ class UnitsTableSeeder extends Seeder
 
         // Insert unit data
         DB::table('units')->insert([
-            ['name' => 'Meters', 'short_code' => 'm', 'created_at' => Carbon::now(), 'updated_at' => Carbon::now()],
-            ['name' => 'Centimeters', 'short_code' => 'cm', 'created_at' => Carbon::now(), 'updated_at' => Carbon::now()],
-            ['name' => 'Piece', 'short_code' => 'pc', 'created_at' => Carbon::now(), 'updated_at' => Carbon::now()],
-            ['name' => 'Kilograms', 'short_code' => 'kg', 'created_at' => Carbon::now(), 'updated_at' => Carbon::now()],
-            ['name' => 'Grams', 'short_code' => 'g', 'created_at' => Carbon::now(), 'updated_at' => Carbon::now()],
-            ['name' => 'Liters', 'short_code' => 'L', 'created_at' => Carbon::now(), 'updated_at' => Carbon::now()],
-            ['name' => 'Milliliters', 'short_code' => 'mL', 'created_at' => Carbon::now(), 'updated_at' => Carbon::now()],
-            ['name' => 'Inches', 'short_code' => 'in', 'created_at' => Carbon::now(), 'updated_at' => Carbon::now()],
-            ['name' => 'Feet', 'short_code' => 'ft', 'created_at' => Carbon::now(), 'updated_at' => Carbon::now()],
-            ['name' => 'Yards', 'short_code' => 'yd', 'created_at' => Carbon::now(), 'updated_at' => Carbon::now()],
+            ['name' => 'Meters', 'symbol' => 'm', 'created_at' => Carbon::now(), 'updated_at' => Carbon::now()],
+            ['name' => 'Centimeters', 'symbol' => 'cm', 'created_at' => Carbon::now(), 'updated_at' => Carbon::now()],
+            ['name' => 'Piece', 'symbol' => 'pc', 'created_at' => Carbon::now(), 'updated_at' => Carbon::now()],
+            ['name' => 'Kilograms', 'symbol' => 'kg', 'created_at' => Carbon::now(), 'updated_at' => Carbon::now()],
+            ['name' => 'Grams', 'symbol' => 'g', 'created_at' => Carbon::now(), 'updated_at' => Carbon::now()],
+            ['name' => 'Liters', 'symbol' => 'L', 'created_at' => Carbon::now(), 'updated_at' => Carbon::now()],
+            ['name' => 'Milliliters', 'symbol' => 'mL', 'created_at' => Carbon::now(), 'updated_at' => Carbon::now()],
+            ['name' => 'Inches', 'symbol' => 'in', 'created_at' => Carbon::now(), 'updated_at' => Carbon::now()],
+            ['name' => 'Feet', 'symbol' => 'ft', 'created_at' => Carbon::now(), 'updated_at' => Carbon::now()],
+            ['name' => 'Yards', 'symbol' => 'yd', 'created_at' => Carbon::now(), 'updated_at' => Carbon::now()],
         ]);
     }
 }

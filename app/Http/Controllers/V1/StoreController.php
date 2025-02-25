@@ -13,7 +13,7 @@ class StoreController extends Controller
     public function index()
     {
         try {
-            $stores = Store::all();
+            $stores = Store::with(['engineers', 'storekeepers'])->get();
             return Helpers::sendResponse(
                 status: 200,
                 data: $stores,
@@ -34,7 +34,6 @@ class StoreController extends Controller
             $request->validate([
                 'name' => 'required|string|max:255',
                 'location' => 'required|string|max:255',
-                'storekeeper_id' => 'nullable|exists:storekeepers,id',
                 'type' => 'required|in:site,central',
             ]);
 
@@ -84,7 +83,6 @@ class StoreController extends Controller
             $request->validate([
                 'name' => 'sometimes|required|string|max:255',
                 'location' => 'sometimes|required|string|max:255',
-                'storekeeper_id' => 'nullable|exists:storekeepers,id',
                 'type' => 'sometimes|required|in:site,central',
             ]);
 
@@ -134,29 +132,4 @@ class StoreController extends Controller
         }
     }
 
-    public function getStoresByStorekeeper(Request $request, $storekeeper_id = null)
-    {
-
-        try {
-            if ($request->user()->tokenCan('admin')) {
-                $id = $storekeeper_id;
-            } else {
-                // Storekeeper request
-                $id = $request->user()->id;
-            }
-
-            $stores = Store::where('storekeeper_id', $id)->get();
-            return Helpers::sendResponse(
-                status: 200,
-                data: $stores,
-                messages: '',
-            );
-        } catch (\Throwable $th) {
-            return Helpers::sendResponse(
-                status: 400,
-                data: [],
-                messages: $th->getMessage(),
-            );
-        }
-    }
 }
