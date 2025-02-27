@@ -12,6 +12,8 @@ return new class extends Migration {
     {
         Schema::create('material_requests', function (Blueprint $table) {
             $table->id();
+            $table->string('request_number');
+            $table->string('description')->nullable();
             $table->bigInteger('engineer_id');
             $table->bigInteger('store_id');
             $table->enum('status', ['pending', 'approved', 'rejected', 'completed']);

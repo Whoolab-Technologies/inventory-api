@@ -17,5 +17,8 @@ Route::prefix('engineer')->group(function () {
         Route::post('logout', [EngineerAuthController::class, 'logout']);
         Route::get('stores', [EngineerController::class, 'getStores']);
         Route::get('products', [EngineerController::class, 'getProducts']);
+
+        Route::get('mr', [EngineerController::class, 'getMaterialRequest']);
+        Route::post('mr', [EngineerController::class, 'createMaterialRequest']);
     });
 });

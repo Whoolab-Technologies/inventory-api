@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\V1\MaterialRequest;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use App\Services\Helpers;
@@ -150,44 +151,136 @@ class EngineerController extends Controller
         }
     }
 
-    function getProducts()
+    public function getProducts()
     {
-        //  try {
+        try {
 
-        $user = auth()->user();
+            $user = auth()->user();
 
-        if (!$user->tokenCan('engineer')) {
-            return Helpers::sendResponse(403, [], 'Access denied', );
+            if (!$user->tokenCan('engineer')) {
+                return Helpers::sendResponse(403, [], 'Access denied', );
+            }
+            $products = Product::with([
+                'engineersStock' => function ($query) use ($user) {
+                    $query->where('store_id', $user->store_id);
+                },
+                'engineersStock.engineer',
+                'stocks' => function ($query) use ($user) {
+                    $query->where('store_id', $user->store_id);
+                },
+            ])->get()->map(function ($product) use ($user) {
+                $product->total_stock = $product->stocks->sum('quantity');
+                $product->engineer_stock = $product->engineersStock->sum('quantity');
+                $product->my_stock = $product->engineersStock->where('engineer_id', $user->id)->sum('quantity');
+                $product->stock_with_others = $product->engineersStock->where('engineer_id', '!=', $user->id)->sum('quantity');
+                return $product;
+            });
+
+            // $storeStock = Stock::where('store_id', $user->store_id)->get()->keyBy('product_id');
+
+            // $engineerStocks = EngineerStock::where('store_id', $user->store_id)
+            //     ->get()
+            //     ->groupBy('product_id');
+
+            // // Format the response
+            // $stockData = [];
+
+            // foreach ($products as $product) {
+            //     $product->total_stock = $storeStock[$product->id]->quantity ?? 0;
+            //     $product->engineer_stock = (isset($engineerStocks[$product->id])) ? $engineerStocks[$product->id]->sum('quantity') ?? 0 : 0;
+            //     $stockData[] = $product;
+            // }
+
+
+            //  $stores = $user->load(["stocks", "store.engineerStocks.stock.product", "store.stocks.product",]);
+            return Helpers::sendResponse(
+                status: 200,
+                data: $products,
+            );
+        } catch (\Throwable $th) {
+            return Helpers::sendResponse(
+                status: 400,
+                data: [],
+                messages: $th->getMessage(),
+            );
         }
-        $products = Product::all();
+    }
+    public function createMaterialRequest(Request $request)
+    {
+        \DB::beginTransaction();
+        try {
+            $user = auth()->user();
+            $materialRequest = MaterialRequest::create([
+                'request_number' => 'MR-' . str_pad(MaterialRequest::max('id') + 1001, 6, '0', STR_PAD_LEFT),
+                'engineer_id' => $user->id,
+                'store_id' => $user->store->id,
+                'status' => 'pending',
+            ]);
 
-        $storeStock = Stock::where('store_id', $user->store_id)->get()->keyBy('product_id');
+            $items = array_map(function ($item) use ($materialRequest) {
+                return [
+                    'material_request_id' => $materialRequest->id,
+                    'product_id' => $item['product_id'],
+                    'quantity' => $item['quantity'],
+                ];
+            }, $request->items);
 
-        $engineerStocks = EngineerStock::where('store_id', $user->store_id)
-            ->get()
-            ->groupBy('product_id');
+            $materialRequest->items()->createMany($items);
 
-        // Format the response
-        $stockData = [];
+            \DB::commit();
 
-        foreach ($products as $product) {
-            $product->total_stock = $storeStock[$product->id]->quantity ?? 0;
-            $product->engineer_stock = (isset($engineerStocks[$product->id])) ? $engineerStocks[$product->id]->sum('quantity') ?? 0 : 0;
-            $stockData[] = $product;
+            return Helpers::sendResponse(
+                status: 200,
+                data: $materialRequest,
+            );
+        } catch (\Throwable $th) {
+            \DB::rollBack();
+            return Helpers::sendResponse(
+                status: 400,
+                data: [],
+                messages: $th->getMessage(),
+            );
         }
+    }
 
 
-        //  $stores = $user->load(["stocks", "store.engineerStocks.stock.product", "store.stocks.product",]);
-        return Helpers::sendResponse(
-            status: 200,
-            data: $stockData,
-        );
-        // } catch (\Throwable $th) {
-        //     return Helpers::sendResponse(
-        //         status: 400,
-        //         data: [],
-        //         messages: $th->getMessage(),
-        //     );
-        // }
+    public function getMaterialRequest()
+    {
+        try {
+            $user = auth()->user();
+
+            $materialRequests = MaterialRequest::with(['items.product'])
+                ->where('engineer_id', $user->id)
+                ->get()->map(function ($mr) {
+                    return [
+                        'id' => $mr->id,
+                        'store_id' => $mr->store_id,
+                        'request_number' => $mr->request_number,
+                        'created_at' => $mr->created_at,
+                        'items' => $mr->items->map(function ($item) {
+                            return [
+                                'id' => $item->id,
+                                'product_id' => $item->product->id,
+                                'product_name' => $item->product->item,
+                                'product_image' => $item->product->image_url,
+                                'unit' => $item->product->symbol,
+                                'quantity' => $item->quantity,
+                            ];
+                        }),
+                    ];
+                });
+
+            return Helpers::sendResponse(
+                status: 200,
+                data: $materialRequests,
+                messages: 'Material requests retrieved successfully',
+            );
+        } catch (\Throwable $th) {
+            return Helpers::sendResponse(
+                status: 400,
+                data: [],
+                messages: $th->getMessage(),
+            );
+        }
     }
 }
