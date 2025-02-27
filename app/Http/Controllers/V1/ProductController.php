@@ -168,9 +168,21 @@ class ProductController extends Controller
                 return Helpers::sendResponse(403, [], 'Access denied', );
             }
 
-            $stores = $user->stores()->with(['products'])->get();
+            $products = Product::with([
+                'engineersStock' => function ($query) use ($user) {
+                    $query->where('store_id', $user->store_id);
+                },
+                'engineersStock.engineer',
+                'stocks' => function ($query) use ($user) {
+                    $query->where('store_id', $user->store_id);
+                },
+            ])->get()->map(function ($product) use ($user) {
+                $product->total_stock = $product->stocks->sum('quantity');
+                $product->engineer_stock = $product->engineersStock->sum('quantity');
+                return $product;
+            });
 
-            return Helpers::sendResponse(200, $stores);
+            return Helpers::sendResponse(200, $products);
 
 
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
