@@ -55,10 +55,9 @@ class ProductController extends Controller
         \Log::info($request->all());
         try {
             $item = Product::create($request->all());
-
+            $itemId = str_pad($item->id, 2, '0', STR_PAD_LEFT);
             if ($request->hasFile('image')) {
-                $itemId = $item->id;
-                $imagePath = Helpers::uploadFile($request->file('image'), "images/products/$itemId");
+                $imagePath = Helpers::uploadFile($request->file('image'), "products/images/$itemId");
                 $item->image = $imagePath;
                 $item->save();
             }
@@ -69,8 +68,8 @@ class ProductController extends Controller
                 ->eye('circle')
                 ->color(0, 0, 255)
                 ->margin(1)
-                ->generate($item->id);
-            $folderPath = 'qrcodes';
+                ->generate($itemId);
+            $folderPath = "products/qrcodes/$itemId";
             $fileName = $item->id . '.png';
             $storagePath = storage_path("app/public/{$folderPath}");
 

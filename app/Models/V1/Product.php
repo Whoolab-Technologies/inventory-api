@@ -15,6 +15,7 @@ class Product extends Model
     protected $appends = ['code', 'symbol', 'image_url'];
     protected $fillable = [
         'item',
+        'cat_id',
         'unit_id',
         'description',
         'qr_code',

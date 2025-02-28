@@ -5,10 +5,8 @@ namespace App\Http\Controllers\V1;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Validator;
 use App\Models\V1\Admin;
 use App\Services\Helpers;
-use Laravel\Sanctum\PersonalAccessToken;
 
 class AdminAuthController extends Controller
 {
@@ -60,12 +58,9 @@ class AdminAuthController extends Controller
             $admin = Admin::where('email', $request->email)->first();
 
             if ($admin && Hash::check($request->password, $admin->password)) {
-                // Invalidate existing tokens
                 $admin->tokens()->delete();
-                // Create a new token
                 $newToken = $admin->createToken('admin', ['admin']);
                 $token = $newToken->accessToken;
-                // Set the expiration time for the token
                 $token->expires_at = now()->addMinutes(config('sanctum.expiration'));
                 $token->save();
                 $admin->token = $newToken->plainTextToken;
