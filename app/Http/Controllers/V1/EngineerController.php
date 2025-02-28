@@ -151,15 +151,16 @@ class EngineerController extends Controller
         }
     }
 
-    public function getProducts()
+    public function getProducts(Request $request)
     {
         try {
 
             $user = auth()->user();
-
             if (!$user->tokenCan('engineer')) {
                 return Helpers::sendResponse(403, [], 'Access denied', );
             }
+            $searchTerm = $request->query('search');
+            \Log::info($searchTerm);
             $products = Product::with([
                 'engineersStock' => function ($query) use ($user) {
                     $query->where('store_id', $user->store_id);
@@ -168,7 +169,12 @@ class EngineerController extends Controller
                 'stocks' => function ($query) use ($user) {
                     $query->where('store_id', $user->store_id);
                 },
-            ])->get()->map(function ($product) use ($user) {
+            ]);
+
+            if ($searchTerm) {
+                $products->search($searchTerm);
+            }
+            $products = $products->get()->map(function ($product) use ($user) {
                 $product->total_stock = $product->stocks->sum('quantity');
                 $product->engineer_stock = $product->engineersStock->sum('quantity');
                 $product->my_stock = $product->engineersStock->where('engineer_id', $user->id)->sum('quantity');

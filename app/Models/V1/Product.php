@@ -89,4 +89,26 @@ class Product extends Model
     {
         return $this->hasMany(EngineerStock::class);
     }
+
+    public function scopeSearch($query, $term)
+    {
+        $term = "%{$term}%";
+        return $query->where('item', 'LIKE', $term)
+            ->orWhere('description', 'LIKE', $term)
+            ->orWhere('cat_id', 'LIKE', $term)
+            ->orWhereHas('unit', function ($q) use ($term) {
+                $q->where('name', 'LIKE', $term)
+                    ->orWhere('symbol', 'LIKE', $term);
+            });
+
+        //     $term = "%{$term}%";
+        // return $query->where(function ($q) use ($term) {
+        //     $q->where('item', 'LIKE', $term)
+        //         ->orWhere('description', 'LIKE', $term)
+        //         ->orWhereHas('unit', function ($q) use ($term) {
+        //             $q->where('name', 'LIKE', $term)
+        //                 ->orWhere('symbol', 'LIKE', $term);
+        //         });
+        // });
+    }
 }

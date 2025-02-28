@@ -12,11 +12,18 @@ use Illuminate\Support\Facades\DB;
 class ProductController extends Controller
 {
 
-    public function index()
+    public function index(Request $request)
     {
         try {
-            $Product = Product::get();
-            return Helpers::sendResponse(200, $Product, 'Product retrieved successfully');
+            $searchTerm = $request->query('search');
+            $products = Product::query();
+
+            if ($searchTerm) {
+                $products->search($searchTerm);
+            }
+
+            $products = $products->get();
+            return Helpers::sendResponse(200, $products, 'Products retrieved successfully');
         } catch (\Exception $e) {
             return Helpers::sendResponse(500, [], $e->getMessage());
         }
@@ -38,6 +45,7 @@ class ProductController extends Controller
     {
         $this->validate($request, [
             'item' => 'required|string|max:255',
+            'cat_id' => 'required|string|max:255|unique:products,cat_id',
             'description' => 'nullable|string|max:255',
             'unit_id' => 'required|numeric|exists:units,id',
             'remarks' => 'nullable|string',
@@ -158,33 +166,34 @@ class ProductController extends Controller
             return Helpers::sendResponse(500, [], $e->getMessage());
         }
     }
-    public function getProducts()
+
+    public function getProducts(Request $request)
     {
         try {
-
             $user = auth()->user();
-
             if (!$user->tokenCan('storekeeper')) {
-                return Helpers::sendResponse(403, [], 'Access denied', );
+                return Helpers::sendResponse(403, [], 'Access denied');
             }
 
+            $searchTerm = $request->query('search');
+            \Log::info($searchTerm);
             $products = Product::with([
                 'engineersStock' => function ($query) use ($user) {
                     $query->where('store_id', $user->store_id);
                 },
                 'engineersStock.engineer',
-                'stocks' => function ($query) use ($user) {
-                    $query->where('store_id', $user->store_id);
-                },
-            ])->get()->map(function ($product) use ($user) {
-                $product->total_stock = $product->stocks->sum('quantity');
-                $product->engineer_stock = $product->engineersStock->sum('quantity');
+            ]);
+
+            if ($searchTerm) {
+                $products->search($searchTerm);
+            }
+
+            $products = $products->get()->map(function ($product) use ($user) {
+                $product->total_stock = $product->engineersStock->sum('quantity');
                 return $product;
             });
 
-            return Helpers::sendResponse(200, $products);
-
-
+            return Helpers::sendResponse(200, $products, 'Products retrieved successfully');
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return Helpers::sendResponse(404, [], 'Item not found');
         } catch (\Exception $e) {
