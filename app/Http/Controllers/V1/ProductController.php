@@ -166,38 +166,5 @@ class ProductController extends Controller
         }
     }
 
-    public function getProducts(Request $request)
-    {
-        try {
-            $user = auth()->user();
-            if (!$user->tokenCan('storekeeper')) {
-                return Helpers::sendResponse(403, [], 'Access denied');
-            }
-
-            $searchTerm = $request->query('search');
-            \Log::info($searchTerm);
-            $products = Product::with([
-                'engineersStock' => function ($query) use ($user) {
-                    $query->where('store_id', $user->store_id);
-                },
-                'engineersStock.engineer',
-            ]);
-
-            if ($searchTerm) {
-                $products->search($searchTerm);
-            }
-
-            $products = $products->get()->map(function ($product) use ($user) {
-                $product->total_stock = $product->engineersStock->sum('quantity');
-                return $product;
-            });
-
-            return Helpers::sendResponse(200, $products, 'Products retrieved successfully');
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            return Helpers::sendResponse(404, [], 'Item not found');
-        } catch (\Exception $e) {
-            return Helpers::sendResponse(500, [], $e->getMessage());
-        }
-    }
 
 }

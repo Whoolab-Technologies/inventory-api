@@ -86,9 +86,10 @@ class Product extends Model
         return $this->hasMany(Stock::class);
     }
 
-    public function engineersStock()
+
+    public function engineerStocks()
     {
-        return $this->hasMany(EngineerStock::class);
+        return $this->hasMany(EngineerStock::class, 'product_id', 'id');
     }
 
     public function scopeSearch($query, $term)

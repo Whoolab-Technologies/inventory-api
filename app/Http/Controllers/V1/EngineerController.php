@@ -162,10 +162,10 @@ class EngineerController extends Controller
             $searchTerm = $request->query('search');
             \Log::info($searchTerm);
             $products = Product::with([
-                'engineersStock' => function ($query) use ($user) {
+                'engineerStocks' => function ($query) use ($user) {
                     $query->where('store_id', $user->store_id);
                 },
-                'engineersStock.engineer',
+                'engineerStocks.engineer',
                 'stocks' => function ($query) use ($user) {
                     $query->where('store_id', $user->store_id);
                 },
@@ -176,9 +176,9 @@ class EngineerController extends Controller
             }
             $products = $products->get()->map(function ($product) use ($user) {
                 $product->total_stock = $product->stocks->sum('quantity');
-                $product->engineer_stock = $product->engineersStock->sum('quantity');
-                $product->my_stock = $product->engineersStock->where('engineer_id', $user->id)->sum('quantity');
-                $product->stock_with_others = $product->engineersStock->where('engineer_id', '!=', $user->id)->sum('quantity');
+                $product->engineer_stock = $product->engineerStocks->sum('quantity');
+                $product->my_stock = $product->engineerStocks->where('engineer_id', $user->id)->sum('quantity');
+                $product->stock_with_others = $product->engineerStocks->where('engineer_id', '!=', $user->id)->sum('quantity');
                 return $product;
             });
 
@@ -288,5 +288,44 @@ class EngineerController extends Controller
                 messages: $th->getMessage(),
             );
         }
+    }
+
+    public function getDashboardData(Request $request)
+    {
+        try {
+            $data = array();
+            $engineer = auth()->user()->load('store');
+            $outOfStockProducts = Product::whereHas('engineerStocks', function ($query) use ($engineer) {
+                $query->where('store_id', $engineer->store->id)
+                    ->where('quantity', '<=', 0);
+            })->with('unit')->get();
+            \Log::info("$engineer->id");
+            $material_requests = MaterialRequest::with(['items'])
+                ->where('engineer_id', $engineer->id)
+                ->where('status', "approved")
+                ->orderBy('created_at', 'desc')
+                ->get()->map(function ($mr) {
+                    return [
+                        'id' => $mr->id,
+                        'store_id' => $mr->store_id,
+                        'request_number' => $mr->request_number,
+                        'created_at' => $mr->created_at,
+                        'status' => $mr->status,
+                        'items' => $mr->items,
+                    ];
+                });
+
+            $data = [
+                'id' => $engineer->id,
+                'user' => $engineer,
+                'material_requests' => $material_requests,
+                'out_of_stock_products' => $outOfStockProducts
+            ];
+            return Helpers::sendResponse(200, $data, 'Products retrieved successfully');
+
+        } catch (\Throwable $th) {
+            return Helpers::sendResponse(500, [], $th->getMessage());
+        }
+
     }
 }
