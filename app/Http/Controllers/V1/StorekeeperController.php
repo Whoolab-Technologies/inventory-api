@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\V1\Storekeeper;
 use App\Models\V1\Product;
+use App\Models\V1\MaterialRequest;
 use Illuminate\Support\Facades\Hash;
 use App\Services\Helpers;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -190,20 +191,19 @@ class StorekeeperController extends Controller
         try {
             $data = array();
             $storekeeper = auth()->user()->load('store');
-            // $outOfStockProducts = Product::whereDoesntHave('stocks', function ($query) use ($storekeeper) {
-            //     $query->where('store_id', $storekeeper->store->id)
-            //         ->where('quantity', '>', 0);
-            // })
+            $data = [
+                'user' => $storekeeper,
+            ];
+            if ($storekeeper->store->type === 'central') {
+                $materialRequests = MaterialRequest::with(['products'])->get();
+                $data['material_requests'] = $materialRequests;
+            }
             $outOfStockProducts = Product::whereDoesntHave('engineerStocks', function ($query) use ($storekeeper) {
                 $query->where('store_id', $storekeeper->store->id)
                     ->where('quantity', '>', 0);
             })->get();
-            $data = [
-                'user' => $storekeeper,
-                'out_of_stock_products' => $outOfStockProducts
-            ];
+            $data['out_of_stock_products'] = $outOfStockProducts;
             return Helpers::sendResponse(200, $data, 'Products retrieved successfully');
-
         } catch (\Throwable $th) {
             return Helpers::sendResponse(500, [], $th->getMessage());
         }
