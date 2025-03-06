@@ -23,9 +23,13 @@ class StorekeeperAuthController extends Controller
         $storekeeper = Storekeeper::where('email', $request->email)->first();
 
         if ($storekeeper && Hash::check($request->password, $storekeeper->password)) {
-            $token = $storekeeper->createToken('storekeeper', ['storekeeper'])->plainTextToken;
-            $storekeeper->token = $token;
-
+            $storekeeper->tokens()->delete();
+            $newToken = $storekeeper->createToken('storekeeper', ['storekeeper']);
+            $token = $newToken->accessToken;
+            $token->expires_at = now()->addMinutes(config('sanctum.expiration'));
+            $token->save();
+            $storekeeper->token = $newToken->plainTextToken;
+            $storekeeper = $storekeeper->load('store');
             return Helpers::sendResponse(
                 200,
                 $storekeeper,

@@ -18,5 +18,6 @@ Route::prefix('storekeeper')->group(function () {
         Route::get('units', [UnitController::class, 'index']);
 
         Route::post('products', [ProductController::class, 'store']);
+        Route::get('material_requests', [StorekeeperController::class, 'getMaterialRequests']);
     });
 });

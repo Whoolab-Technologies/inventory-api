@@ -215,4 +215,15 @@ class StorekeeperController extends Controller
         }
 
     }
+
+    public function getMaterialRequests(Request $request)
+    {
+        try {
+            $material_requests = MaterialRequest::with(['store', 'engineer', 'items.product'])->get();
+            return Helpers::sendResponse(200, $material_requests, 'Material requests retrieved successfully');
+        } catch (\Throwable $th) {
+            return Helpers::sendResponse(500, [], $th->getMessage());
+        }
+    }
+
 }
