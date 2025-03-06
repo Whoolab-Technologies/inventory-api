@@ -5,6 +5,7 @@ use App\Http\Controllers\V1\StorekeeperAuthController;
 use App\Http\Controllers\V1\StorekeeperController;
 use App\Http\Controllers\V1\StoreController;
 use App\Http\Controllers\V1\UnitController;
+use App\Http\Controllers\V1\ProductController;
 
 Route::prefix('storekeeper')->group(function () {
     Route::post('login', [StorekeeperAuthController::class, 'login']);
@@ -15,5 +16,7 @@ Route::prefix('storekeeper')->group(function () {
         Route::get('products', [StorekeeperController::class, 'getProducts']);
         Route::get('home', [StorekeeperController::class, 'getDashboardData']);
         Route::get('units', [UnitController::class, 'index']);
+
+        Route::post('products', [ProductController::class, 'store']);
     });
 });

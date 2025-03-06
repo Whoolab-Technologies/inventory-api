@@ -12,7 +12,7 @@ class MaterialRequest extends Model
 
     protected $table = 'material_requests';
 
-    protected $hidden = ['created_by', 'created_type', 'updated_by', 'updated_type', 'created_at', 'updated_at'];
+    protected $hidden = ['created_by', 'created_type', 'updated_by', 'updated_type', 'updated_at'];
 
     protected $fillable = ['request_number', 'engineer_id', 'store_id', 'status'];
 
@@ -43,13 +43,23 @@ class MaterialRequest extends Model
     public function products()
     {
         return $this->belongsToMany(Product::class, 'material_request_items')
-            ->withPivot('quantity')
-            ->withTimestamps();
+            ->withPivot('quantity');
     }
 
     public function items()
     {
         return $this->hasMany(MaterialRequestItem::class);
     }
+
+    public function store()
+    {
+        return $this->belongsTo(Store::class);
+    }
+
+    public function engineer()
+    {
+        return $this->belongsTo(Engineer::class);
+    }
+
 
 }

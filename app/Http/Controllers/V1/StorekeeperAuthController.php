@@ -23,7 +23,7 @@ class StorekeeperAuthController extends Controller
         $storekeeper = Storekeeper::where('email', $request->email)->first();
 
         if ($storekeeper && Hash::check($request->password, $storekeeper->password)) {
-            $token = $storekeeper->createToken('storekeeper-token', ['storekeeper'])->plainTextToken;
+            $token = $storekeeper->createToken('storekeeper', ['storekeeper'])->plainTextToken;
             $storekeeper->token = $token;
 
             return Helpers::sendResponse(

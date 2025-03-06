@@ -43,6 +43,8 @@ class ProductController extends Controller
 
     public function store(Request $request)
     {
+
+        \Log::info($request->all());
         $this->validate($request, [
             'item' => 'required|string|max:255',
             'cat_id' => 'required|string|max:255|unique:products,cat_id',
@@ -52,7 +54,6 @@ class ProductController extends Controller
         ]);
 
         DB::beginTransaction();
-        \Log::info($request->all());
         try {
             $item = Product::create($request->all());
             $itemId = str_pad($item->id, 2, '0', STR_PAD_LEFT);

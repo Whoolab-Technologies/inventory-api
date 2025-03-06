@@ -162,7 +162,6 @@ class StorekeeperController extends Controller
             }
 
             $searchTerm = $request->query('search');
-            \Log::info($searchTerm);
             $products = Product::with([
                 'engineerStocks' => function ($query) use ($user) {
                     $query->where('store_id', $user->store_id);
@@ -195,7 +194,14 @@ class StorekeeperController extends Controller
                 'user' => $storekeeper,
             ];
             if ($storekeeper->store->type === 'central') {
-                $materialRequests = MaterialRequest::with(['products'])->get();
+                $materialRequests = MaterialRequest::with([
+                    'store',
+                    'engineer',
+                    'products'
+                ])
+                    ->where('status', 'pending')
+                    ->orderBy('created_at', 'desc')
+                    ->get();
                 $data['material_requests'] = $materialRequests;
             }
             $outOfStockProducts = Product::whereDoesntHave('engineerStocks', function ($query) use ($storekeeper) {
