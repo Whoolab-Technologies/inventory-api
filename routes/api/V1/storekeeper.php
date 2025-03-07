@@ -19,5 +19,7 @@ Route::prefix('storekeeper')->group(function () {
 
         Route::post('products', [ProductController::class, 'store']);
         Route::get('material_requests', [StorekeeperController::class, 'getMaterialRequests']);
+
+        Route::put('material_requests/{id}', [StorekeeperController::class, 'updateMaterialrequest']);
     });
 });

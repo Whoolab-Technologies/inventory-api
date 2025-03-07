@@ -19,15 +19,19 @@ class EngineerAuthController extends Controller
             'password' => 'required',
         ]);
 
-        $storekeeper = Engineer::where('email', $request->email)->first();
+        $engineer = Engineer::where('email', $request->email)->first();
 
-        if ($storekeeper && Hash::check($request->password, $storekeeper->password)) {
-            $token = $storekeeper->createToken('engineer', ['engineer'])->plainTextToken;
-            $storekeeper->token = $token;
+        if ($engineer && Hash::check($request->password, $engineer->password)) {
+            $engineer->tokens()->delete();
+            $newToken = $engineer->createToken('engineer', ['engineer']);
+            $token = $newToken->accessToken;
+            $token->expires_at = now()->addMinutes(config('sanctum.expiration'));
+            $token->save();
+            $engineer->token = $newToken->plainTextToken;
 
             return Helpers::sendResponse(
                 200,
-                $storekeeper,
+                $engineer,
                 'Logged in successfully',
             );
         }

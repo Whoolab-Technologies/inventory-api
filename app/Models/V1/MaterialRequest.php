@@ -61,5 +61,26 @@ class MaterialRequest extends Model
         return $this->belongsTo(Engineer::class);
     }
 
+    public function scopeSearch($query, $term)
+    {
+        $term = "%{$term}%";
+        return $query->where('request_number', 'LIKE', $term)
+            ->orWhereHas('store', function ($q) use ($term) {
+                $q->where('name', 'LIKE', $term);
+            })
+            ->orWhereHas('engineer', function ($q) use ($term) {
+                $q->where('first_name', 'LIKE', $term)
+                    ->orWhere('last_name', 'LIKE', $term);
+            });
 
+        //     $term = "%{$term}%";
+        // return $query->where(function ($q) use ($term) {
+        //     $q->where('item', 'LIKE', $term)
+        //         ->orWhere('description', 'LIKE', $term)
+        //         ->orWhereHas('unit', function ($q) use ($term) {
+        //             $q->where('name', 'LIKE', $term)
+        //                 ->orWhere('symbol', 'LIKE', $term);
+        //         });
+        // });
+    }
 }

@@ -293,6 +293,7 @@ class EngineerController extends Controller
     public function getDashboardData(Request $request)
     {
         try {
+            \Log::info("getDashboardData");
             $data = array();
             $engineer = auth()->user()->load('store');
             $outOfStockProducts = Product::whereHas('engineerStocks', function ($query) use ($engineer) {
@@ -302,7 +303,7 @@ class EngineerController extends Controller
             \Log::info("$engineer->id");
             $material_requests = MaterialRequest::with(['items'])
                 ->where('engineer_id', $engineer->id)
-                ->where('status', "approved")
+                //->where('status', "pending")
                 ->orderBy('created_at', 'desc')
                 ->get()->map(function ($mr) {
                     return [
@@ -324,6 +325,8 @@ class EngineerController extends Controller
             return Helpers::sendResponse(200, $data, 'Products retrieved successfully');
 
         } catch (\Throwable $th) {
+
+
             return Helpers::sendResponse(500, [], $th->getMessage());
         }
 

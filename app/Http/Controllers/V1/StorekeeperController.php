@@ -9,10 +9,18 @@ use App\Models\V1\Product;
 use App\Models\V1\MaterialRequest;
 use Illuminate\Support\Facades\Hash;
 use App\Services\Helpers;
+use App\Services\V1\MaterialRequestService;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 class StorekeeperController extends Controller
 {
+    protected $materialRequestService;
+
+    public function __construct(MaterialRequestService $materialRequestService)
+    {
+        $this->materialRequestService = $materialRequestService;
+    }
+
     public function index()
     {
         $storekeepers = Storekeeper::with(['store'])->get();
@@ -199,7 +207,7 @@ class StorekeeperController extends Controller
                     'engineer',
                     'products'
                 ])
-                    ->where('status', 'pending')
+                    // ->where('status', 'pending')
                     ->orderBy('created_at', 'desc')
                     ->get();
                 $data['material_requests'] = $materialRequests;
@@ -219,10 +227,29 @@ class StorekeeperController extends Controller
     public function getMaterialRequests(Request $request)
     {
         try {
-            $material_requests = MaterialRequest::with(['store', 'engineer', 'items.product'])->get();
-            return Helpers::sendResponse(200, $material_requests, 'Material requests retrieved successfully');
+            $searchTerm = $request->query('search');
+            \Log::info($searchTerm);
+            $materialRequests = MaterialRequest::with(['store', 'engineer', 'items.product']);
+            if ($searchTerm) {
+                $materialRequests->search($searchTerm);
+            }
+            $materialRequests = $materialRequests->orderBy('created_at', 'desc')
+                ->get();
+            return Helpers::sendResponse(200, $materialRequests, 'Material requests retrieved successfully');
         } catch (\Throwable $th) {
             return Helpers::sendResponse(500, [], $th->getMessage());
+        }
+    }
+
+    public function updateMaterialrequest(Request $request, $id)
+    {
+        try {
+            $materialRequest = $this->materialRequestService->updateMaterialRequest($request, $id);
+            return Helpers::sendResponse(200, $materialRequest, 'Material requests updated successfully');
+
+        } catch (\Throwable $th) {
+            return Helpers::sendResponse(500, [], $th->getMessage());
+
         }
     }
 
