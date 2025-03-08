@@ -9,8 +9,6 @@ use Illuminate\Http\Request;
 use App\Services\Helpers;
 use App\Models\V1\Engineer;
 use App\Models\V1\Product;
-use App\Models\V1\Stock;
-use App\Models\V1\EngineerStock;
 use Illuminate\Support\Facades\Hash;
 
 class EngineerController extends Controller
