@@ -7,9 +7,12 @@ use Illuminate\Http\Request;
 use App\Models\V1\Storekeeper;
 use App\Models\V1\Product;
 use App\Models\V1\MaterialRequest;
-use Illuminate\Support\Facades\Hash;
+use App\Models\V1\StockTransfer;
+
 use App\Services\Helpers;
 use App\Services\V1\MaterialRequestService;
+
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 class StorekeeperController extends Controller
@@ -251,6 +254,21 @@ class StorekeeperController extends Controller
             return Helpers::sendResponse(500, [], $th->getMessage());
 
         }
+    }
+
+
+    public function getTransactions(Request $requst)
+    {
+
+        try {
+            $stockTransfer = StockTransfer::with(['stockTransferItems.product', 'fromStore', 'toStore', 'materialRequestStockTransfer.materialRequest'])->get();
+            return Helpers::sendResponse(200, $stockTransfer, 'Transactions retrieved successfully');
+
+        } catch (\Throwable $th) {
+            return Helpers::sendResponse(500, [], $th->getMessage());
+
+        }
+
     }
 
 }

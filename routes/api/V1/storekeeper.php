@@ -21,5 +21,7 @@ Route::prefix('storekeeper')->group(function () {
         Route::get('material_requests', [StorekeeperController::class, 'getMaterialRequests']);
 
         Route::put('material_requests/{id}', [StorekeeperController::class, 'updateMaterialrequest']);
+        Route::get('transactions', [StorekeeperController::class, 'getTransactions']);
+
     });
 });

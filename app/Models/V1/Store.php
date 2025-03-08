@@ -57,5 +57,23 @@ class Store extends Model
     {
         return $this->hasMany(EngineerStock::class);
     }
+
+    public function sentStockTransfers()
+    {
+        return $this->hasMany(StockTransfer::class, 'from_store_id');
+    }
+
+    /**
+     * Get stock transfers received by this store.
+     */
+    public function receivedStockTransfers()
+    {
+        return $this->hasMany(StockTransfer::class, 'to_store_id');
+    }
+
+    public function stockTransferItems()
+    {
+        return $this->hasMany(StockTransferItem::class, 'stock_transfer_id');
+    }
 }
 

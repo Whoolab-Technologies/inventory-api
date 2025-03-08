@@ -37,4 +37,32 @@ class StockTransfer extends Model
         });
     }
 
+    /**
+     * Get the store from which stock is transferred.
+     */
+    public function fromStore()
+    {
+        return $this->belongsTo(Store::class, 'from_store_id');
+    }
+
+    /**
+     * Get the store to which stock is transferred.
+     */
+    public function toStore()
+    {
+        return $this->belongsTo(Store::class, 'to_store_id');
+    }
+    // public function materialRequestStockTransfers()
+    // {
+    //     return $this->hasMany(MaterialRequestStockTransfer::class, 'stock_transfer_id');
+    // }
+    public function materialRequestStockTransfer()
+    {
+        return $this->hasOne(MaterialRequestStockTransfer::class, 'stock_transfer_id');
+    }
+    public function stockTransferItems()
+    {
+        return $this->hasMany(StockTransferItem::class, 'stock_transfer_id');
+    }
+
 }

@@ -37,4 +37,12 @@ class StockTransferItem extends Model
         });
     }
 
+    public function stockTransfer()
+    {
+        return $this->belongsTo(StockTransfer::class, 'stock_transfer_id');
+    }
+    public function product()
+    {
+        return $this->belongsTo(Product::class, 'product_id');
+    }
 }
