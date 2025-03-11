@@ -48,8 +48,6 @@ class MaterialRequestService
         try {
             $materialRequest = MaterialRequest::findOrFail($id);
             $materialRequest->status = $request->status;
-            \Log::info("notes " . json_encode($request->all()));
-            \Log::info("notes " . empty($request->note));
 
             if ($request->status == 'completed') {
                 if (empty($request->items) || !is_array($request->items)) {
@@ -93,7 +91,6 @@ class MaterialRequestService
             \DB::commit();
             return $materialRequest;
         } catch (\Throwable $th) {
-            \Log::info($th->getMessage());
             \DB::rollBack();
             throw $th;
         }

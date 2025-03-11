@@ -22,7 +22,6 @@ class Admin extends Authenticatable
 
         static::creating(function ($model) {
 
-            \Log::info(Auth::check());
             if (Auth::check()) {
                 $user = Auth::user();
                 $model->created_by = $user->id;

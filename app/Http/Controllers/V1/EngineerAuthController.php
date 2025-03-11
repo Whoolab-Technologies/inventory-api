@@ -12,7 +12,6 @@ class EngineerAuthController extends Controller
 
     public function login(Request $request)
     {
-        \Log::info($request->all());
         $response = [];
         $request->validate([
             'email' => 'required|email',

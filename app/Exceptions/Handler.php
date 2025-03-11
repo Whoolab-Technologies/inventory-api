@@ -55,11 +55,9 @@ class Handler extends ExceptionHandler
             \Log::info(json_encode($e->getMessage()));
             //  \Log::info("Exception caught: " . get_class($e) . ", " . $e->getMessage());
             if ($e instanceof InvalidArgumentException) {
-                \Log::info(json_encode($e->getMessage()));
                 return Helpers::response(["statusCode" => 400, "message" => 'Invalid argument provided.']);
             }
             if ($e instanceof AuthenticationException) {
-                \Log::info(json_encode($e->getMessage()));
                 return Helpers::response(["statusCode" => 401, "message" => $e->getMessage()]);
             }
             if ($e instanceof ValidationException) {

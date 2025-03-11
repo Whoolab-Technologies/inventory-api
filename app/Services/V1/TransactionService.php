@@ -13,7 +13,6 @@ class TransactionService
 
     public function updateTransaction(Request $request, int $id)
     {
-        \Log::info("updateTransaction " . json_encode($request->status));
 
         \DB::beginTransaction();
         try {
@@ -25,7 +24,7 @@ class TransactionService
             }
             foreach ($request->items as $item) {
                 if (!isset($item['received_quantity'])) {
-                    throw new \Exception('Invalid item data');
+                    throw new \Exception('Missing quantity');
                 }
             }
 
@@ -54,8 +53,6 @@ class TransactionService
             \DB::commit();
             return $stockTransfer;
         } catch (\Throwable $e) {
-
-            \Log::info($e->getMessage());
             \DB::rollBack();
             throw $e;
         }

@@ -43,8 +43,6 @@ class ProductController extends Controller
 
     public function store(Request $request)
     {
-
-        \Log::info($request->all());
         $this->validate($request, [
             'item' => 'required|string|max:255',
             'cat_id' => 'required|string|max:255|unique:products,cat_id',

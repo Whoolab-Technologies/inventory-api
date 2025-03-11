@@ -26,9 +26,6 @@ class EngineerController extends Controller
 
     public function store(Request $request)
     {
-        \Log::info("store engineer");
-        \Log::info($request->all());
-
         try {
             $validated = $this->validate($request, [
                 'first_name' => 'required|string|max:255',
@@ -76,7 +73,6 @@ class EngineerController extends Controller
                 messages: 'Engineer not found',
             );
         } catch (\Exception $th) {
-            \Log::info(400);
             return Helpers::sendResponse(
                 status: 400,
                 data: [],
@@ -88,7 +84,6 @@ class EngineerController extends Controller
     public function update(Request $request, $id)
     {
         try {
-            \Log::info("id $id");
             $engineer = Engineer::findOrFail($id);
             $this->validate($request, [
                 'first_name' => 'sometimes|required|string|max:255',
@@ -158,7 +153,6 @@ class EngineerController extends Controller
                 return Helpers::sendResponse(403, [], 'Access denied', );
             }
             $searchTerm = $request->query('search');
-            \Log::info($searchTerm);
             $products = Product::with([
                 'engineerStocks' => function ($query) use ($user) {
                     $query->where('store_id', $user->store_id);
@@ -293,14 +287,12 @@ class EngineerController extends Controller
     public function getDashboardData(Request $request)
     {
         try {
-            \Log::info("getDashboardData");
             $data = array();
             $engineer = auth()->user()->load('store');
             $outOfStockProducts = Product::whereHas('engineerStocks', function ($query) use ($engineer) {
                 $query->where('store_id', $engineer->store->id)
                     ->where('quantity', '<=', 0);
             })->with('unit')->get();
-            \Log::info("$engineer->id");
             $material_requests = MaterialRequest::with(['items'])
                 ->where('engineer_id', $engineer->id)
                 //->where('status', "pending")

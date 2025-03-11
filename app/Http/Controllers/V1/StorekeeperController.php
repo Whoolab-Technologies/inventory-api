@@ -40,7 +40,6 @@ class StorekeeperController extends Controller
     public function store(Request $request)
     {
         try {
-            \Log::info($request->all());
             $this->validate($request, [
                 'first_name' => 'required|string|max:255',
                 'last_name' => 'nullable|string',
@@ -48,8 +47,6 @@ class StorekeeperController extends Controller
                 'email' => 'required|string|email|max:255|unique:engineers',
                 'password' => 'required|string|min:6',
             ]);
-            \Log::info($request->first_name);
-
             $storekeeper = Storekeeper::create([
                 'first_name' => $request->first_name,
                 'last_name' => $request->last_name,
@@ -96,7 +93,6 @@ class StorekeeperController extends Controller
                 messages: 'Storekeeper not found',
             );
         } catch (\Exception $th) {
-            \Log::info(400);
             return Helpers::sendResponse(
                 status: 400,
                 data: [],
@@ -108,7 +104,6 @@ class StorekeeperController extends Controller
     public function update(Request $request, $id)
     {
         try {
-            \Log::info("id $id");
             $storekeeper = Storekeeper::findOrFail($id);
             $this->validate($request, [
                 'first_name' => 'sometimes|required|string|max:255',
@@ -234,7 +229,6 @@ class StorekeeperController extends Controller
     {
         try {
             $searchTerm = $request->query('search');
-            \Log::info($searchTerm);
             $materialRequests = MaterialRequest::with(['store', 'engineer', 'items.product']);
             if ($searchTerm) {
                 $materialRequests->search($searchTerm);
