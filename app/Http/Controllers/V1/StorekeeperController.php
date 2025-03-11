@@ -11,6 +11,7 @@ use App\Models\V1\StockTransfer;
 
 use App\Services\Helpers;
 use App\Services\V1\MaterialRequestService;
+use App\Services\V1\TransactionService;
 
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -18,10 +19,12 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 class StorekeeperController extends Controller
 {
     protected $materialRequestService;
+    protected $transactionService;
 
-    public function __construct(MaterialRequestService $materialRequestService)
+    public function __construct(MaterialRequestService $materialRequestService, TransactionService $transactionService)
     {
         $this->materialRequestService = $materialRequestService;
+        $this->transactionService = $transactionService;
     }
 
     public function index()
@@ -257,18 +260,68 @@ class StorekeeperController extends Controller
     }
 
 
-    public function getTransactions(Request $requst)
+    public function getTransactions(Request $request)
     {
-
         try {
-            $stockTransfer = StockTransfer::with(['stockTransferItems.product', 'fromStore', 'toStore', 'materialRequestStockTransfer.materialRequest'])->get();
+            $searchTerm = $request->query('search');
+            $storekeeper = auth()->user()->load('store');
+
+            $stockTransfer = StockTransfer::with(
+                [
+                    'stockTransferItems.product',
+                    'fromStore',
+                    'toStore',
+                    'notes',
+                ]
+            );
+
+            if ($storekeeper->store->type != 'central') {
+                $stockTransfer = $stockTransfer->where('to_store_id', $storekeeper->store_id);
+            }
+
+            if ($searchTerm) {
+                $stockTransfer->search($searchTerm);
+            }
+
+            $stockTransfer = $stockTransfer->orderBy('created_at', 'desc');
+
+            $stockTransfer = $stockTransfer->get()
+                ->map(function ($transfer) {
+                    $notes = $transfer->notes;
+                    unset($transfer->notes);
+                    $transfer->material_request = $transfer->materialRequestStockTransfer->materialRequest;
+                    $transfer->engineer = $transfer->materialRequestStockTransfer->materialRequest->engineer;
+                    $transfer->notes = $notes->map(function ($item) {
+                        $createdBy = $item->createdBy->load('store');
+                        $store = $createdBy->store;
+                        unset($createdBy->store);
+                        return [
+                            'id' => $item->id,
+                            'stock_transfer_id' => $item->stock_transfer_id,
+                            'material_request_id' => $item->material_request_id,
+                            'notes' => $item->notes,
+                            'created_by' => $createdBy,
+                            'store' => $store
+                        ];
+                    });
+                    unset($transfer->materialRequestStockTransfer);
+                    return $transfer;
+                });
             return Helpers::sendResponse(200, $stockTransfer, 'Transactions retrieved successfully');
 
         } catch (\Throwable $th) {
             return Helpers::sendResponse(500, [], $th->getMessage());
-
         }
+    }
 
+    public function updateTransaction(Request $request, $id)
+    {
+        try {
+            $transaction = $this->transactionService->updateTransaction($request, $id);
+            return Helpers::sendResponse(200, $transaction, 'Transaction updated successfully');
+        } catch (\Throwable $th) {
+            return Helpers::sendResponse(500, [], $th->getMessage());
+        }
     }
 
 }

@@ -255,12 +255,14 @@ class EngineerController extends Controller
 
             $materialRequests = MaterialRequest::with(['items.product'])
                 ->where('engineer_id', $user->id)
+                ->orderBy('created_at', 'desc')
                 ->get()->map(function ($mr) {
                     return [
                         'id' => $mr->id,
                         'store_id' => $mr->store_id,
                         'request_number' => $mr->request_number,
                         'created_at' => $mr->created_at,
+                        'status' => $mr->status,
                         'items' => $mr->items->map(function ($item) {
                             return [
                                 'id' => $item->id,

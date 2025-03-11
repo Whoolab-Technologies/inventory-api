@@ -65,4 +65,31 @@ class StockTransfer extends Model
         return $this->hasMany(StockTransferItem::class, 'stock_transfer_id');
     }
 
+
+    public function scopeSearch($query, $term)
+    {
+        $term = "%{$term}%";
+        return $query->whereHas('stockTransferItems.product', function ($query) use ($term) {
+            $query->where('item', 'LIKE', $term);
+        })
+            ->orWhereHas('fromStore', function ($q) use ($term) {
+                $q->where('name', 'LIKE', $term);
+            })
+            ->orWhereHas('toStore', function ($q) use ($term) {
+                $q->where('name', 'LIKE', $term);
+            })
+            ->orWhereHas('materialRequestStockTransfer.materialRequest', function ($q) use ($term) {
+                $q->where('request_number', 'LIKE', $term)
+                    ->orWhereHas('engineer', function ($q) use ($term) {
+                        $q->where('first_name', 'LIKE', $term)
+                            ->orWhere('last_name', 'LIKE', $term);
+                    });
+            });
+    }
+
+    public function notes()
+    {
+        return $this->hasMany(StockTransferNote::class, 'stock_transfer_id');
+    }
+
 }

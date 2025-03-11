@@ -6,6 +6,7 @@ use App\Models\V1\MaterialRequest;
 use App\Models\V1\MaterialRequestStockTransfer;
 use App\Models\V1\StockTransfer;
 use App\Models\V1\StockTransferItem;
+use App\Models\V1\StockTransferNote;
 use Illuminate\Http\Request;
 
 class MaterialRequestService
@@ -46,27 +47,20 @@ class MaterialRequestService
         \DB::beginTransaction();
         try {
             $materialRequest = MaterialRequest::findOrFail($id);
-            \Log::info("request  status " . $request->status);
             $materialRequest->status = $request->status;
-
-            \Log::info("materialRequest  status " . json_encode($materialRequest));
-            \Log::info("materialRequest  status " . json_encode($request->items));
+            \Log::info("notes " . json_encode($request->all()));
+            \Log::info("notes " . empty($request->note));
 
             if ($request->status == 'completed') {
-
-                // Create transaction with transaction items
-                // Validate the item count
                 if (empty($request->items) || !is_array($request->items)) {
                     throw new \Exception('Invalid items data');
                 }
 
                 foreach ($request->items as $item) {
-                    if (!isset($item['quantity'])) {
-                        throw new \Exception('Invalid item data');
+                    if (!isset($item['issued_quantity'])) {
+                        throw new \Exception('Missing quantity');
                     }
                 }
-
-                // Create transaction with transaction items
                 $stockTransfers = new StockTransfer();
                 $stockTransfers->to_store_id = $materialRequest->store_id;
                 $stockTransfers->from_store_id = $request->from_store_id;
@@ -74,6 +68,13 @@ class MaterialRequestService
                 $stockTransfers->remarks = $request->note;
                 $stockTransfers->save();
 
+                if (!empty($request->note)) {
+                    $stockTransferNote = new StockTransferNote();
+                    $stockTransferNote->stock_transfer_id = $stockTransfers->id;
+                    $stockTransferNote->material_request_id = $materialRequest->id;
+                    $stockTransferNote->notes = $request->note;
+                    $stockTransferNote->save();
+                }
                 $materialRequestStockTransfer = new MaterialRequestStockTransfer();
                 $materialRequestStockTransfer->stock_transfer_id = $stockTransfers->id;
                 $materialRequestStockTransfer->material_request_id = $materialRequest->id;
@@ -83,7 +84,8 @@ class MaterialRequestService
                     $transferItem = new StockTransferItem();
                     $transferItem->stock_transfer_id = $stockTransfers->id;
                     $transferItem->product_id = $item['product_id'];
-                    $transferItem->quantity = $item['quantity'];
+                    $transferItem->requested_quantity = $item['requested_quantity'];
+                    $transferItem->issued_quantity = $item['issued_quantity'];
                     $transferItem->save();
                 }
             }

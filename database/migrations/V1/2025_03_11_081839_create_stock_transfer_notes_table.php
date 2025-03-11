@@ -7,16 +7,16 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     /**
      * Run the migrations.
+     *
+     * @return void
      */
-    public function up(): void
+    public function up()
     {
-        Schema::create('stock_transfer_items', function (Blueprint $table) {
+        Schema::create('stock_transfer_notes', function (Blueprint $table) {
             $table->id();
-            $table->bigInteger('stock_transfer_id')->index();
-            $table->bigInteger('product_id')->index();
-            $table->integer('requested_quantity')->default(0);
-            $table->integer('issued_quantity')->default(0);
-            $table->integer('received_quantity')->default(0);
+            $table->string('notes');
+            $table->bigInteger('stock_transfer_id');
+            $table->bigInteger('material_request_id')->nullable();
             $table->bigInteger('created_by')->nullable();
             $table->string('created_type')->nullable();
             $table->bigInteger('updated_by')->nullable();
@@ -27,9 +27,11 @@ return new class extends Migration {
 
     /**
      * Reverse the migrations.
+     *
+     * @return void
      */
-    public function down(): void
+    public function down()
     {
-        Schema::dropIfExists('stock_transfer_items');
+        Schema::dropIfExists('stock_transfer_notes');
     }
 };
