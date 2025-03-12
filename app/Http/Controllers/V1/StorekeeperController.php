@@ -165,25 +165,35 @@ class StorekeeperController extends Controller
     public function getProducts(Request $request)
     {
         try {
-            $user = auth()->user();
+            $user = (auth()->user())->load('store');
             if (!$user->tokenCan('storekeeper')) {
                 return Helpers::sendResponse(403, [], 'Access denied');
             }
-
             $searchTerm = $request->query('search');
+            $isCentralStore = $user->store->is_central_store;
             $products = Product::with([
-                'engineerStocks' => function ($query) use ($user) {
-                    $query->where('store_id', $user->store_id);
-                },
                 'engineerStocks.engineer',
             ]);
+            if ($isCentralStore) {
+                $products = $products->with([
+                    'stocks' => function ($query) use ($user) {
+                        $query->where('store_id', $user->store_id);
+                    },
+                ]);
+            } else {
+                $products = $products->with([
+                    'engineerStocks' => function ($query) use ($user) {
+                        $query->where('store_id', $user->store_id);
+                    },
+                ]);
+            }
 
             if ($searchTerm) {
                 $products->search($searchTerm);
             }
 
-            $products = $products->get()->map(function ($product) use ($user) {
-                $product->total_stock = $product->engineerStocks->sum('quantity');
+            $products = $products->get()->map(function ($product) use ($isCentralStore) {
+                $product->total_stock = $isCentralStore ? $product->stocks->sum('quantity') : $product->engineerStocks->sum('quantity');
                 return $product;
             });
 
@@ -213,7 +223,7 @@ class StorekeeperController extends Controller
                     ->get();
                 $data['material_requests'] = $materialRequests;
             }
-            $outOfStockProducts = Product::whereDoesntHave('engineerStocks', function ($query) use ($storekeeper) {
+            $outOfStockProducts = Product::whereDoesntHave('stocks', function ($query) use ($storekeeper) {
                 $query->where('store_id', $storekeeper->store->id)
                     ->where('quantity', '>', 0);
             })->get();
@@ -294,7 +304,6 @@ class StorekeeperController extends Controller
     public function updateTransaction(Request $request, $id)
     {
         try {
-            \Log::info($request->all());
             $transaction = $this->transactionService->updateTransaction($request, $id);
             $transaction = StockTransfer::with(
                 [
@@ -314,6 +323,7 @@ class StorekeeperController extends Controller
     {
         $notes = $transfer->notes;
         unset($transfer->notes);
+        \Log::info(",,,," . json_encode($transfer->materialRequestStockTransfer));
         $transfer->material_request = $transfer->materialRequestStockTransfer->materialRequest;
         $transfer->engineer = $transfer->materialRequestStockTransfer->materialRequest->engineer;
         $transfer->notes = $notes->map(function ($item) {

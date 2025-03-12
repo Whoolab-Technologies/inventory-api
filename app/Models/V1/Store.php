@@ -13,6 +13,8 @@ class Store extends Model
     protected $table = 'stores';
     protected $hidden = ['created_by', 'created_type', 'updated_by', 'updated_type', 'created_at', 'updated_at'];
     protected $fillable = ['name', 'location', 'type'];
+
+    protected $append = ['is_central_store'];
     protected static function boot()
     {
         parent::boot();
@@ -75,5 +77,11 @@ class Store extends Model
     {
         return $this->hasMany(StockTransferItem::class, 'stock_transfer_id');
     }
+
+    public function getIsCentralStoreAttribute()
+    {
+        return $this->type == "central" ? true : false;
+    }
+
 }
 
