@@ -2,6 +2,8 @@
 
 namespace App\Services\V1;
 
+use App\Models\V1\InventoryDispatch;
+use App\Models\V1\InventoryDispatchItem;
 use App\Models\V1\StockTransfer;
 use App\Models\V1\StockTransferItem;
 use App\Models\V1\StockTransferNote;
@@ -97,6 +99,42 @@ class TransactionService
             }
             \DB::commit();
             return $stockTransfer;
+        } catch (\Throwable $e) {
+            \DB::rollBack();
+            throw $e;
+        }
+    }
+
+
+
+    public function createInventoryDispatch(Request $request, )
+    {
+        \DB::beginTransaction();
+        try {
+
+            if (empty($request->items) || !is_array($request->items)) {
+                throw new \Exception('Invalid items data');
+            }
+            foreach ($request->items as $item) {
+                if (!isset($item['quantity'])) {
+                    throw new \Exception('Missing quantity');
+                }
+            }
+
+            $inventoryDispatch = new InventoryDispatch();
+            $inventoryDispatch->engineer_id = $request->engineer_id;
+            $inventoryDispatch->self = $request->self;
+            $inventoryDispatch->representative = $request->representative;
+            $inventoryDispatch->save();
+            foreach ($request->items as $item) {
+                $inventoryDispatchItem = new InventoryDispatchItem();
+                $inventoryDispatchItem->inventory_dispatch_id = $inventoryDispatch->id;
+                $inventoryDispatchItem->product_id = $item['product_id'];
+                $inventoryDispatchItem->quantity = $item['quantity'];
+                $inventoryDispatchItem->save();
+            }
+            \DB::commit();
+            return $inventoryDispatch->load('items');
         } catch (\Throwable $e) {
             \DB::rollBack();
             throw $e;

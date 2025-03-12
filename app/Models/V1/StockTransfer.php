@@ -87,9 +87,4 @@ class StockTransfer extends Model
             });
     }
 
-    public function notes()
-    {
-        return $this->hasMany(StockTransferNote::class, 'stock_transfer_id');
-    }
-
 }

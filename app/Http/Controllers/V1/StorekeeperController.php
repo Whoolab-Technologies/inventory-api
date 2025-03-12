@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\V1\InventoryDispatch;
 use Illuminate\Http\Request;
 use App\Models\V1\Storekeeper;
 use App\Models\V1\Product;
@@ -47,6 +48,7 @@ class StorekeeperController extends Controller
                 'email' => 'required|string|email|max:255|unique:engineers',
                 'password' => 'required|string|min:6',
             ]);
+
             $storekeeper = Storekeeper::create([
                 'first_name' => $request->first_name,
                 'last_name' => $request->last_name,
@@ -165,35 +167,25 @@ class StorekeeperController extends Controller
     public function getProducts(Request $request)
     {
         try {
-            $user = (auth()->user())->load('store');
+            $user = auth()->user();
             if (!$user->tokenCan('storekeeper')) {
                 return Helpers::sendResponse(403, [], 'Access denied');
             }
+
             $searchTerm = $request->query('search');
-            $isCentralStore = $user->store->is_central_store;
             $products = Product::with([
+                'engineerStocks' => function ($query) use ($user) {
+                    $query->where('store_id', $user->store_id);
+                },
                 'engineerStocks.engineer',
             ]);
-            if ($isCentralStore) {
-                $products = $products->with([
-                    'stocks' => function ($query) use ($user) {
-                        $query->where('store_id', $user->store_id);
-                    },
-                ]);
-            } else {
-                $products = $products->with([
-                    'engineerStocks' => function ($query) use ($user) {
-                        $query->where('store_id', $user->store_id);
-                    },
-                ]);
-            }
 
             if ($searchTerm) {
                 $products->search($searchTerm);
             }
 
-            $products = $products->get()->map(function ($product) use ($isCentralStore) {
-                $product->total_stock = $isCentralStore ? $product->stocks->sum('quantity') : $product->engineerStocks->sum('quantity');
+            $products = $products->get()->map(function ($product) use ($user) {
+                $product->total_stock = $product->engineerStocks->sum('quantity');
                 return $product;
             });
 
@@ -223,7 +215,7 @@ class StorekeeperController extends Controller
                     ->get();
                 $data['material_requests'] = $materialRequests;
             }
-            $outOfStockProducts = Product::whereDoesntHave('stocks', function ($query) use ($storekeeper) {
+            $outOfStockProducts = Product::whereDoesntHave('engineerStocks', function ($query) use ($storekeeper) {
                 $query->where('store_id', $storekeeper->store->id)
                     ->where('quantity', '>', 0);
             })->get();
@@ -275,7 +267,6 @@ class StorekeeperController extends Controller
                     'stockTransferItems.product',
                     'fromStore',
                     'toStore',
-                    'notes',
                 ]
             );
 
@@ -291,7 +282,9 @@ class StorekeeperController extends Controller
 
             $stockTransfer = $stockTransfer->get()
                 ->map(function ($transfer) {
-                    $transfer = $this->manageTransactionData($transfer);
+                    $transfer->material_request = $transfer->materialRequestStockTransfer->materialRequest;
+                    $transfer->engineer = $transfer->materialRequestStockTransfer->materialRequest->engineer;
+                    unset($transfer->materialRequestStockTransfer);
                     return $transfer;
                 });
             return Helpers::sendResponse(200, $stockTransfer, 'Transactions retrieved successfully');
@@ -305,43 +298,32 @@ class StorekeeperController extends Controller
     {
         try {
             $transaction = $this->transactionService->updateTransaction($request, $id);
-            $transaction = StockTransfer::with(
-                [
-                    'stockTransferItems.product',
-                    'fromStore',
-                    'toStore',
-                    'notes',
-                ]
-            )->where('id', $id)->first();
-            $transaction = $this->manageTransactionData($transaction);
             return Helpers::sendResponse(200, $transaction, 'Transaction updated successfully');
         } catch (\Throwable $th) {
             return Helpers::sendResponse(500, [], $th->getMessage());
         }
     }
-    private function manageTransactionData($transfer)
-    {
-        $notes = $transfer->notes;
-        unset($transfer->notes);
-        \Log::info(",,,," . json_encode($transfer->materialRequestStockTransfer));
-        $transfer->material_request = $transfer->materialRequestStockTransfer->materialRequest;
-        $transfer->engineer = $transfer->materialRequestStockTransfer->materialRequest->engineer;
-        $transfer->notes = $notes->map(function ($item) {
-            $createdBy = $item->createdBy->load('store');
-            $store = $createdBy->store;
-            unset($createdBy->store);
-            return [
-                'id' => $item->id,
-                'stock_transfer_id' => $item->stock_transfer_id,
-                'material_request_id' => $item->material_request_id,
-                'notes' => $item->notes,
-                'created_by' => $createdBy,
-                'store' => $store
-            ];
-        });
-        unset($transfer->materialRequestStockTransfer);
 
-        return $transfer;
+    public function getInventoryDispatches(Request $request)
+    {
+        try {
+            $inventoryDispatch = $this->transactionService->createInventoryDispatch($request);
+            return Helpers::sendResponse(200, $inventoryDispatch, 'Diapatch created successfully');
+        } catch (\Throwable $th) {
+            \DB::rollBack();
+            return Helpers::sendResponse(500, [], $th->getMessage());
+        }
     }
 
+    public function createDispatch(Request $request)
+    {
+        try {
+            $storekeeper = auth()->user();
+            $inventoryDispatches = InventoryDispatch::with(['items'])->where('store_id', $storekeeper->store_id)->get();
+            return Helpers::sendResponse(200, $inventoryDispatches, 'Diapatches retrieved successfully');
+        } catch (\Throwable $th) {
+            \DB::rollBack();
+            return Helpers::sendResponse(500, [], $th->getMessage());
+        }
+    }
 }
