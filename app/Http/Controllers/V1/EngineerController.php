@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use App\Services\Helpers;
 use App\Models\V1\Engineer;
 use App\Models\V1\Product;
+use App\Models\V1\StockTransfer;
 use Illuminate\Support\Facades\Hash;
 
 class EngineerController extends Controller
@@ -322,5 +323,62 @@ class EngineerController extends Controller
             return Helpers::sendResponse(500, [], $th->getMessage());
         }
 
+    }
+
+    public function getTransactions(Request $request)
+    {
+        try {
+
+            $engineerId = auth()->id();
+
+            $stockTransfers = StockTransfer::whereHas('materialRequestStockTransfer.materialRequest', function ($query) use ($engineerId) {
+                $query->where('engineer_id', $engineerId);
+            })
+                ->with(['stockTransferItems.product']) // Load stock transfer items and product details
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->map(function ($transfer) {
+                    return [
+                        "id" => $transfer->id,
+                        "from_store_id" => $transfer->from_store_id,
+                        "to_store_id" => $transfer->to_store_id,
+                        "status" => $transfer->status,
+                        "remarks" => $transfer->remarks,
+                        "created_at" => $transfer->created_at,
+                        "notes" => $transfer->notes->map(function ($item) {
+                            $createBy = $item->createdBy;
+                            $store = $item->createdBy->store;
+                            unset($createBy->store);
+                            return [
+                                "id" => $item->id,
+                                "note" => $item->notes,
+                                "created_by" => array_merge($createBy->toArray(), ['created_type' => $item->created_type]),
+                                "store" => $store
+                            ];
+                        }),
+
+                        "items" => $transfer->stockTransferItems->map(function ($item) {
+                            return [
+                                'id' => $item->id,
+                                'product_id' => $item->product_id,
+                                'product_name' => $item->product->item,
+                                'product_image' => $item->product->image_url,
+                                'unit' => $item->product->symbol,
+                                'requested_quantity' => $item->requested_quantity,
+                                'issued_quantity' => $item->issued_quantity,
+                                'received_quantity' => $item->received_quantity,
+                            ];
+                        }),
+                        "material_request" => $transfer->materialRequestStockTransfer->materialRequest,
+                    ];
+
+                });
+            return Helpers::sendResponse(200, $stockTransfers, 'Transactions retrieved successfully');
+
+        } catch (\Throwable $th) {
+
+
+            return Helpers::sendResponse(500, [], $th->getMessage());
+        }
     }
 }

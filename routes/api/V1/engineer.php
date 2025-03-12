@@ -22,5 +22,7 @@ Route::prefix('engineer')->group(function () {
         Route::post('mr', [EngineerController::class, 'createMaterialRequest']);
         Route::get('home', [EngineerController::class, 'getDashboardData']);
 
+        Route::get('transactions', [EngineerController::class, 'getTransactions']);
+
     });
 });

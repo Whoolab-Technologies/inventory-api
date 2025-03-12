@@ -281,24 +281,7 @@ class StorekeeperController extends Controller
 
             $stockTransfer = $stockTransfer->get()
                 ->map(function ($transfer) {
-                    $notes = $transfer->notes;
-                    unset($transfer->notes);
-                    $transfer->material_request = $transfer->materialRequestStockTransfer->materialRequest;
-                    $transfer->engineer = $transfer->materialRequestStockTransfer->materialRequest->engineer;
-                    $transfer->notes = $notes->map(function ($item) {
-                        $createdBy = $item->createdBy->load('store');
-                        $store = $createdBy->store;
-                        unset($createdBy->store);
-                        return [
-                            'id' => $item->id,
-                            'stock_transfer_id' => $item->stock_transfer_id,
-                            'material_request_id' => $item->material_request_id,
-                            'notes' => $item->notes,
-                            'created_by' => $createdBy,
-                            'store' => $store
-                        ];
-                    });
-                    unset($transfer->materialRequestStockTransfer);
+                    $transfer = $this->manageTransactionData($transfer);
                     return $transfer;
                 });
             return Helpers::sendResponse(200, $stockTransfer, 'Transactions retrieved successfully');
@@ -311,11 +294,44 @@ class StorekeeperController extends Controller
     public function updateTransaction(Request $request, $id)
     {
         try {
+            \Log::info($request->all());
             $transaction = $this->transactionService->updateTransaction($request, $id);
+            $transaction = StockTransfer::with(
+                [
+                    'stockTransferItems.product',
+                    'fromStore',
+                    'toStore',
+                    'notes',
+                ]
+            )->where('id', $id)->first();
+            $transaction = $this->manageTransactionData($transaction);
             return Helpers::sendResponse(200, $transaction, 'Transaction updated successfully');
         } catch (\Throwable $th) {
             return Helpers::sendResponse(500, [], $th->getMessage());
         }
+    }
+    private function manageTransactionData($transfer)
+    {
+        $notes = $transfer->notes;
+        unset($transfer->notes);
+        $transfer->material_request = $transfer->materialRequestStockTransfer->materialRequest;
+        $transfer->engineer = $transfer->materialRequestStockTransfer->materialRequest->engineer;
+        $transfer->notes = $notes->map(function ($item) {
+            $createdBy = $item->createdBy->load('store');
+            $store = $createdBy->store;
+            unset($createdBy->store);
+            return [
+                'id' => $item->id,
+                'stock_transfer_id' => $item->stock_transfer_id,
+                'material_request_id' => $item->material_request_id,
+                'notes' => $item->notes,
+                'created_by' => $createdBy,
+                'store' => $store
+            ];
+        });
+        unset($transfer->materialRequestStockTransfer);
+
+        return $transfer;
     }
 
 }
