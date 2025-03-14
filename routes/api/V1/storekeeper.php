@@ -24,7 +24,9 @@ Route::prefix('storekeeper')->group(function () {
         Route::get('transactions', [StorekeeperController::class, 'getTransactions']);
         Route::put('transactions/{id}', [StorekeeperController::class, 'updateTransaction']);
 
-        Route::get('dispatches', [StorekeeperController::class, 'getTransactions']);
-        Route::post('dispatches', [StorekeeperController::class, 'updateTransaction']);
+        Route::get('dispatches', [StorekeeperController::class, 'getInventoryDispatches']);
+        Route::post('dispatches', [StorekeeperController::class, 'createInventoryDispatch']);
+
+        Route::get('engineers', [StorekeeperController::class, 'getEngineers']);
     });
 });

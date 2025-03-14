@@ -92,6 +92,12 @@ class Product extends Model
         return $this->hasMany(EngineerStock::class, 'product_id', 'id');
     }
 
+    public function stocksInTransit()
+    {
+        return $this->hasMany(StockInTransit::class, 'product_id', 'id')
+            ->where("status", "in_transit");
+    }
+
     public function scopeSearch($query, $term)
     {
         $term = "%{$term}%";

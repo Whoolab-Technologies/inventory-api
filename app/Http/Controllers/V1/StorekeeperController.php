@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\V1\Engineer;
 use App\Models\V1\InventoryDispatch;
 use Illuminate\Http\Request;
 use App\Models\V1\Storekeeper;
@@ -298,7 +299,26 @@ class StorekeeperController extends Controller
     {
         try {
             $transaction = $this->transactionService->updateTransaction($request, $id);
+            $transaction = $transaction->load([
+                'stockTransferItems.product',
+                'fromStore',
+                'toStore',
+            ]);
+            $transaction->material_request = $transaction->materialRequestStockTransfer->materialRequest;
+            $transaction->engineer = $transaction->materialRequestStockTransfer->materialRequest->engineer;
+            unset($transfer->materialRequestStockTransfer);
+            \Log::info(json_encode($transaction));
             return Helpers::sendResponse(200, $transaction, 'Transaction updated successfully');
+        } catch (\Throwable $th) {
+            return Helpers::sendResponse(500, [], $th->getMessage());
+        }
+    }
+
+    public function createInventoryDispatch(Request $request)
+    {
+        try {
+            $inventoryDispatch = $this->transactionService->createInventoryDispatch($request);
+            return Helpers::sendResponse(200, $inventoryDispatch, 'Diapatch created successfully');
         } catch (\Throwable $th) {
             return Helpers::sendResponse(500, [], $th->getMessage());
         }
@@ -307,22 +327,32 @@ class StorekeeperController extends Controller
     public function getInventoryDispatches(Request $request)
     {
         try {
-            $inventoryDispatch = $this->transactionService->createInventoryDispatch($request);
-            return Helpers::sendResponse(200, $inventoryDispatch, 'Diapatch created successfully');
-        } catch (\Throwable $th) {
-            \DB::rollBack();
-            return Helpers::sendResponse(500, [], $th->getMessage());
-        }
-    }
-
-    public function createDispatch(Request $request)
-    {
-        try {
             $storekeeper = auth()->user();
             $inventoryDispatches = InventoryDispatch::with(['items'])->where('store_id', $storekeeper->store_id)->get();
             return Helpers::sendResponse(200, $inventoryDispatches, 'Diapatches retrieved successfully');
         } catch (\Throwable $th) {
-            \DB::rollBack();
+            return Helpers::sendResponse(500, [], $th->getMessage());
+        }
+    }
+
+    public function getEngineers(Request $request)
+    {
+        try {
+            $storekeeper = auth()->user();
+            $engineers = Engineer::with('stocks.product')->where('store_id', $storekeeper->store_id)->get()
+                ->map(callback: function ($item) {
+                    $item->products = $item->stocks->map(function ($stock) {
+                        $temp = $stock;
+                        $stock = $stock->product;
+                        $stock->quantity = $temp->quantity;
+                        return $stock;
+                    });
+                    unset($item->stocks);
+                    return $item;
+                });
+            return Helpers::sendResponse(200, $engineers, 'Engineers retrieved successfully');
+
+        } catch (\Throwable $th) {
             return Helpers::sendResponse(500, [], $th->getMessage());
         }
     }

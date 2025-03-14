@@ -4,6 +4,7 @@ namespace App\Services\V1;
 
 use App\Models\V1\InventoryDispatch;
 use App\Models\V1\InventoryDispatchItem;
+use App\Models\V1\StockInTransit;
 use App\Models\V1\StockTransfer;
 use App\Models\V1\StockTransferItem;
 use App\Models\V1\StockTransferNote;
@@ -55,7 +56,7 @@ class TransactionService
         }
     }
 
-    private function updateStock(Request $request, StockTransfer $stockTransfer, )
+    private function updateStock(Request $request, StockTransfer $stockTransfer)
     {
         \DB::beginTransaction();
         try {
@@ -65,38 +66,103 @@ class TransactionService
             $materialRequest = $stockTransfer->materialRequestStockTransfer->materialRequest;
             $engineerId = $materialRequest->engineer_id;
 
-            foreach ($request->items as $item) {
-                $transferItem = StockTransferItem::findOrFail($item['id']);
+            // Fetch all stock in transit records at once
+            $stockInTransitRecords = StockInTransit::where('stock_transfer_id', $stockTransfer->id)
+                ->whereIn('product_id', collect($request->items)->pluck('product_id'))
+                ->get()
+                ->keyBy('product_id');
 
-                $fromStock = Stock::where('store_id', $fromStoreId)
-                    ->where('product_id', $item['product_id'])
-                    ->first();
-                if ($fromStock) {
-                    $fromStock->quantity -= $item['received_quantity'];
-                    if ($fromStock->quantity < 0) {
-                        throw new \Exception('Insufficient stock');
-                    }
-                    $fromStock->save();
+            // Fetch all existing stock data for From Store, To Store, and Engineer
+            $fromStoreStocks = Stock::where('store_id', $fromStoreId)
+                ->whereIn('product_id', collect($request->items)->pluck('product_id'))
+                ->get()
+                ->keyBy('product_id');
+
+            $toStoreStocks = Stock::where('store_id', $toStoreId)
+                ->whereIn('product_id', collect($request->items)->pluck('product_id'))
+                ->get()
+                ->keyBy('product_id');
+
+            $engineerStocks = EngineerStock::where('engineer_id', $engineerId)
+                ->where('store_id', $toStoreId)
+                ->whereIn('product_id', collect($request->items)->pluck('product_id'))
+                ->get()
+                ->keyBy('product_id');
+
+            foreach ($request->items as $item) {
+                $productId = $item['product_id'];
+                $newReceivedQuantity = $item['received_quantity'];
+
+                // Get the stock in transit record
+                $stockInTransit = $stockInTransitRecords[$productId] ?? null;
+                if (!$stockInTransit) {
+                    continue; // Skip if stock in transit not found
                 }
 
-                $toStock = Stock::firstOrNew(
-                    ['store_id' => $toStoreId, 'product_id' => $item['product_id']]
-                );
-                $toStock->quantity = ($toStock->exists ? $toStock->quantity : 0) + $item['received_quantity'];
+                // Get the previously received quantity
+                $previousReceivedQuantity = $stockInTransit->received_quantity;
+                $previousRemainingQuantity = max(0, $stockInTransit->issued_quantity - $previousReceivedQuantity);
+
+                // Restore previous stock values
+                if ($previousReceivedQuantity > 0) {
+                    if (isset($toStoreStocks[$productId])) {
+                        $toStoreStocks[$productId]->decrement('quantity', $previousReceivedQuantity);
+                    }
+
+                    if (isset($engineerStocks[$productId])) {
+                        $engineerStocks[$productId]->decrement('quantity', $previousReceivedQuantity);
+                    }
+                }
+
+                if ($previousRemainingQuantity > 0) {
+                    if (isset($fromStoreStocks[$productId])) {
+                        $fromStoreStocks[$productId]->decrement('quantity', $previousRemainingQuantity);
+                    }
+                }
+
+                // Compute new remaining quantity
+                $newRemainingQuantity = max(0, $stockInTransit->issued_quantity - $newReceivedQuantity);
+
+                // Update stock in transit
+                $stockInTransit->received_quantity = $newReceivedQuantity;
+                $stockInTransit->status = $newRemainingQuantity > 0 ? "partial_received" : "received";
+                $stockInTransit->save();
+
+                // Update from store stock if needed
+                if ($newRemainingQuantity > 0) {
+                    if (isset($fromStoreStocks[$productId])) {
+                        $fromStoreStocks[$productId]->increment('quantity', $newRemainingQuantity);
+                    }
+                }
+
+                // Update to store stock
+                $toStock = $toStoreStocks[$productId] ?? new Stock([
+                    'store_id' => $toStoreId,
+                    'product_id' => $productId,
+                    'quantity' => 0
+                ]);
+                $toStock->quantity += $newReceivedQuantity;
                 $toStock->save();
 
-                $engineerStock = EngineerStock::firstOrNew(
-                    ['engineer_id' => $engineerId, 'store_id' => $toStoreId, 'product_id' => $item['product_id']]
-                );
-                $engineerStock->quantity = ($engineerStock->exists ? $engineerStock->quantity : 0) + $item['received_quantity'];
+                // Update engineer stock
+                $engineerStock = $engineerStocks[$productId] ?? new EngineerStock([
+                    'engineer_id' => $engineerId,
+                    'store_id' => $toStoreId,
+                    'product_id' => $productId,
+                    'quantity' => 0
+                ]);
+                $engineerStock->quantity += $newReceivedQuantity;
                 $engineerStock->save();
 
-                $transferItem->product_id = $item['product_id'];
-                $transferItem->requested_quantity = $item['requested_quantity'];
-                $transferItem->issued_quantity = $item['issued_quantity'];
-                $transferItem->received_quantity = $item['received_quantity'];
-                $transferItem->save();
+                // Update transfer item details
+                StockTransferItem::where('id', $item['id'])->update([
+                    'product_id' => $productId,
+                    'requested_quantity' => $item['requested_quantity'],
+                    'issued_quantity' => $item['issued_quantity'],
+                    'received_quantity' => $newReceivedQuantity
+                ]);
             }
+
             \DB::commit();
             return $stockTransfer;
         } catch (\Throwable $e) {
@@ -104,7 +170,6 @@ class TransactionService
             throw $e;
         }
     }
-
 
 
     public function createInventoryDispatch(Request $request, )

@@ -4,9 +4,12 @@ namespace App\Services\V1;
 
 use App\Models\V1\MaterialRequest;
 use App\Models\V1\MaterialRequestStockTransfer;
+use App\Models\V1\Product;
+use App\Models\V1\StockInTransit;
 use App\Models\V1\StockTransfer;
 use App\Models\V1\StockTransferItem;
 use App\Models\V1\StockTransferNote;
+use App\Models\V1\Stock;
 use Illuminate\Http\Request;
 
 class MaterialRequestService
@@ -79,12 +82,36 @@ class MaterialRequestService
                 $materialRequestStockTransfer->save();
 
                 foreach ($request->items as $item) {
+                    $product = Product::findOrFail($item['product_id']);
+
                     $transferItem = new StockTransferItem();
                     $transferItem->stock_transfer_id = $stockTransfers->id;
                     $transferItem->product_id = $item['product_id'];
                     $transferItem->requested_quantity = $item['requested_quantity'];
                     $transferItem->issued_quantity = $item['issued_quantity'];
                     $transferItem->save();
+
+                    $fromStock = Stock::where('store_id', $request->from_store_id)
+                        ->where('product_id', $item['product_id'])
+                        ->first();
+
+                    if ($fromStock) {
+                        $fromStock->quantity -= $item['issued_quantity'];
+                        if ($fromStock->quantity < 0) {
+                            throw new \Exception('Insufficient stock (' . $product->item . ')');
+                        }
+                        $fromStock->save();
+                    } else {
+                        throw new \Exception('Insufficient stock (' . $product->item . ')');
+                    }
+
+                    $stockInTransit = new StockInTransit();
+                    $stockInTransit->stock_transfer_id = $stockTransfers->id;
+                    $stockInTransit->material_request_id = $materialRequest->id;
+                    $stockInTransit->stock_transfer_item_id = $transferItem->id;
+                    $stockInTransit->product_id = $item['product_id'];
+                    $stockInTransit->issued_quantity = $item['issued_quantity'];
+                    $stockInTransit->save();
                 }
             }
             $materialRequest->save();
