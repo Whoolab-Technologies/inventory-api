@@ -317,7 +317,8 @@ class StorekeeperController extends Controller
     public function createInventoryDispatch(Request $request)
     {
         try {
-            $inventoryDispatch = $this->transactionService->createInventoryDispatch($request);
+            $storekeeper = auth()->user();
+            $inventoryDispatch = $this->transactionService->createInventoryDispatch($request, $storekeeper);
             return Helpers::sendResponse(200, $inventoryDispatch, 'Diapatch created successfully');
         } catch (\Throwable $th) {
             return Helpers::sendResponse(500, [], $th->getMessage());
@@ -328,7 +329,7 @@ class StorekeeperController extends Controller
     {
         try {
             $storekeeper = auth()->user();
-            $inventoryDispatches = InventoryDispatch::with(['items'])->where('store_id', $storekeeper->store_id)->get();
+            $inventoryDispatches = InventoryDispatch::with(['items', 'store', 'engineer'])->where('store_id', $storekeeper->store_id)->get();
             return Helpers::sendResponse(200, $inventoryDispatches, 'Diapatches retrieved successfully');
         } catch (\Throwable $th) {
             return Helpers::sendResponse(500, [], $th->getMessage());

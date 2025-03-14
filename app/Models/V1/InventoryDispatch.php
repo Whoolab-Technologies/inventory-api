@@ -14,8 +14,10 @@ class InventoryDispatch extends Model
 
     protected $hidden = ['created_by', 'created_type', 'updated_by', 'updated_type', 'updated_at'];
 
-    protected $fillable = ['engineer_id', 'store_id', 'self', 'representative', 'picked_at'];
-
+    protected $fillable = ['dispatch_number', 'engineer_id', 'store_id', 'self', 'representative', 'picked_at'];
+    protected $casts = [
+        'self' => 'boolean',
+    ];
     protected static function boot()
     {
         parent::boot();

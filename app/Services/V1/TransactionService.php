@@ -11,6 +11,7 @@ use App\Models\V1\StockTransferNote;
 use App\Models\V1\Stock;
 use App\Models\V1\EngineerStock;
 use App\Models\V1\MaterialRequestStockTransfer;
+
 use Illuminate\Http\Request;
 
 class TransactionService
@@ -171,35 +172,69 @@ class TransactionService
         }
     }
 
-
-    public function createInventoryDispatch(Request $request, )
+    public function createInventoryDispatch(Request $request, $storekeeper)
     {
         \DB::beginTransaction();
         try {
-
+            // Validate request
             if (empty($request->items) || !is_array($request->items)) {
                 throw new \Exception('Invalid items data');
             }
-            foreach ($request->items as $item) {
-                if (!isset($item['quantity'])) {
-                    throw new \Exception('Missing quantity');
+
+            $items = collect($request->items);
+
+            // Validate items structure
+            foreach ($items as $item) {
+                if (!isset($item['product_id'], $item['quantity'])) {
+                    throw new \Exception('Missing product_id or quantity');
                 }
             }
 
-            $inventoryDispatch = new InventoryDispatch();
-            $inventoryDispatch->engineer_id = $request->engineer_id;
-            $inventoryDispatch->self = $request->self;
-            $inventoryDispatch->representative = $request->representative;
-            $inventoryDispatch->save();
-            foreach ($request->items as $item) {
-                $inventoryDispatchItem = new InventoryDispatchItem();
-                $inventoryDispatchItem->inventory_dispatch_id = $inventoryDispatch->id;
-                $inventoryDispatchItem->product_id = $item['product_id'];
-                $inventoryDispatchItem->quantity = $item['quantity'];
-                $inventoryDispatchItem->save();
+            // Fetch stock levels in one query
+            $stockLevels = EngineerStock::where('engineer_id', $request->engineer_id)
+                ->where('store_id', $storekeeper->store_id)
+                ->whereIn('product_id', $items->pluck('product_id'))
+                ->get()
+                ->keyBy('product_id');
+
+            // Check stock before proceeding
+            foreach ($items as $item) {
+                $stock = $stockLevels[$item['product_id']] ?? null;
+                if (!$stock || $stock->quantity < $item['quantity']) {
+                    throw new \Exception("Insufficient stock for product ID: {$item['product_name']}");
+                }
             }
+            \Log::info(InventoryDispatch::max('id'));
+            // Create Inventory Dispatch
+            $inventoryDispatch = InventoryDispatch::create([
+                'dispatch_number' => 'DISPATCH-' . str_pad(InventoryDispatch::max('id') + 1001, 6, '0', STR_PAD_LEFT),
+                'store_id' => $storekeeper->store_id,
+                'engineer_id' => $request->engineer_id,
+                'self' => $request->self,
+                'representative' => $request->representative,
+                "picked_at" => now()->toDateTimeString(),
+            ]);
+
+            // Create Inventory Dispatch Items and Deduct Stock
+            $dispatchItems = [];
+            foreach ($items as $item) {
+                $dispatchItems[] = [
+                    'inventory_dispatch_id' => $inventoryDispatch->id,
+                    'product_id' => $item['product_id'],
+                    'quantity' => $item['quantity'],
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ];
+
+                // Reduce stock quantity
+                $stockLevels[$item['product_id']]->decrement('quantity', $item['quantity']);
+            }
+
+            // Bulk insert inventory dispatch items
+            InventoryDispatchItem::insert($dispatchItems);
+
             \DB::commit();
-            return $inventoryDispatch->load('items');
+            return $inventoryDispatch->load(['items', 'store', 'engineer']);
         } catch (\Throwable $e) {
             \DB::rollBack();
             throw $e;
