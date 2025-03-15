@@ -169,24 +169,43 @@ class StorekeeperController extends Controller
     {
         try {
             $user = auth()->user();
+            \Log::info($user->store_id);
             if (!$user->tokenCan('storekeeper')) {
                 return Helpers::sendResponse(403, [], 'Access denied');
             }
 
             $searchTerm = $request->query('search');
-            $products = Product::with([
+
+            $productsQuery = Product::with([
+                'stocks' => function ($query) use ($user) {
+                    $query->where('store_id', $user->store_id);
+                    if ($user->store && !$user->store->is_central_store) {
+                        $query->where('quantity', '>', 0);
+                    }
+                },
                 'engineerStocks' => function ($query) use ($user) {
                     $query->where('store_id', $user->store_id);
-                },
-                'engineerStocks.engineer',
+                }
             ]);
 
-            if ($searchTerm) {
-                $products->search($searchTerm);
+            // Apply filtering only for non-central stores
+            if ($user->store && !$user->store->is_central_store) {
+                $productsQuery->whereHas('stocks', function ($query) use ($user) {
+                    $query->where('quantity', '>', 0)
+                        ->where('store_id', $user->store_id);
+                });
             }
 
-            $products = $products->get()->map(function ($product) use ($user) {
-                $product->total_stock = $product->engineerStocks->sum('quantity');
+            if ($searchTerm) {
+                $productsQuery->search($searchTerm);
+            }
+
+            $products = $productsQuery->get()->map(function ($product) use ($user) {
+                if ($user->store->is_central_store) {
+                    $product->total_stock = $product->stocks->sum('quantity');
+                } else {
+                    $product->total_stock = $product->engineerStocks->sum('quantity');
+                }
                 return $product;
             });
 
@@ -329,7 +348,10 @@ class StorekeeperController extends Controller
     {
         try {
             $storekeeper = auth()->user();
-            $inventoryDispatches = InventoryDispatch::with(['items', 'store', 'engineer'])->where('store_id', $storekeeper->store_id)->get();
+            $inventoryDispatches = InventoryDispatch::with(['items', 'store', 'engineer'])
+                ->where('store_id', $storekeeper->store_id)
+                ->orderBy('created_at', 'desc')
+                ->get();
             return Helpers::sendResponse(200, $inventoryDispatches, 'Diapatches retrieved successfully');
         } catch (\Throwable $th) {
             return Helpers::sendResponse(500, [], $th->getMessage());

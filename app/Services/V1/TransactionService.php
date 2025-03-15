@@ -196,6 +196,10 @@ class TransactionService
                 ->whereIn('product_id', $items->pluck('product_id'))
                 ->get()
                 ->keyBy('product_id');
+            $storeStockLevels = Stock::where('store_id', $storekeeper->store_id)
+                ->whereIn('product_id', collect($request->items)->pluck('product_id'))
+                ->get()
+                ->keyBy('product_id');
 
             // Check stock before proceeding
             foreach ($items as $item) {
@@ -228,6 +232,7 @@ class TransactionService
 
                 // Reduce stock quantity
                 $stockLevels[$item['product_id']]->decrement('quantity', $item['quantity']);
+                $storeStockLevels[$item['product_id']]->decrement('quantity', $item['quantity']);
             }
 
             // Bulk insert inventory dispatch items

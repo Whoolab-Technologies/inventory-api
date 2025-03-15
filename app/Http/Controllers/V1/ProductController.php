@@ -166,4 +166,34 @@ class ProductController extends Controller
     }
 
 
+    public function getProduct(Request $request, $id)
+    {
+        try {
+            $item = Product::with([
+                'stocks.store' => function ($query) {
+                    $query->select('id', 'name');
+                },
+                'engineerStocks.store' => function ($query) {
+                    $query->select('id', 'name');
+                },
+                'engineerStocks.engineer' => function ($query) {
+                    $query->select(
+                        'id',
+                        DB::raw("CONCAT(first_name, 
+                            CASE WHEN last_name IS NULL OR last_name = '' 
+                            THEN '' 
+                            ELSE CONCAT(' ', last_name) 
+                            END) as name"
+                        )
+                    );
+                },
+                'stocksInTransit'
+            ])->findOrFail($id);
+            return Helpers::sendResponse(200, $item, 'Item retrieved successfully');
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return Helpers::sendResponse(404, [], 'Item not found');
+        } catch (\Exception $e) {
+            return Helpers::sendResponse(500, [], $e->getMessage());
+        }
+    }
 }
