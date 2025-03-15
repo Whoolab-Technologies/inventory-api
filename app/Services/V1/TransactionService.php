@@ -208,7 +208,6 @@ class TransactionService
                     throw new \Exception("Insufficient stock for product ID: {$item['product_name']}");
                 }
             }
-            \Log::info(InventoryDispatch::max('id'));
             // Create Inventory Dispatch
             $inventoryDispatch = InventoryDispatch::create([
                 'dispatch_number' => 'DISPATCH-' . str_pad(InventoryDispatch::max('id') + 1001, 6, '0', STR_PAD_LEFT),

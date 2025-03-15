@@ -30,5 +30,7 @@ Route::prefix('storekeeper')->group(function () {
         Route::post('dispatches', [StorekeeperController::class, 'createInventoryDispatch']);
 
         Route::get('engineers', [StorekeeperController::class, 'getEngineers']);
+
+        Route::get('stores_engineers', [StorekeeperController::class, 'getEngineersAndStores']);
     });
 });
