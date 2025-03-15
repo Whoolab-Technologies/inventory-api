@@ -164,35 +164,71 @@ class StorekeeperController extends Controller
         }
     }
 
-
     public function getProducts(Request $request)
     {
         try {
             $user = auth()->user();
-            \Log::info($user->store_id);
+
+
             if (!$user->tokenCan('storekeeper')) {
                 return Helpers::sendResponse(403, [], 'Access denied');
             }
 
             $searchTerm = $request->query('search');
+            $storeId = $request->query('store_id'); // Optional store filter
+            $engineerId = $request->query('engineer_id'); // Optional engineer filter
+            \Log::info("store_id $storeId  ");
+            \Log::info("user store id " . $user->store_id);
+            // Determine the tab dynamically
+            $isHisStore = $storeId == $user->store_id;
+            \Log::info("isHisStore " . $isHisStore);
 
             $productsQuery = Product::with([
-                'stocks' => function ($query) use ($user) {
-                    $query->where('store_id', $user->store_id);
+                'stocks' => function ($query) use ($user, $storeId, $isHisStore) {
                     if ($user->store && !$user->store->is_central_store) {
-                        $query->where('quantity', '>', 0);
+                        if ($isHisStore) {
+                            // Only products in the user’s store with quantity > 0
+                            $query->where('store_id', $user->store_id)->where('quantity', '>', 0);
+                        } else {
+                            // Show all products across stores, optionally filter by store_id
+                            if ($storeId) {
+                                \Log::info("not isHisStore but has storeId");
+                                $query->where('store_id', $storeId);
+                            } else {
+                                \Log::info("not isHisStore no storeId");
+                                $query->where('store_id', '!=', $user->store_id);
+                            }
+                        }
+                    } elseif ($user->store->is_central_store) {
+                        // Central store sees all products, optional store filter
+                        if ($storeId && $storeId != $user->store_id) {
+                            $query->where('store_id', $storeId);
+                        }
                     }
                 },
-                'engineerStocks' => function ($query) use ($user) {
-                    $query->where('store_id', $user->store_id);
+                'engineerStocks' => function ($query) use ($user, $engineerId) {
+                    if ($engineerId) {
+                        $query->where('engineer_id', $engineerId);
+                    } else {
+                        $query->where('store_id', $user->store_id);
+                    }
                 }
             ]);
 
-            // Apply filtering only for non-central stores
+            // Apply filters based on user type
             if ($user->store && !$user->store->is_central_store) {
-                $productsQuery->whereHas('stocks', function ($query) use ($user) {
-                    $query->where('quantity', '>', 0)
-                        ->where('store_id', $user->store_id);
+                if ($isHisStore) {
+                    $productsQuery->whereHas('stocks', function ($query) use ($user) {
+                        $query->where('quantity', '>', 0)->where('store_id', $user->store_id);
+                    });
+                } elseif ($storeId) {
+                    $productsQuery->whereHas('stocks', function ($query) use ($storeId) {
+                        $query->where('store_id', $storeId);
+                    });
+                }
+            } elseif ($user->store->is_central_store && $storeId) {
+                $productsQuery->whereHas('stocks', function ($query) use ($storeId) {
+                    $query->where('store_id', $storeId);
                 });
             }
 
@@ -201,11 +237,13 @@ class StorekeeperController extends Controller
             }
 
             $products = $productsQuery->get()->map(function ($product) use ($user) {
-                if ($user->store->is_central_store) {
-                    $product->total_stock = $product->stocks->sum('quantity');
-                } else {
-                    $product->total_stock = $product->engineerStocks->sum('quantity');
-                }
+                // if ($user->store->is_central_store) {
+                //     $product->total_stock = $product->stocks->sum('quantity');
+                // } else {
+                //     $product->total_stock = $product->engineerStocks->sum('quantity');
+                // }
+                $product->total_stock = $product->stocks->sum('quantity');
+
                 return $product;
             });
 
@@ -216,6 +254,8 @@ class StorekeeperController extends Controller
             return Helpers::sendResponse(500, [], $e->getMessage());
         }
     }
+
+
     public function getDashboardData(Request $request)
     {
         try {
