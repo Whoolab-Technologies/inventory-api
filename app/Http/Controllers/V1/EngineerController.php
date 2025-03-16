@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use App\Services\Helpers;
 use App\Models\V1\Engineer;
 use App\Models\V1\Product;
+use App\Models\V1\Store;
 use App\Models\V1\StockTransfer;
 use Illuminate\Support\Facades\Hash;
 
@@ -154,24 +155,45 @@ class EngineerController extends Controller
                 return Helpers::sendResponse(403, [], 'Access denied', );
             }
             $searchTerm = $request->query('search');
-            $products = Product::with([
-                'engineerStocks' => function ($query) use ($user) {
-                    $query->where('store_id', $user->store_id);
-                },
-                'engineerStocks.engineer',
-                'stocks' => function ($query) use ($user) {
-                    $query->where('store_id', $user->store_id);
-                },
-            ]);
+            $storeId = $request->query('store_id');
+            $engineerId = $request->query('engineer_id');
+            $isHisShock = !$engineerId || $engineerId == $user->id;
+
+            $productsQuery = Product::
+                whereHas('engineerStocks', function ($query) use ($engineerId) {
+                    $query->where('quantity', '>', 0);
+                    if ($engineerId) {
+                        $query->where('engineer_id', $engineerId);
+                    }
+                })
+                ->with([
+                    'engineerStocks' => function ($query) use ($user, $isHisShock, $engineerId) {
+
+                        $query->where('quantity', '>', 0)
+                            ->where('store_id', $user->store_id);
+                        if (!$isHisShock && $engineerId) {
+                            $query->where('engineer_id', $engineerId);
+                        }
+                    },
+                    'engineerStocks.engineer',
+                    'stocks' => function ($query) use ($user) {
+                        $query->where('store_id', $user->store_id);
+                    },
+                ]);
 
             if ($searchTerm) {
-                $products->search($searchTerm);
+                $productsQuery->search($searchTerm);
             }
-            $products = $products->get()->map(function ($product) use ($user) {
+
+            $products = $productsQuery->get()->map(function ($product) use ($user, $engineerId, $isHisShock) {
                 $product->total_stock = $product->stocks->sum('quantity');
                 $product->engineer_stock = $product->engineerStocks->sum('quantity');
-                $product->my_stock = $product->engineerStocks->where('engineer_id', $user->id)->sum('quantity');
-                $product->stock_with_others = $product->engineerStocks->where('engineer_id', '!=', $user->id)->sum('quantity');
+                if ($isHisShock) {
+                    $product->my_stock = $product->engineerStocks->where('engineer_id', $user->id)->sum('quantity');
+                } else {
+                    $product->my_stock = $product->engineerStocks->where('engineer_id', $engineerId)->sum('quantity');
+                }
+                $product->stock_with_others = $product->engineerStocks->where('engineer_id', '!=', ($isHisShock ? $user->id : $engineerId))->sum('quantity');
                 return $product;
             });
 
@@ -189,8 +211,6 @@ class EngineerController extends Controller
             //     $product->engineer_stock = (isset($engineerStocks[$product->id])) ? $engineerStocks[$product->id]->sum('quantity') ?? 0 : 0;
             //     $stockData[] = $product;
             // }
-
-
             //  $stores = $user->load(["stocks", "store.engineerStocks.stock.product", "store.stocks.product",]);
             return Helpers::sendResponse(
                 status: 200,
@@ -378,6 +398,28 @@ class EngineerController extends Controller
         } catch (\Throwable $th) {
 
 
+            return Helpers::sendResponse(500, [], $th->getMessage());
+        }
+    }
+
+    public function getEngineersAndStores(Request $request)
+    {
+        try {
+            $data = [];
+            $user = auth()->user();
+            // Fetch stores and engineers
+            $stores = Store::where('id', '!=', $user->store_id)->get();
+            $engineers = Engineer::
+                where('store_id', $user->store_id)
+                ->where('id', '!=', $user->id)
+                ->get();
+            $data = [
+                'stores' => $stores,
+                'engineers' => $engineers,
+            ];
+            return Helpers::sendResponse(200, $data, 'Engineers and stores retrieved successfully');
+
+        } catch (\Throwable $th) {
             return Helpers::sendResponse(500, [], $th->getMessage());
         }
     }

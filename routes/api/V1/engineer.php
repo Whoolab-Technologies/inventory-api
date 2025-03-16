@@ -26,5 +26,8 @@ Route::prefix('engineer')->group(function () {
 
         Route::get('transactions', [EngineerController::class, 'getTransactions']);
 
+        Route::get('stores_engineers', [EngineerController::class, 'getEngineersAndStores']);
+
+
     });
 });
