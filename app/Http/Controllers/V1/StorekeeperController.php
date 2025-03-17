@@ -390,6 +390,19 @@ class StorekeeperController extends Controller
                 ->map(function ($transfer) {
                     $transfer->material_request = $transfer->materialRequestStockTransfer->materialRequest;
                     $transfer->engineer = $transfer->materialRequestStockTransfer->materialRequest->engineer;
+
+                    $transfer->notes = $transfer->notes->map(function ($item) {
+                        $createBy = $item->createdBy;
+                        $store = $item->createdBy->store;
+                        unset($createBy->store);
+                        return [
+                            "id" => $item->id,
+                            "note" => $item->notes,
+                            "created_by" => array_merge($createBy->toArray(), ['created_type' => $item->created_type]),
+                            "store" => $store
+                        ];
+                    });
+
                     unset($transfer->materialRequestStockTransfer);
                     return $transfer;
                 });
@@ -433,7 +446,7 @@ class StorekeeperController extends Controller
     {
         try {
             $storekeeper = auth()->user();
-            $inventoryDispatches = InventoryDispatch::with(['items', 'store', 'engineer'])
+            $inventoryDispatches = InventoryDispatch::with(['items.product', 'store', 'engineer'])
                 ->where('store_id', $storekeeper->store_id)
                 ->orderBy('created_at', 'desc')
                 ->get();
