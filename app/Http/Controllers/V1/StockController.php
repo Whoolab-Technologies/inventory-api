@@ -92,14 +92,14 @@ class StockController extends Controller
     private function createStockData(Stock $stock)
     {
         return [
-            'id' => $stock->id,
-            'store_id' => $stock->store_id,
-            'store_name' => $stock->store->name,
-            'product_id' => $stock->product_id,
-            'product_name' => $stock->product->item,
-            'quantity' => $stock->quantity,
-            'unit' => $stock->product->unit->id,
-            'symbol' => $stock->product->unit->symbol,
+            'id' => $stock->id ?? null,
+            'store_id' => $stock->store_id ?? null,
+            'store_name' => $stock->store?->name ?? null,
+            'product_id' => $stock->product_id ?? null,
+            'product_name' => $stock?->product->item ?? null,
+            'quantity' => $stock->quantity ?? null,
+            'unit' => $stock->product?->unit?->id ?? null,
+            'symbol' => $stock->product->unit->symbol ?? null,
         ];
     }
 }
