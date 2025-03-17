@@ -12,8 +12,8 @@ return new class extends Migration {
     {
         Schema::create('stock', function (Blueprint $table) {
             $table->id();
-            $table->bigInteger('store_id')->index();
-            $table->bigInteger('product_id')->index();
+            $table->foreignId('store_id')->constrained('stores')->onDelete('cascade');
+            $table->foreignId('product_id')->constrained('products')->onDelete('cascade');
             $table->integer('quantity')->default(0); // Total stock in store
             $table->bigInteger('created_by')->nullable();
             $table->string('created_type')->nullable();
