@@ -58,7 +58,7 @@ class AdminAuthController extends Controller
             $admin = Admin::where('email', $request->email)->first();
 
             if ($admin && Hash::check($request->password, $admin->password)) {
-                $admin->tokens()->delete();
+                // $admin->tokens()->delete();
                 $newToken = $admin->createToken('admin', ['admin']);
                 $token = $newToken->accessToken;
                 $token->expires_at = now()->addMinutes(config('sanctum.expiration'));
