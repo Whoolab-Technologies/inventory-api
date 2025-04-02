@@ -356,8 +356,8 @@ class StorekeeperController extends Controller
             return Helpers::sendResponse(200, $materialRequest, 'Material requests updated successfully');
 
         } catch (\Throwable $th) {
+            \Log::info("error " . $th->getMessage());
             return Helpers::sendResponse(500, [], $th->getMessage());
-
         }
     }
 
@@ -373,6 +373,7 @@ class StorekeeperController extends Controller
                     'stockTransferItems.product',
                     'fromStore',
                     'toStore',
+                    'files'
                 ]
             );
 

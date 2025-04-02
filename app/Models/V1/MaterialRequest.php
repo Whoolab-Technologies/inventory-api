@@ -2,11 +2,10 @@
 namespace App\Models\V1;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 
-use Illuminate\Support\Facades\Auth;
-
-class MaterialRequest extends Model
+class MaterialRequest extends BaseModel
 {
     use HasFactory;
 
@@ -14,31 +13,16 @@ class MaterialRequest extends Model
 
     protected $hidden = ['created_by', 'created_type', 'updated_by', 'updated_type', 'updated_at'];
 
-    protected $fillable = ['request_number', 'engineer_id', 'store_id', 'status'];
+    protected $fillable = [
+        'request_number',
+        'engineer_id',
+        'store_id',
+        'qr_code',
+        'status',
+    ];
 
-    protected static function boot()
-    {
-        parent::boot();
+    protected $append = ['code'];
 
-        static::creating(function ($model) {
-
-            if (Auth::check()) {
-                $user = Auth::user();
-                $model->created_by = $user->id;
-                $model->created_type = optional($user->currentAccessToken())->name; // Get token name if exists
-                $model->updated_by = $user->id;
-                $model->updated_type = optional($user->currentAccessToken())->name;
-            }
-        });
-
-        static::updating(function ($model) {
-            if (Auth::check()) {
-                $user = Auth::user();
-                $model->updated_by = $user->id;
-                $model->updated_type = optional($user->currentAccessToken())->name;
-            }
-        });
-    }
 
     public function products()
     {
@@ -82,5 +66,15 @@ class MaterialRequest extends Model
         //                 ->orWhere('symbol', 'LIKE', $term);
         //         });
         // });
+    }
+
+    public function getCodeAttribute()
+    {
+        $url = "";
+        if (isset($this->qr_code)) {
+            $url = URL::to(Storage::url($this->qr_code));
+            unset($this->qr_code);
+        }
+        return $url;
     }
 }

@@ -15,6 +15,8 @@ class Stock extends Model
         'product_id',
         'quantity',
     ];
+    protected $append = ["transactions"];
+
     use HasFactory;
     protected static function boot()
     {
@@ -48,5 +50,16 @@ class Stock extends Model
     public function product()
     {
         return $this->belongsTo(Product::class);
+    }
+    // public function getTransactionsAttribute()
+    // {
+    //     return StockTransaction::
+    //         where("store_id", $this->store_id)->
+    //         where("product_id", $this->product_id)
+    //         ->get();
+    // }
+    public function transactions()
+    {
+        return $this->hasMany(StockTransaction::class, 'store_id', 'store_id')->where('product_id', $this->product_id);
     }
 }

@@ -67,6 +67,9 @@ Route::prefix('admin')->group(function () {
         Route::put('stocks/{id}', [StockController::class, 'update']);
         Route::delete('stocks/{id}', [StockController::class, 'destroy']);
 
+        Route::get('stocks/{id}/transactions', [StockController::class, 'getTransactions']);
+
+
     });
 
 });

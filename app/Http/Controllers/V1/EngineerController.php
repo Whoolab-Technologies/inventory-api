@@ -12,7 +12,7 @@ use App\Models\V1\Product;
 use App\Models\V1\Store;
 use App\Models\V1\StockTransfer;
 use Illuminate\Support\Facades\Hash;
-
+use SimpleSoftwareIO\QrCode\Facades\QrCode;
 class EngineerController extends Controller
 {
 
@@ -229,6 +229,8 @@ class EngineerController extends Controller
         \DB::beginTransaction();
         try {
             $user = auth()->user();
+
+            // Generate request number
             $materialRequest = MaterialRequest::create([
                 'request_number' => 'MR-' . str_pad(MaterialRequest::max('id') + 1001, 6, '0', STR_PAD_LEFT),
                 'engineer_id' => $user->id,
@@ -236,6 +238,9 @@ class EngineerController extends Controller
                 'status' => 'pending',
             ]);
 
+            \Log::info("MaterialRequest ID: " . $materialRequest->id);
+
+            // Process items
             $items = array_map(function ($item) use ($materialRequest) {
                 return [
                     'material_request_id' => $materialRequest->id,
@@ -246,14 +251,50 @@ class EngineerController extends Controller
 
             $materialRequest->items()->createMany($items);
 
+            // Generate QR Code
+            $qrCode = QrCode::format('png')
+                ->size(200)
+                ->style('dot')
+                ->eye('circle')
+                ->color(0, 0, 255)
+                ->margin(1)
+                ->generate(json_encode([
+                    "id" => $materialRequest->id,
+                    'type' => 'mr'
+                ]));
+
+            \Log::info("QR Code Generated");
+
+            // Set file path
+            $folderPath = "qrcodes/mr/$materialRequest->id";
+            $fileName = $materialRequest->id . '.png';
+            $storagePath = storage_path("app/public/{$folderPath}");
+
+            \Log::info("Saving QR Code to: " . $storagePath . "/" . $fileName);
+
+            // Create directory if not exists
+            if (!file_exists($storagePath)) {
+                mkdir($storagePath, 0755, true);
+            }
+
+            // Save QR Code file
+            if (!file_put_contents("{$storagePath}/{$fileName}", $qrCode)) {
+                throw new \Exception('Failed to store QR code.');
+            }
+
+            //Assign QR Code Path 
+            $materialRequest->qr_code = "{$folderPath}/{$fileName}";
+            $materialRequest->save();
+
             \DB::commit();
 
             return Helpers::sendResponse(
                 status: 200,
-                data: $materialRequest,
+                data: $materialRequest->load("items.product"),
             );
         } catch (\Throwable $th) {
             \DB::rollBack();
+            \Log::error("Error: " . $th->getMessage());
             return Helpers::sendResponse(
                 status: 400,
                 data: [],

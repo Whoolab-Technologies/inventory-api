@@ -9,7 +9,7 @@ class EngineerStock extends Model
     use HasFactory;
 
     protected $table = 'engineer_stock';
-    protected $hidden = ['created_by', 'created_type', 'updated_by', 'updated_type', 'created_at', 'updated_at'];
+    protected $hidden = ['created_at', 'updated_at'];
     protected $fillable = [
         'store_id',
         'engineer_id',

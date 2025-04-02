@@ -8,6 +8,8 @@ use App\Models\V1\Stock;
 use App\Services\Helpers;
 use App\Models\V1\Product;
 use App\Models\V1\Store;
+use App\Models\V1\Engineer;
+use App\Models\V1\StockTransaction;
 class StockController extends Controller
 {
     public function index()
@@ -35,9 +37,11 @@ class StockController extends Controller
             }
             $products = Product::all();
             $stores = Store::all();
+            $engineers = Engineer::all();
             $response = [
                 'stock' => $stock,
                 'products' => $products,
+                'engineers' => $engineers,
                 'stores' => $stores
             ];
             return Helpers::sendResponse(200, $response);
@@ -48,13 +52,29 @@ class StockController extends Controller
     public function store(Request $request)
     {
         try {
+            \DB::beginTransaction();
+            $quantityChange = $request->quantity;
+            $movementType = $quantityChange > 0 ? 'INCREASED' : 'DECREASED';
+
             $stock = Stock::updateOrCreate(
                 ['store_id' => $request->store_id, 'product_id' => $request->product_id],
-                ['quantity' => $request->quantity]
+                ['quantity' => \DB::raw("quantity + $quantityChange")]
             );
+            StockTransaction::create([
+                'store_id' => $request->store_id,
+                'product_id' => $request->product_id,
+                'engineer_id' => $request->engineer_id,
+                'quantity' => abs($quantityChange),
+                'stock_movement' => $movementType,
+            ]);
+
             $stock = $this->createStockData($stock);
+
+            \DB::commit();
             return Helpers::sendResponse(201, $stock);
+
         } catch (\Exception $e) {
+            \DB::rollBack();
             return Helpers::sendResponse(500, [], $e->getMessage());
         }
     }
@@ -81,7 +101,7 @@ class StockController extends Controller
             $stock = Stock::find($id);
             if ($stock) {
                 $stock->delete();
-                return Helpers::sendResponse(200, ['message' => 'Stock deleted']);
+                return Helpers::sendResponse(200, [], 'Stock deleted');
             } else {
                 return Helpers::sendResponse(404, [], 'Stock not found');
             }
@@ -100,6 +120,35 @@ class StockController extends Controller
             'quantity' => $stock->quantity ?? null,
             'unit' => $stock->product?->unit?->id ?? null,
             'symbol' => $stock->product->unit->symbol ?? null,
+            'transactions' => $stock->transactions,
         ];
+    }
+
+    public function getTransactions($id)
+    {
+        try {
+            $stock = Stock::find($id);
+            if ($stock) {
+                $transactions = $stock->transactions()->with(['product', 'store'])
+                    ->orderBy('id', 'desc')->get()
+                    ->map(function ($transaction) {
+                        return [
+                            "id" => $transaction->id,
+                            "store_name" => $transaction->store->name ?? null,
+                            "product_name" => $transaction->product->item ?? null,
+                            "quantity" => $transaction->quantity,
+                            "stock_movement" => $transaction->stock_movement,
+                            "transfer_date" => $transaction->created_at,
+                        ];
+                    });
+                return Helpers::sendResponse(200, $transactions, "Retrieved all transactions");
+
+            } else {
+                return Helpers::sendResponse(404, [], 'Stock not found');
+            }
+        } catch (\Exception $e) {
+            return Helpers::sendResponse(500, [], $e->getMessage());
+
+        }
     }
 }

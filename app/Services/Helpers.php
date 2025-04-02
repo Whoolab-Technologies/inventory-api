@@ -35,7 +35,8 @@ class Helpers
     static public function uploadFile($file, $destination)
     {
         $fileName = uniqid() . '_' . $file->getClientOriginalName();
-        $path = $file->storeAs("public/$destination", $fileName);
+
+        $path = $file->storeAs($destination, $fileName);
         return $path;
     }
 

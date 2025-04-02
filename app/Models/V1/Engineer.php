@@ -2,41 +2,41 @@
 
 namespace App\Models\V1;
 
+use App\Models\V1\BaseModel;
+use App\Models\V1\Store;
+use App\Models\V1\EngineerStock;
+use Illuminate\Auth\Authenticatable;
+use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableContract;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
-use Illuminate\Support\Facades\Auth;
 
-class Engineer extends Authenticatable
+class Engineer extends BaseModel implements AuthenticatableContract
 {
-    use HasApiTokens, HasFactory, Notifiable;
-    protected $table = "engineers";
-    protected $fillable = ['first_name', 'last_name', 'email', 'password', 'store_id'];
-    protected $hidden = ['password', 'remember_token', 'created_by', 'created_type', 'updated_by', 'updated_type', 'created_at', 'updated_at'];
-    protected static function boot()
-    {
-        parent::boot();
+    use Authenticatable, HasApiTokens, HasFactory, Notifiable;
 
-        static::creating(function ($model) {
+    protected $table = 'engineers';
 
-            if (Auth::check()) {
-                $user = Auth::user();
-                $model->created_by = $user->id;
-                $model->created_type = optional($user->currentAccessToken())->name; // Get token name if exists
-                $model->updated_by = $user->id;
-                $model->updated_type = optional($user->currentAccessToken())->name;
-            }
-        });
+    protected $fillable = [
+        'first_name',
+        'last_name',
+        'email',
+        'password',
+        'store_id'
+    ];
 
-        static::updating(function ($model) {
-            if (Auth::check()) {
-                $user = Auth::user();
-                $model->updated_by = $user->id;
-                $model->updated_type = optional($user->currentAccessToken())->name;
-            }
-        });
-    }
+    protected $hidden = [
+        'password',
+        'remember_token',
+        'created_by',
+        'created_type',
+        'updated_by',
+        'updated_type',
+        'created_at',
+        'updated_at'
+    ];
+
+    // Relationships
     public function store()
     {
         return $this->belongsTo(Store::class);
@@ -46,5 +46,4 @@ class Engineer extends Authenticatable
     {
         return $this->hasMany(EngineerStock::class);
     }
-
 }
