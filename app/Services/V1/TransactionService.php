@@ -121,7 +121,6 @@ class TransactionService
                 // Get the previously received quantity
                 $previousReceivedQuantity = $stockInTransit->received_quantity;
                 $previousRemainingQuantity = max(0, $stockInTransit->issued_quantity - $previousReceivedQuantity);
-
                 // Restore previous stock values
                 if ($previousReceivedQuantity > 0) {
                     if (isset($toStoreStocks[$productId])) {
@@ -133,12 +132,11 @@ class TransactionService
                     }
                 }
 
-                if ($previousRemainingQuantity > 0) {
+                if ($previousRemainingQuantity > 0 && $previousReceivedQuantity > 0) {
                     if (isset($fromStoreStocks[$productId])) {
                         $fromStoreStocks[$productId]->decrement('quantity', $previousRemainingQuantity);
                     }
                 }
-
                 // Compute new remaining quantity
                 $newRemainingQuantity = max(0, $stockInTransit->issued_quantity - $newReceivedQuantity);
 
