@@ -21,8 +21,6 @@ class MaterialRequest extends BaseModel
         'status',
     ];
 
-    protected $append = ['code'];
-
 
     public function products()
     {
@@ -66,15 +64,5 @@ class MaterialRequest extends BaseModel
         //                 ->orWhere('symbol', 'LIKE', $term);
         //         });
         // });
-    }
-
-    public function getCodeAttribute()
-    {
-        $url = "";
-        if (isset($this->qr_code)) {
-            $url = URL::to(Storage::url($this->qr_code));
-            unset($this->qr_code);
-        }
-        return $url;
     }
 }

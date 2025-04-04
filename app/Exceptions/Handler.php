@@ -49,11 +49,12 @@ class Handler extends ExceptionHandler
     public function register(): void
     {
         $this->reportable(function (Throwable $e) {
-            //
+            parent::report($e); // Allow Laravel to handle logging
         });
+
         $this->renderable(function (Throwable $e, Request $request) {
-            \Log::info(json_encode($e->getMessage()));
-            //  \Log::info("Exception caught: " . get_class($e) . ", " . $e->getMessage());
+
+            \Log::info("Exception caught: " . get_class($e) . ", " . $e->getMessage());
             if ($e instanceof InvalidArgumentException) {
                 return Helpers::response(["statusCode" => 400, "message" => 'Invalid argument provided.']);
             }
@@ -93,9 +94,11 @@ class Handler extends ExceptionHandler
                     case '42S02':
                         // Table not found
                         $message = 'Database table not found.';
+                        break;
                     case '23000':
                         // Integrity constraint violation (e.g., foreign key constraint fails)
                         $message = 'Integrity constraint violation.';
+                        break;
                     default:
                         // General database query error
                         $message = "Database query error.";

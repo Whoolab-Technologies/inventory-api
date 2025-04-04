@@ -12,7 +12,7 @@ Route::prefix('storekeeper')->group(function () {
 
     Route::middleware('auth:storekeeper')->group(function () {
         Route::post('logout', [StorekeeperAuthController::class, 'logout']);
-        Route::get('stores', [StoreController::class, 'getStoresByStorekeeper']);
+        Route::get('stores', [StorekeeperController::class, 'getStores']);
         Route::get('home', [StorekeeperController::class, 'getDashboardData']);
         Route::get('units', [UnitController::class, 'index']);
 
@@ -25,7 +25,7 @@ Route::prefix('storekeeper')->group(function () {
 
 
         Route::get('transactions', [StorekeeperController::class, 'getTransactions']);
-        Route::put('transactions/{id}', [StorekeeperController::class, 'updateTransaction']);
+        Route::post('transactions/{id}', [StorekeeperController::class, 'updateTransaction']);
 
         Route::get('dispatches', [StorekeeperController::class, 'getInventoryDispatches']);
         Route::post('dispatches', [StorekeeperController::class, 'createInventoryDispatch']);

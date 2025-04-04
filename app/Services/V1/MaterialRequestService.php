@@ -86,7 +86,7 @@ class MaterialRequestService
                         $stockTransferFile->file = $imagePath;
                         $stockTransferFile->file_mime_type = $mimeType;
                         $stockTransferFile->stock_transfer_id = $stockTransfers->id;
-                        // $stockTransferFile->material_request_id =  $materialRequest->id;
+                        $stockTransferFile->material_request_id = $materialRequest->id;
                         $stockTransferFile->transaction_type = "transfer";
                         $stockTransferFile->save();
                     }

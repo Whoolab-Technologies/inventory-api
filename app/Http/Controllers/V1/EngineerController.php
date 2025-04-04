@@ -154,6 +154,14 @@ class EngineerController extends Controller
             if (!$user->tokenCan('engineer')) {
                 return Helpers::sendResponse(403, [], 'Access denied', );
             }
+            $all = $request->query('all');
+            if (!empty($all) && $all == true) {
+                $products = Product::all();
+                return Helpers::sendResponse(
+                    status: 200,
+                    data: $products,
+                );
+            }
             $searchTerm = $request->query('search');
             $storeId = $request->query('store_id');
             $engineerId = $request->query('engineer_id');
@@ -196,22 +204,6 @@ class EngineerController extends Controller
                 $product->stock_with_others = $product->engineerStocks->where('engineer_id', '!=', ($isHisShock ? $user->id : $engineerId))->sum('quantity');
                 return $product;
             });
-
-            // $storeStock = Stock::where('store_id', $user->store_id)->get()->keyBy('product_id');
-
-            // $engineerStocks = EngineerStock::where('store_id', $user->store_id)
-            //     ->get()
-            //     ->groupBy('product_id');
-
-            // // Format the response
-            // $stockData = [];
-
-            // foreach ($products as $product) {
-            //     $product->total_stock = $storeStock[$product->id]->quantity ?? 0;
-            //     $product->engineer_stock = (isset($engineerStocks[$product->id])) ? $engineerStocks[$product->id]->sum('quantity') ?? 0 : 0;
-            //     $stockData[] = $product;
-            // }
-            //  $stores = $user->load(["stocks", "store.engineerStocks.stock.product", "store.stocks.product",]);
             return Helpers::sendResponse(
                 status: 200,
                 data: $products,
@@ -237,9 +229,6 @@ class EngineerController extends Controller
                 'store_id' => $user->store->id,
                 'status' => 'pending',
             ]);
-
-            \Log::info("MaterialRequest ID: " . $materialRequest->id);
-
             // Process items
             $items = array_map(function ($item) use ($materialRequest) {
                 return [
@@ -250,47 +239,29 @@ class EngineerController extends Controller
             }, $request->items);
 
             $materialRequest->items()->createMany($items);
-
-            // Generate QR Code
-            $qrCode = QrCode::format('png')
-                ->size(200)
-                ->style('dot')
-                ->eye('circle')
-                ->color(0, 0, 255)
-                ->margin(1)
-                ->generate(json_encode([
-                    "id" => $materialRequest->id,
-                    'type' => 'mr'
-                ]));
-
-            \Log::info("QR Code Generated");
-
-            // Set file path
-            $folderPath = "qrcodes/mr/$materialRequest->id";
-            $fileName = $materialRequest->id . '.png';
-            $storagePath = storage_path("app/public/{$folderPath}");
-
-            \Log::info("Saving QR Code to: " . $storagePath . "/" . $fileName);
-
-            // Create directory if not exists
-            if (!file_exists($storagePath)) {
-                mkdir($storagePath, 0755, true);
-            }
-
-            // Save QR Code file
-            if (!file_put_contents("{$storagePath}/{$fileName}", $qrCode)) {
-                throw new \Exception('Failed to store QR code.');
-            }
-
-            //Assign QR Code Path 
-            $materialRequest->qr_code = "{$folderPath}/{$fileName}";
-            $materialRequest->save();
+            $materialRequest = $materialRequest->load("items.product");
+            $materialRequest = [
+                'id' => $materialRequest->id,
+                'store_id' => $materialRequest->store_id,
+                'request_number' => $materialRequest->request_number,
+                'created_at' => $materialRequest->created_at,
+                'status' => $materialRequest->status,
+                'items' => $materialRequest->items->map(function ($item) {
+                    return [
+                        'id' => $item->id,
+                        'product_id' => $item->product->id,
+                        'product_name' => $item->product->item,
+                        'product_image' => $item->product->image_url,
+                        'unit' => $item->product->symbol,
+                        'quantity' => $item->quantity,
+                    ];
+                }),
+            ];
 
             \DB::commit();
-
             return Helpers::sendResponse(
                 status: 200,
-                data: $materialRequest->load("items.product"),
+                data: $materialRequest,
             );
         } catch (\Throwable $th) {
             \DB::rollBack();

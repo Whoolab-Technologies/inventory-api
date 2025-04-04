@@ -15,6 +15,7 @@ class CreateStockTransferFilesTable extends Migration
         Schema::create('stock_transfer_files', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('stock_transfer_id');
+            $table->unsignedBigInteger('material_request_id');
             $table->string('file');
             $table->string('file_mime_type');
             $table->string('transaction_type');
@@ -27,6 +28,11 @@ class CreateStockTransferFilesTable extends Migration
             $table->foreign('stock_transfer_id')
                 ->references('id')
                 ->on('stock_transfers')
+                ->onUpdate('cascade')
+                ->onDelete('cascade');
+            $table->foreign('material_request_id')
+                ->references('id')
+                ->on('material_requests')
                 ->onUpdate('cascade')
                 ->onDelete('cascade');
         });

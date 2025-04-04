@@ -3,6 +3,8 @@
 namespace App\Models\V1;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 
 class StockTransferFile extends BaseModel
 {
@@ -14,10 +16,21 @@ class StockTransferFile extends BaseModel
         'file_mime_type',
         'transaction_type',
     ];
+    protected $appends = ['url'];
     use HasFactory;
 
     public function stockTransfer()
     {
         return $this->belongsTo(StockTransfer::class, 'stock_transfer_id');
     }
+
+    public function getUrlAttribute()
+    {
+        $url = "";
+        if (!empty($this->file)) {
+            $url = URL::to(Storage::url($this->file));
+        }
+        return $url;
+    }
+
 }

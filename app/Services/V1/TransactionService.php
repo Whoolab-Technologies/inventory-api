@@ -10,8 +10,9 @@ use App\Models\V1\StockTransferItem;
 use App\Models\V1\StockTransferNote;
 use App\Models\V1\Stock;
 use App\Models\V1\EngineerStock;
+use App\Models\V1\StockTransferFile;
 use App\Models\V1\MaterialRequestStockTransfer;
-
+use App\Services\Helpers;
 use Illuminate\Http\Request;
 
 class TransactionService
@@ -24,11 +25,13 @@ class TransactionService
             if (empty($request->status)) {
                 throw new \Exception('Invalid status value');
             }
-            if (empty($request->items) || !is_array($request->items)) {
+            if (empty($request->items)) {
                 throw new \Exception('Invalid items data');
+            } else {
+                $request->items = json_decode($request->items);
             }
             foreach ($request->items as $item) {
-                if (!isset($item['received_quantity'])) {
+                if (!isset($item->received_quantity)) {
                     throw new \Exception('Missing quantity');
                 }
             }
@@ -37,14 +40,28 @@ class TransactionService
             $stockTransfer->status = $request->status;
             $stockTransfer->remarks = $request->note;
             $stockTransfer->save();
-
+            $materialRequestStockTransfer = MaterialRequestStockTransfer::where("stock_transfer_id", $stockTransfer->id)->first();
             if (!empty($request->note)) {
-                $materialRequestStockTransfer = MaterialRequestStockTransfer::findOrFail($stockTransfer->id);
                 $stockTransferNote = new StockTransferNote();
                 $stockTransferNote->stock_transfer_id = $materialRequestStockTransfer->stock_transfer_id;
                 $stockTransferNote->material_request_id = $materialRequestStockTransfer->material_request_id;
                 $stockTransferNote->notes = $request->note;
                 $stockTransferNote->save();
+            }
+            if (!empty($request->images) && is_array($request->images)) {
+                foreach ($request->images as $image) {
+                    $stockTransferFile = new StockTransferFile();
+                    $mimeType = $image->getMimeType();
+                    $imagePath = Helpers::uploadFile($image, "images/stock-transfer/$id");
+
+                    $stockTransferFile->file = $imagePath;
+                    $stockTransferFile->file_mime_type = $mimeType;
+                    $stockTransferFile->stock_transfer_id = $id;
+                    $stockTransferFile->material_request_id = $materialRequestStockTransfer->material_request_id;
+                    $stockTransferFile->transaction_type = "receive";
+                    $stockTransferFile->save();
+                }
+
             }
 
             $this->updateStock($request, $stockTransfer);
@@ -91,8 +108,8 @@ class TransactionService
                 ->keyBy('product_id');
 
             foreach ($request->items as $item) {
-                $productId = $item['product_id'];
-                $newReceivedQuantity = $item['received_quantity'];
+                $productId = $item->product_id;
+                $newReceivedQuantity = $item->received_quantity;
 
                 // Get the stock in transit record
                 $stockInTransit = $stockInTransitRecords[$productId] ?? null;
@@ -156,10 +173,10 @@ class TransactionService
                 $engineerStock->save();
 
                 // Update transfer item details
-                StockTransferItem::where('id', $item['id'])->update([
+                StockTransferItem::where('id', $item->id)->update([
                     'product_id' => $productId,
-                    'requested_quantity' => $item['requested_quantity'],
-                    'issued_quantity' => $item['issued_quantity'],
+                    'requested_quantity' => $item->requested_quantity,
+                    'issued_quantity' => $item->issued_quantity,
                     'received_quantity' => $newReceivedQuantity
                 ]);
             }

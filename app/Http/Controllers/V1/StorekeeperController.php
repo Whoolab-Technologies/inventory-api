@@ -496,4 +496,15 @@ class StorekeeperController extends Controller
             return Helpers::sendResponse(500, [], $th->getMessage());
         }
     }
+
+    public function getStores(Request $request)
+    {
+        try {
+            $stores = Store::all();
+            return Helpers::sendResponse(200, $stores, 'Stores retrieved successfully');
+
+        } catch (\Throwable $th) {
+            return Helpers::sendResponse(500, [], $th->getMessage());
+        }
+    }
 }
