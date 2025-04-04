@@ -18,12 +18,12 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 use App\Services\Helpers;
 use Illuminate\Auth\Access\AuthorizationException;
 use InvalidArgumentException;
-
+use Illuminate\Support\Facades\Log;
 
 class Handler extends ExceptionHandler
 {
     /**
-     * The list of the inputs that are never flashed to the session on validation exceptions.
+     * The list of inputs that are never flashed to the session on validation exceptions.
      *
      * @var array<int, string>
      */
@@ -49,30 +49,31 @@ class Handler extends ExceptionHandler
     public function register(): void
     {
         $this->reportable(function (Throwable $e) {
-            parent::report($e); // Allow Laravel to handle logging
+            Log::error("Exception Reported: " . $e->getMessage(), ['exception' => $e]);
         });
 
         $this->renderable(function (Throwable $e, Request $request) {
+            Log::info("Exception caught: " . get_class($e) . ", " . $e->getMessage());
 
-            \Log::info("Exception caught: " . get_class($e) . ", " . $e->getMessage());
             if ($e instanceof InvalidArgumentException) {
                 return Helpers::response(["statusCode" => 400, "message" => 'Invalid argument provided.']);
             }
+
             if ($e instanceof AuthenticationException) {
                 return Helpers::response(["statusCode" => 401, "message" => $e->getMessage()]);
             }
-            if ($e instanceof ValidationException) {
-                \Log::info(json_encode($e->errors()));
 
-                $errorbag = $e->errors();
-                $errors = reset($errorbag);
-                $message = $errors && sizeof($errors) > 0 ? $errors[0] : "Some fields are reqired";
+            if ($e instanceof ValidationException) {
+                Log::info("Validation Errors: " . json_encode($e->errors()));
+
+                $errors = $e->errors();
+                $firstError = reset($errors);
+                $message = $firstError[0] ?? "Some fields are required";
                 return Helpers::response(["statusCode" => 422, "message" => $message]);
             }
 
             if ($e instanceof NotFoundHttpException) {
                 return Helpers::response(["statusCode" => 404, "message" => 'Route not found.']);
-
             }
 
             if ($e instanceof MethodNotAllowedHttpException) {
@@ -84,25 +85,16 @@ class Handler extends ExceptionHandler
             }
 
             if ($e instanceof QueryException) {
-                \Log::error('Database query error: ' . $e->getMessage());
+                Log::error('Database Query Error: ' . $e->getMessage());
 
-                // Get the SQL error code
+                // Handle specific SQL error codes
                 $errorCode = $e->getCode();
+                $message = match ($errorCode) {
+                    '42S02' => 'Database table not found.',  // Table not found
+                    '23000' => 'Integrity constraint violation.',  // Foreign key constraint fails
+                    default => 'Database query error.',
+                };
 
-                // Handle specific error codes or provide a general response
-                switch ($errorCode) {
-                    case '42S02':
-                        // Table not found
-                        $message = 'Database table not found.';
-                        break;
-                    case '23000':
-                        // Integrity constraint violation (e.g., foreign key constraint fails)
-                        $message = 'Integrity constraint violation.';
-                        break;
-                    default:
-                        // General database query error
-                        $message = "Database query error.";
-                }
                 return Helpers::response(["statusCode" => 500, "message" => $message]);
             }
 
@@ -114,7 +106,9 @@ class Handler extends ExceptionHandler
                 return Helpers::response(["statusCode" => 404, "message" => 'Model not found.']);
             }
 
-            return parent::render($request, $e);
+            // Handle all other exceptions gracefully
+            Log::error("Unhandled Exception: " . $e->getMessage(), ['exception' => $e]);
+            return Helpers::response(["statusCode" => 500, "message" => 'An unexpected error occurred.']);
         });
     }
 }

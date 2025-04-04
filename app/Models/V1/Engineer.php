@@ -24,7 +24,7 @@ class Engineer extends BaseModel implements AuthenticatableContract
         'password',
         'store_id'
     ];
-
+    protected $appends = ['name'];
     protected $hidden = [
         'password',
         'remember_token',
@@ -45,5 +45,10 @@ class Engineer extends BaseModel implements AuthenticatableContract
     public function stocks()
     {
         return $this->hasMany(EngineerStock::class);
+    }
+
+    public function getNameAttribute()
+    {
+        return trim($this->first_name . ' ' . ($this->last_name ?? ''));
     }
 }

@@ -18,7 +18,7 @@ return new class extends Migration {
             $table->foreignId('product_id')->constrained('products')->onDelete('cascade');
             $table->foreignId('engineer_id')->constrained('engineers')->onDelete('cascade');
             $table->integer('quantity')->default(0);
-            $table->enum('stock_movement', ['INCREASED', 'DECREASED'])
+            $table->enum('stock_movement', ['INCREASED', 'IN-TRANSIT', 'DECREASED'])
                 ->default('INCREASED');
             $table->bigInteger('created_by')->nullable();
             $table->string('created_type')->nullable();

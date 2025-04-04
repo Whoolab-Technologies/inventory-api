@@ -129,15 +129,20 @@ class StockController extends Controller
         try {
             $stock = Stock::find($id);
             if ($stock) {
-                $transactions = $stock->transactions()->with(['product', 'store'])
+                $transactions = $stock->transactions()->with(['product', 'store', 'engineer.store'])
                     ->orderBy('id', 'desc')->get()
                     ->map(function ($transaction) {
                         return [
                             "id" => $transaction->id,
+                            "store_id" => $transaction->store->id ?? null,
                             "store_name" => $transaction->store->name ?? null,
                             "product_name" => $transaction->product->item ?? null,
                             "quantity" => $transaction->quantity,
                             "stock_movement" => $transaction->stock_movement,
+                            "engineer_id" => $transaction->engineer->id ?? null,
+                            "engineer_name" => $transaction->engineer ? $transaction->engineer->name : null,
+                            "engineer_store_id" => $transaction->engineer->store->id ?? null,
+                            "engineer_store_name" => $transaction->engineer->store->name ?? null,
                             "transfer_date" => $transaction->created_at,
                         ];
                     });

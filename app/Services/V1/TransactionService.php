@@ -13,6 +13,7 @@ use App\Models\V1\EngineerStock;
 use App\Models\V1\StockTransferFile;
 use App\Models\V1\MaterialRequestStockTransfer;
 use App\Services\Helpers;
+use App\Models\V1\StockTransaction;
 use Illuminate\Http\Request;
 
 class TransactionService
@@ -179,6 +180,46 @@ class TransactionService
                     'issued_quantity' => $item->issued_quantity,
                     'received_quantity' => $newReceivedQuantity
                 ]);
+
+                // Revert previous stock transactions
+                StockTransaction::where('store_id', $fromStoreId)
+                    ->where('product_id', $productId)
+                    ->where('engineer_id', $engineerId)
+                    ->where('stock_movement', 'IN-TRANSIT')
+                    ->delete();
+
+                StockTransaction::where('store_id', $fromStoreId)
+                    ->where('product_id', $productId)
+                    ->where('engineer_id', $engineerId)
+                    ->where('quantity', $previousReceivedQuantity)
+                    ->where('stock_movement', 'DECREASED')
+                    ->delete();
+
+                StockTransaction::where('store_id', $toStoreId)
+                    ->where('product_id', $productId)
+                    ->where('engineer_id', $engineerId)
+                    ->where('quantity', $previousReceivedQuantity)
+                    ->where('stock_movement', 'INCREASED')
+                    ->delete();
+
+                // Log the new transactions
+                if ($newReceivedQuantity > 0) {
+                    StockTransaction::create([
+                        'store_id' => $fromStoreId,
+                        'product_id' => $productId,
+                        'engineer_id' => $engineerId,
+                        'quantity' => $newReceivedQuantity,
+                        'stock_movement' => 'DECREASED',
+                    ]);
+
+                    StockTransaction::create([
+                        'store_id' => $toStoreId,
+                        'product_id' => $productId,
+                        'engineer_id' => $engineerId,
+                        'quantity' => $newReceivedQuantity,
+                        'stock_movement' => 'INCREASED',
+                    ]);
+                }
             }
 
             \DB::commit();
@@ -249,10 +290,21 @@ class TransactionService
                 // Reduce stock quantity
                 $stockLevels[$item['product_id']]->decrement('quantity', $item['quantity']);
                 $storeStockLevels[$item['product_id']]->decrement('quantity', $item['quantity']);
+
+                $stockTransactions[] = [
+                    'store_id' => $storekeeper->store_id,
+                    'product_id' => $item['product_id'],
+                    'engineer_id' => $request->engineer_id,
+                    'quantity' => abs($item['quantity']),
+                    'stock_movement' => "DECREASED",
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ];
             }
 
-            // Bulk insert inventory dispatch items
+            // Bulk insert inventory dispatch items and stock transactions
             InventoryDispatchItem::insert($dispatchItems);
+            StockTransaction::insert($stockTransactions);
 
             \DB::commit();
             return $inventoryDispatch->load(['items', 'store', 'engineer']);

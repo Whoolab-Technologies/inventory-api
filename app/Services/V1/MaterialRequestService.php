@@ -10,6 +10,7 @@ use App\Models\V1\StockTransfer;
 use App\Models\V1\StockTransferFile;
 use App\Models\V1\StockTransferItem;
 use App\Models\V1\StockTransferNote;
+use App\Models\V1\StockTransaction;
 use App\Models\V1\Stock;
 use Illuminate\Http\Request;
 use App\Services\Helpers;
@@ -106,7 +107,6 @@ class MaterialRequestService
                 $materialRequestStockTransfer->save();
 
                 foreach ($request->items as $item) {
-                    \Log::info(json_encode($item));
                     $product = Product::findOrFail($item->product_id);
 
                     $transferItem = new StockTransferItem();
@@ -137,6 +137,14 @@ class MaterialRequestService
                     $stockInTransit->product_id = $item->product_id;
                     $stockInTransit->issued_quantity = $item->issued_quantity;
                     $stockInTransit->save();
+
+                    StockTransaction::create([
+                        'store_id' => $request->from_store_id,
+                        'product_id' => $item->product_id,
+                        'engineer_id' => $materialRequest->engineer_id,
+                        'quantity' => $item->issued_quantity,
+                        'stock_movement' => 'IN-TRANSIT',
+                    ]);
                 }
             }
             $materialRequest->save();
