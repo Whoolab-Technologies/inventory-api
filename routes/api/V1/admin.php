@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\V1\DepartmemtController;
+use App\Http\Controllers\V1\DepartmentController;
 use App\Http\Controllers\V1\EngineerController;
 use App\Http\Controllers\V1\StockController;
 use Illuminate\Support\Facades\Route;
@@ -69,6 +71,11 @@ Route::prefix('admin')->group(function () {
 
         Route::get('stocks/{id}/transactions', [StockController::class, 'getTransactions']);
 
+        // Add DEpartment-related routes
+        Route::get('departments', [DepartmentController::class, 'index']);
+        Route::post('departments', [DepartmentController::class, 'store']);
+        Route::put('departments/{id}', [DepartmentController::class, 'update']);
+        Route::delete('departments/{id}', [DepartmentController::class, 'destroy']);
 
     });
 

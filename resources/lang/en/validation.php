@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'string' => 'The :attribute must be a string.',
     'required' => 'The :attribute field is required.',
     'email' => 'The :attribute must be a valid email address.',
     'min' => [
