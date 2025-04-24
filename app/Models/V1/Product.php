@@ -18,6 +18,8 @@ class Product extends BaseModel
         'unit_id',
         'description',
         'qr_code',
+        'category_id',
+        'brand_id',
         'image',
         'remarks'
     ];

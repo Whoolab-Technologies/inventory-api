@@ -314,7 +314,8 @@ class StorekeeperController extends Controller
                 $materialRequests = MaterialRequest::with([
                     'store',
                     'engineer',
-                    'products'
+                    'products',
+                    'stockTransfer'
                 ])
                     // ->where('status', 'pending')
                     ->orderBy('created_at', 'desc')

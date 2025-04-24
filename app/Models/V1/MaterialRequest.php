@@ -65,4 +65,20 @@ class MaterialRequest extends BaseModel
         //         });
         // });
     }
+    public function materialRequestStockTransfer()
+    {
+        return $this->hasOne(MaterialRequestStockTransfer::class, 'material_request_id');
+    }
+
+    public function stockTransfer()
+    {
+        return $this->hasOneThrough(
+            StockTransfer::class,
+            MaterialRequestStockTransfer::class,
+            'material_request_id',
+            'id',
+            'id',
+            'stock_transfer_id'
+        );
+    }
 }

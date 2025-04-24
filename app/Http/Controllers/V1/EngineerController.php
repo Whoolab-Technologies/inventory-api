@@ -328,7 +328,7 @@ class EngineerController extends Controller
                 $query->where('store_id', $engineer->store->id)
                     ->where('quantity', '<=', 0);
             })->with('unit')->get();
-            $material_requests = MaterialRequest::with(['items'])
+            $material_requests = MaterialRequest::with(['items', 'stockTransfer'])
                 ->where('engineer_id', $engineer->id)
                 //->where('status', "pending")
                 ->orderBy('created_at', 'desc')
@@ -340,6 +340,7 @@ class EngineerController extends Controller
                         'created_at' => $mr->created_at,
                         'status' => $mr->status,
                         'items' => $mr->items,
+                        'stock_transfer' => $mr->stockTransfer,
                     ];
                 });
 
