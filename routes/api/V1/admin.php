@@ -1,9 +1,10 @@
 <?php
 
-use App\Http\Controllers\V1\DepartmemtController;
+
 use App\Http\Controllers\V1\DepartmentController;
 use App\Http\Controllers\V1\EngineerController;
 use App\Http\Controllers\V1\StockController;
+
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\V1\AdminAuthController;
 use App\Http\Controllers\V1\StorekeeperController;
@@ -11,6 +12,7 @@ use App\Http\Controllers\V1\StoreController;
 use App\Http\Controllers\V1\BrandController;
 use App\Http\Controllers\V1\UnitController;
 use App\Http\Controllers\V1\ProductController;
+use App\Http\Controllers\V1\CategoriesController;
 
 Route::prefix('admin')->group(function () {
 
@@ -71,11 +73,23 @@ Route::prefix('admin')->group(function () {
 
         Route::get('stocks/{id}/transactions', [StockController::class, 'getTransactions']);
 
-        // Add DEpartment-related routes
+        // Add Department-related routes
         Route::get('departments', [DepartmentController::class, 'index']);
         Route::post('departments', [DepartmentController::class, 'store']);
         Route::put('departments/{id}', [DepartmentController::class, 'update']);
         Route::delete('departments/{id}', [DepartmentController::class, 'destroy']);
+
+        // Add Categories-related routes
+        Route::get('categories', [CategoriesController::class, 'index']);
+        Route::post('categories', [CategoriesController::class, 'store']);
+        Route::put('categories/{id}', [CategoriesController::class, 'update']);
+        Route::delete('categories/{id}', [CategoriesController::class, 'destroy']);
+
+        // Add Categories-related routes
+        Route::get('brands', [BrandController::class, 'index']);
+        Route::post('brands', [BrandController::class, 'store']);
+        Route::put('brands/{id}', [BrandController::class, 'update']);
+        Route::delete('brands/{id}', [BrandController::class, 'destroy']);
 
     });
 

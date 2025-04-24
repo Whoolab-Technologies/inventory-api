@@ -22,7 +22,8 @@ class Engineer extends BaseModel implements AuthenticatableContract
         'last_name',
         'email',
         'password',
-        'store_id'
+        'store_id',
+        'department_id'
     ];
     protected $appends = ['name'];
     protected $hidden = [
@@ -51,4 +52,10 @@ class Engineer extends BaseModel implements AuthenticatableContract
     {
         return trim($this->first_name . ' ' . ($this->last_name ?? ''));
     }
+
+    public function department()
+    {
+        return $this->belongsTo(Department::class);
+    }
+
 }

@@ -2,9 +2,13 @@
 
 namespace App\Models\V1;
 
-class Brand extends BaseModel
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+
+
+class Category extends BaseModel
 {
-    protected $table = 'brands';
+    use HasFactory;
+    protected $table = 'categories';
 
     protected $hidden = [
         'created_by',
@@ -17,12 +21,11 @@ class Brand extends BaseModel
 
     protected $fillable = [
         'name',
-        'category_id',
         'description'
     ];
-    public function category()
-    {
-        return $this->belongsTo(Category::class);
-    }
 
+    public function brands()
+    {
+        return $this->hasMany(Brand::class);
+    }
 }

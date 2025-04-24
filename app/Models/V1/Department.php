@@ -3,7 +3,6 @@
 namespace App\Models\V1;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use App\Models\V1\BaseModel;
 
 class Department extends BaseModel
 {
@@ -24,5 +23,10 @@ class Department extends BaseModel
         'created_at',
         'updated_at'
     ];
+
+    public function engineers()
+    {
+        return $this->hasMany(Engineer::class);
+    }
 
 }

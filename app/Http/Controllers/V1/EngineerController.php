@@ -18,7 +18,7 @@ class EngineerController extends Controller
 
     public function index()
     {
-        $engineers = Engineer::with(['store'])->get();
+        $engineers = Engineer::with(['store', 'department'])->get();
         return Helpers::sendResponse(
             status: 200,
             data: $engineers,
@@ -35,6 +35,7 @@ class EngineerController extends Controller
                 'email' => 'required|string|email|max:255|unique:engineers',
                 'password' => 'required|string|min:6',
                 'store_id' => 'required|exists:stores,id',
+                'department_id' => 'required|exists:departments,id',
             ]);
 
             $engineer = Engineer::create([
@@ -42,6 +43,7 @@ class EngineerController extends Controller
                 'last_name' => $request->last_name,
                 'email' => $request->email,
                 'store_id' => $request->store_id,
+                'department_id' => $request->department_id,
                 'password' => Hash::make($request->password),
             ]);
             return Helpers::sendResponse(
@@ -101,7 +103,7 @@ class EngineerController extends Controller
             $engineer->update($request->all());
             return Helpers::sendResponse(
                 status: 200,
-                data: $engineer,
+                data: $engineer->load('department'),
                 messages: 'Engineer details updated successfully',
             );
 

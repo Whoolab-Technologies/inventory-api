@@ -3,12 +3,12 @@
 namespace App\Http\Controllers\V1;
 
 use App\Http\Controllers\Controller;
-use App\Models\V1\Department;
+use App\Models\V1\Category;
 use Illuminate\Http\Request;
 use App\Services\Helpers;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 
-class DepartmentController extends Controller
+class CategoriesController extends Controller
 {
     /**
      * Display a listing of the resource.
@@ -18,14 +18,13 @@ class DepartmentController extends Controller
     public function index()
     {
         try {
-            $departments = Department::withCount('engineers')->orderByDesc('id')->get();
-            return Helpers::sendResponse(200, $departments, );
+            $category = Category::with('brands')->orderByDesc('id')->get();
+            return Helpers::sendResponse(200, $category, );
 
         } catch (\Exception $e) {
-            return Helpers::sendResponse(500, [], "Failed to fetch departments");
+            return Helpers::sendResponse(500, [], "Failed to fetch categories");
         }
     }
-
 
     /**
      * Store a newly created resource in storage.
@@ -40,14 +39,14 @@ class DepartmentController extends Controller
                 'name' => 'required|max:255',
                 'description' => 'nullable|string',
             ]);
-            $department = new Department();
-            $department->name = $request->name;
-            $department->description = $request->description;
-            $department->save();
-            $department = Department::withCount('engineers')->find($department->id);
-            return Helpers::sendResponse(200, $department, );
+            $category = new Category();
+            $category->name = $request->name;
+            $category->description = $request->description;
+            $category->save();
+
+            return Helpers::sendResponse(200, $category->load('brands'), );
         } catch (\Exception $e) {
-            return Helpers::sendResponse(500, [], "Failed to store department");
+            return Helpers::sendResponse(500, [], "Failed to store the category");
         }
     }
 
@@ -65,51 +64,51 @@ class DepartmentController extends Controller
                 'name' => 'sometimes|required|max:255',
                 'description' => 'nullable|string',
             ]);
-            $department = Department::findOrFail($id);
-            $department->name = $request->name;
-            $department->description = $request->description;
-            $department->save();
-            $department = Department::withCount('engineers')->find($department->id);
-            return Helpers::sendResponse(200, $department, );
+            $category = Category::findOrFail($id);
+            $category->name = $request->name;
+            $category->description = $request->description;
+            $category->save();
+            return Helpers::sendResponse(200, $category->load('brands'), );
         } catch (ModelNotFoundException $e) {
             return Helpers::sendResponse(
                 status: 404,
                 data: [],
-                messages: 'Department not found',
+                messages: 'Category not found',
             );
         } catch (\Exception $e) {
-            return Helpers::sendResponse(500, [], "Failed to update department");
+            return Helpers::sendResponse(500, [], "Failed to fetch the category");
         }
     }
 
     /**
      * Remove the specified resource from storage.
      *
-     * @param  \App\Models\V1\Department  $department
+     * @param  \App\Models\V1\Category  $category
      * @return \Illuminate\Http\JsonResponse
      */
-    public function destroy($id)
+    public function destroy(string $id)
     {
         try {
-            $department = Department::findOrFail($id);
-            $department->delete();
+            $category = Category::findOrFail($id);
+            $category->delete();
             return Helpers::sendResponse(
                 status: 200,
                 data: [],
-                messages: 'Department deleted successfully',
+                messages: 'Category deleted successfully',
             );
         } catch (ModelNotFoundException $e) {
             return Helpers::sendResponse(
                 status: 404,
                 data: [],
-                messages: 'Department not found',
+                messages: 'Category not found',
             );
         } catch (\Throwable $th) {
             return Helpers::sendResponse(
                 status: 400,
                 data: [],
-                messages: "Failed to delete department",
+                messages: "Failed to delete the category",
             );
         }
     }
+
 }
