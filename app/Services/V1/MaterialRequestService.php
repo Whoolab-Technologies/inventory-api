@@ -82,7 +82,7 @@ class MaterialRequestService
                     foreach ($request->images as $image) {
                         $stockTransferFile = new StockTransferFile();
                         $mimeType = $image->getMimeType();
-                        $imagePath = Helpers::uploadFile($image, "images/stock-transfer/$stockTransfers->id");
+                        $imagePath = Helpers::uploadFile($image, "files/stock-transfer/$stockTransfers->id");
 
                         $stockTransferFile->file = $imagePath;
                         $stockTransferFile->file_mime_type = $mimeType;

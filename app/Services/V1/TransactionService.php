@@ -307,7 +307,7 @@ class TransactionService
                 foreach ($request->file('files') as $uploadedFile) {
                     $InventoryDispatchFile = new InventoryDispatchFile();
                     $mimeType = $uploadedFile->getMimeType();
-                    $imagePath = Helpers::uploadFile($uploadedFile, "files/dispatch/$InventoryDispatchFile->id");
+                    $imagePath = Helpers::uploadFile($uploadedFile, "files/dispatch/$inventoryDispatch->id");
 
                     $InventoryDispatchFile->file = $imagePath;
                     $InventoryDispatchFile->file_mime_type = $mimeType;
