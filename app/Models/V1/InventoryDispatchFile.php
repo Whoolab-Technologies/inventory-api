@@ -5,24 +5,23 @@ namespace App\Models\V1;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
-
-class StockTransferFile extends BaseModel
+class InventoryDispatchFile extends BaseModel
 {
-    protected $table = 'stock_transfer_files';
-    protected $hidden = ['created_by', 'created_type', 'updated_by', 'updated_type', 'created_at', 'updated_at'];
-    protected $fillable = [
-        'stock_transfer_id',
-        'material_request_id',
-        'file',
-        'file_mime_type',
-        'transaction_type',
-    ];
-    protected $appends = ['url'];
     use HasFactory;
 
-    public function stockTransfer()
+    protected $table = "inventory_dispatch_files";
+    protected $hidden = ['created_by', 'created_type', 'updated_by', 'updated_type', 'created_at', 'updated_at'];
+    protected $appends = ['url'];
+
+    protected $fillable = [
+        'inventory_dispatch_id',
+        'file',
+        'file_mime_type'
+    ];
+
+    public function inventoryDispatch()
     {
-        return $this->belongsTo(StockTransfer::class, 'stock_transfer_id');
+        return $this->belongsTo(InventoryDispatch::class, 'inventory_dispatch_id');
     }
 
     public function getUrlAttribute()
@@ -33,5 +32,4 @@ class StockTransferFile extends BaseModel
         }
         return $url;
     }
-
 }

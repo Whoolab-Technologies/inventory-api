@@ -3,6 +3,7 @@
 namespace App\Services\V1;
 
 use App\Models\V1\InventoryDispatch;
+use App\Models\V1\InventoryDispatchFile;
 use App\Models\V1\InventoryDispatchItem;
 use App\Models\V1\StockInTransit;
 use App\Models\V1\StockTransfer;
@@ -232,36 +233,39 @@ class TransactionService
     {
         \DB::beginTransaction();
         try {
+
             // Validate request
-            if (empty($request->items) || !is_array($request->items)) {
+            if (empty($request->items)) {
                 throw new \Exception('Invalid items data');
+            } else {
+                $request->items = json_decode($request->items);
             }
-
-            $items = collect($request->items);
-
+            $items = $request->items;
+            \Log::info("items " . json_encode($items));
             // Validate items structure
             foreach ($items as $item) {
-                if (!isset($item['product_id'], $item['quantity'])) {
+                if (!isset($item->product_id, $item->quantity)) {
                     throw new \Exception('Missing product_id or quantity');
                 }
             }
+            $productIds = array_column($items, 'product_id');
+            \Log::info("productIds " . json_encode($productIds));
 
-            // Fetch stock levels in one query
             $stockLevels = EngineerStock::where('engineer_id', $request->engineer_id)
                 ->where('store_id', $storekeeper->store_id)
-                ->whereIn('product_id', $items->pluck('product_id'))
+                ->whereIn('product_id', $productIds)
                 ->get()
                 ->keyBy('product_id');
             $storeStockLevels = Stock::where('store_id', $storekeeper->store_id)
-                ->whereIn('product_id', collect($request->items)->pluck('product_id'))
+                ->whereIn('product_id', $productIds)
                 ->get()
                 ->keyBy('product_id');
 
             // Check stock before proceeding
             foreach ($items as $item) {
-                $stock = $stockLevels[$item['product_id']] ?? null;
-                if (!$stock || $stock->quantity < $item['quantity']) {
-                    throw new \Exception("Insufficient stock for product ID: {$item['product_name']}");
+                $stock = $stockLevels[$item->product_id] ?? null;
+                if (!$stock || $stock->quantity < $item->quantity) {
+                    throw new \Exception("Insufficient stock for product ID: {$item->product_name}");
                 }
             }
             // Create Inventory Dispatch
@@ -269,7 +273,7 @@ class TransactionService
                 'dispatch_number' => 'DISPATCH-' . str_pad(InventoryDispatch::max('id') + 1001, 6, '0', STR_PAD_LEFT),
                 'store_id' => $storekeeper->store_id,
                 'engineer_id' => $request->engineer_id,
-                'self' => $request->self,
+                'self' => $request->self == true ? 1 : 0,
                 'representative' => $request->representative,
                 "picked_at" => now()->toDateTimeString(),
             ]);
@@ -279,25 +283,37 @@ class TransactionService
             foreach ($items as $item) {
                 $dispatchItems[] = [
                     'inventory_dispatch_id' => $inventoryDispatch->id,
-                    'product_id' => $item['product_id'],
-                    'quantity' => $item['quantity'],
+                    'product_id' => $item->product_id,
+                    'quantity' => $item->quantity,
                     'created_at' => now(),
                     'updated_at' => now()
                 ];
 
                 // Reduce stock quantity
-                $stockLevels[$item['product_id']]->decrement('quantity', $item['quantity']);
-                $storeStockLevels[$item['product_id']]->decrement('quantity', $item['quantity']);
+                $stockLevels[$item->product_id]->decrement('quantity', $item->quantity);
+                $storeStockLevels[$item->product_id]->decrement('quantity', $item->quantity);
 
                 $stockTransactions[] = [
                     'store_id' => $storekeeper->store_id,
-                    'product_id' => $item['product_id'],
+                    'product_id' => $item->product_id,
                     'engineer_id' => $request->engineer_id,
-                    'quantity' => abs($item['quantity']),
+                    'quantity' => abs($item->quantity),
                     'stock_movement' => "DECREASED",
                     'created_at' => now(),
                     'updated_at' => now()
                 ];
+            }
+            if ($request->hasFile('files')) {
+                foreach ($request->file('files') as $uploadedFile) {
+                    $InventoryDispatchFile = new InventoryDispatchFile();
+                    $mimeType = $uploadedFile->getMimeType();
+                    $imagePath = Helpers::uploadFile($uploadedFile, "files/dispatch/$InventoryDispatchFile->id");
+
+                    $InventoryDispatchFile->file = $imagePath;
+                    $InventoryDispatchFile->file_mime_type = $mimeType;
+                    $InventoryDispatchFile->inventory_dispatch_id = $inventoryDispatch->id;
+                    $InventoryDispatchFile->save();
+                }
             }
 
             // Bulk insert inventory dispatch items and stock transactions
@@ -305,8 +321,9 @@ class TransactionService
             StockTransaction::insert($stockTransactions);
 
             \DB::commit();
-            return $inventoryDispatch->load(['items', 'store', 'engineer']);
+            return $inventoryDispatch->load(['items.product', 'store', 'engineer', 'files']);
         } catch (\Throwable $e) {
+            \Log::info($e->getmessage());
             \DB::rollBack();
             throw $e;
         }

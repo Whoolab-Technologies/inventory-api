@@ -31,4 +31,9 @@ class InventoryDispatch extends BaseModel
         return $this->hasMany(InventoryDispatchItem::class, 'inventory_dispatch_id', 'id');
     }
 
+    public function files()
+    {
+        return $this->hasMany(InventoryDispatchFile::class, 'inventory_dispatch_id');
+    }
+
 }

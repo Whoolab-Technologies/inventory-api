@@ -448,7 +448,7 @@ class StorekeeperController extends Controller
     {
         try {
             $storekeeper = auth()->user();
-            $inventoryDispatches = InventoryDispatch::with(['items.product', 'store', 'engineer'])
+            $inventoryDispatches = InventoryDispatch::with(['items.product', 'store', 'engineer', 'files'])
                 ->where('store_id', $storekeeper->store_id)
                 ->orderBy('created_at', 'desc')
                 ->get();
