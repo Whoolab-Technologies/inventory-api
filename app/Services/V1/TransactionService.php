@@ -287,10 +287,6 @@ class TransactionService
                     'inventory_dispatch_id' => $inventoryDispatch->id,
                     'product_id' => $item->product_id,
                     'quantity' => $item->quantity,
-                    'created_by' => $user->id ?? null,
-                    "created_type" => $tokenName,
-                    "updated_by" => $user->id ?? null,
-                    'updated_type' => $tokenName,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ];
@@ -304,6 +300,10 @@ class TransactionService
                     'engineer_id' => $request->engineer_id,
                     'quantity' => abs($item->quantity),
                     'stock_movement' => "DECREASED",
+                    'created_by' => $user->id ?? null,
+                    "created_type" => $tokenName,
+                    "updated_by" => $user->id ?? null,
+                    'updated_type' => $tokenName,
                     'created_at' => now(),
                     'updated_at' => now()
                 ];

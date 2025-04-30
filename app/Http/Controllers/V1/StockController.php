@@ -56,10 +56,16 @@ class StockController extends Controller
             $quantityChange = $request->quantity;
             $movementType = $quantityChange > 0 ? 'INCREASED' : 'DECREASED';
 
-            $stock = Stock::updateOrCreate(
+            // $stock = Stock::updateOrCreate(
+            //     ['store_id' => $request->store_id, 'product_id' => $request->product_id],
+            //     ['quantity' => \DB::raw("quantity + $quantityChange")]
+            // );
+            $stock = Stock::firstOrCreate(
                 ['store_id' => $request->store_id, 'product_id' => $request->product_id],
-                ['quantity' => \DB::raw("quantity + $quantityChange")]
+                ['quantity' => 0]
             );
+
+            $stock->increment('quantity', $quantityChange);
             StockTransaction::create([
                 'store_id' => $request->store_id,
                 'product_id' => $request->product_id,
@@ -111,6 +117,7 @@ class StockController extends Controller
     }
     private function createStockData(Stock $stock)
     {
+        \Log::info($stock);
         return [
             'id' => $stock->id ?? null,
             'store_id' => $stock->store_id ?? null,
