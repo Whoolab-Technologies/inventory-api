@@ -520,15 +520,17 @@ class StorekeeperController extends Controller
     {
         try {
             $user = auth()->user();
-            $materialReturns = MaterialReturn::
+            $query = MaterialReturn::
                 with([
                     'toStore',
                     'fromStore',
-                    'materialReturnDetails.engineer',
-                    'materialReturnDetails.materialReturnItems.product',
-                ])
-                ->where('from_store_id', $user->store->id)
-                ->orderByDesc('id')
+                    'details.engineer',
+                    'details.items.product',
+                ]);
+            if (!$user->store->is_central_store) {
+                $query = $query->where('from_store_id', $user->store->id);
+            }
+            $materialReturns = $query->orderByDesc('id')
                 ->get();
             return Helpers::sendResponse(200, $materialReturns, 'Material Returns retrieved successfully');
         } catch (\Throwable $th) {

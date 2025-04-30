@@ -17,7 +17,7 @@ class MaterialReturnDetail extends BaseModel
         return $this->belongsTo(MaterialReturn::class, 'material_return_id');
     }
 
-    public function materialReturnItems()
+    public function items()
     {
         return $this->hasMany(MaterialReturnItem::class, 'material_return_detail_id');
     }

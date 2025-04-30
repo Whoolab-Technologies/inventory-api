@@ -16,12 +16,12 @@ class MaterialReturn extends BaseModel
         'status' => 'IN TRANSIT',
     ];
 
-    public function materialReturnDetails()
+    public function details()
     {
         return $this->hasMany(MaterialReturnDetail::class, 'material_return_id', 'id');
     }
 
-    public function materialReturnItems()
+    public function items()
     {
         return $this->hasMany(MaterialReturnItem::class, 'material_return_id', 'id');
     }

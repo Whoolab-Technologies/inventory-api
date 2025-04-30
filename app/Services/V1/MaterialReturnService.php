@@ -50,7 +50,7 @@ class MaterialReturnService
             }
 
             \DB::commit();
-            return $materialReturn->load(['fromStore', 'toStore', 'materialReturnDetails.materialReturnItems']);
+            return $materialReturn->load(['fromStore', 'toStore', 'details.items']);
 
         } catch (\Throwable $th) {
             \DB::rollBack();
@@ -81,13 +81,13 @@ class MaterialReturnService
             \Log::info("toStoreId " . $toStoreId);
             \Log::info("fromStoreId " . $fromStoreId);
 
-            $materialReturnDetails = $materialReturn->materialReturnDetails;
+            $materialReturnDetails = $materialReturn->details;
 
             foreach ($materialReturnDetails as $materialReturnDetail) {
                 $engineerId = $materialReturnDetail->engineer_id;
 
                 \Log::info("engineerId " . $engineerId);
-                \Log::info("request->items " . json_encode($request->engineers));
+                \Log::info("request->items " . json_encode($request->details));
 
                 // Fetch all stock in transit records at once
                 $stockInTransitRecords = StockInTransit::where('material_return_id', $materialReturn->id)
