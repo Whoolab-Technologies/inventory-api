@@ -20,6 +20,7 @@ class Category extends BaseModel
     ];
 
     protected $fillable = [
+        'category_id',
         'name',
         'description'
     ];

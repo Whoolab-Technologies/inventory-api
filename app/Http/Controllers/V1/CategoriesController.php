@@ -18,7 +18,7 @@ class CategoriesController extends Controller
     public function index()
     {
         try {
-            $category = Category::with('brands')->orderByDesc('id')->get();
+            $category = Category::withCount('brands')->orderByDesc('id')->get();
             return Helpers::sendResponse(200, $category, );
 
         } catch (\Exception $e) {
@@ -36,16 +36,19 @@ class CategoriesController extends Controller
     {
         try {
             $this->validate($request, [
+                'category_id' => 'required|unique:categories,category_id|max:255',
                 'name' => 'required|max:255',
                 'description' => 'nullable|string',
             ]);
             $category = new Category();
             $category->name = $request->name;
+            $category->category_id = $request->category_id;
             $category->description = $request->description;
             $category->save();
 
             return Helpers::sendResponse(200, $category->load('brands'), );
         } catch (\Exception $e) {
+            \Log::info($e->getMessage());
             return Helpers::sendResponse(500, [], "Failed to store the category");
         }
     }

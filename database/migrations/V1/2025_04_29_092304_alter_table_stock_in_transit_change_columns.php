@@ -31,9 +31,9 @@ return new class extends Migration {
      */
     public function down()
     {
-        DB::statement('ALTER TABLE stock_in_transit MODIFY stock_transfer_id INT NOT NULL');
-        DB::statement('ALTER TABLE stock_in_transit MODIFY material_request_id INT NOT NULL');
-        DB::statement('ALTER TABLE stock_in_transit MODIFY stock_transfer_item_id INT NOT NULL');
+        // DB::statement('ALTER TABLE stock_in_transit MODIFY stock_transfer_id INT NOT NULL');
+        // DB::statement('ALTER TABLE stock_in_transit MODIFY material_request_id INT NOT NULL');
+        // DB::statement('ALTER TABLE stock_in_transit MODIFY stock_transfer_item_id INT NOT NULL');
 
         // Drop newly added columns
         Schema::table('stock_in_transit', function (Blueprint $table) {
