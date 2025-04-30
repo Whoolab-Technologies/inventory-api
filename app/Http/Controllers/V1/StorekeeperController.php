@@ -5,6 +5,7 @@ namespace App\Http\Controllers\V1;
 use App\Http\Controllers\Controller;
 use App\Models\V1\Engineer;
 use App\Models\V1\InventoryDispatch;
+use App\Models\V1\MaterialReturn;
 use App\Models\V1\Store;
 use Illuminate\Http\Request;
 use App\Models\V1\Storekeeper;
@@ -14,6 +15,7 @@ use App\Models\V1\StockTransfer;
 
 use App\Services\Helpers;
 use App\Services\V1\MaterialRequestService;
+use App\Services\V1\MaterialReturnService;
 use App\Services\V1\TransactionService;
 
 use Illuminate\Support\Facades\Hash;
@@ -22,11 +24,16 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 class StorekeeperController extends Controller
 {
     protected $materialRequestService;
+    protected $materialReturnService;
     protected $transactionService;
 
-    public function __construct(MaterialRequestService $materialRequestService, TransactionService $transactionService)
-    {
+    public function __construct(
+        MaterialRequestService $materialRequestService,
+        MaterialReturnService $materialReturnService,
+        TransactionService $transactionService
+    ) {
         $this->materialRequestService = $materialRequestService;
+        $this->materialReturnService = $materialReturnService;
         $this->transactionService = $transactionService;
     }
 
@@ -508,4 +515,54 @@ class StorekeeperController extends Controller
             return Helpers::sendResponse(500, [], $th->getMessage());
         }
     }
+
+    public function getMaterialReturns(Request $request)
+    {
+        try {
+            $user = auth()->user();
+            $materialReturns = MaterialReturn::
+                with([
+                    'toStore',
+                    'fromStore',
+                    'materialReturnDetails.engineer',
+                    'materialReturnDetails.materialReturnItems.product',
+                ])
+                ->where('from_store_id', $user->store->id)
+                ->orderByDesc('id')
+                ->get();
+            return Helpers::sendResponse(200, $materialReturns, 'Material Returns retrieved successfully');
+        } catch (\Throwable $th) {
+            return Helpers::sendResponse(500, [], $th->getMessage());
+
+        }
+    }
+
+    public function postMaterialReturns(Request $request)
+    {
+        try {
+            $user = auth()->user();
+            $centralStore = Store::where('type', 'central')->first();
+            $request->merge([
+                'from_store_id' => $user->store->id,
+                'to_store_id' => $centralStore->id
+            ]);
+            $materialReturn = $this->materialReturnService->createMaterialReturns($request);
+            return Helpers::sendResponse(200, $materialReturn, 'Material return created successfully');
+
+        } catch (\Throwable $th) {
+            return Helpers::sendResponse(500, [], $th->getMessage());
+        }
+    }
+    public function updateMaterialReturns(Request $request, $id)
+    {
+        try {
+
+            $materialReturn = $this->materialReturnService->updateMaterialReturns($id, $request);
+            return Helpers::sendResponse(200, $materialReturn, 'Material return updated successfully');
+
+        } catch (\Throwable $th) {
+            return Helpers::sendResponse(500, [], $th->getMessage());
+        }
+    }
+
 }

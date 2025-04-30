@@ -15,6 +15,7 @@ use App\Models\V1\StockTransferFile;
 use App\Models\V1\MaterialRequestStockTransfer;
 use App\Services\Helpers;
 use App\Models\V1\StockTransaction;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
 
 class TransactionService
@@ -278,18 +279,22 @@ class TransactionService
                 "picked_at" => now()->toDateTimeString(),
             ]);
 
-            // Create Inventory Dispatch Items and Deduct Stock
             $dispatchItems = [];
+            $user = Auth::user();
+            $tokenName = optional($user?->currentAccessToken())->name;
             foreach ($items as $item) {
                 $dispatchItems[] = [
                     'inventory_dispatch_id' => $inventoryDispatch->id,
                     'product_id' => $item->product_id,
                     'quantity' => $item->quantity,
+                    'created_by' => $user->id ?? null,
+                    "created_type" => $tokenName,
+                    "updated_by" => $user->id ?? null,
+                    'updated_type' => $tokenName,
                     'created_at' => now(),
-                    'updated_at' => now()
+                    'updated_at' => now(),
                 ];
 
-                // Reduce stock quantity
                 $stockLevels[$item->product_id]->decrement('quantity', $item->quantity);
                 $storeStockLevels[$item->product_id]->decrement('quantity', $item->quantity);
 
@@ -315,8 +320,6 @@ class TransactionService
                     $InventoryDispatchFile->save();
                 }
             }
-
-            // Bulk insert inventory dispatch items and stock transactions
             InventoryDispatchItem::insert($dispatchItems);
             StockTransaction::insert($stockTransactions);
 

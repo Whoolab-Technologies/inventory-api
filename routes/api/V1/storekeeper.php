@@ -33,5 +33,10 @@ Route::prefix('storekeeper')->group(function () {
         Route::get('engineers', [StorekeeperController::class, 'getEngineers']);
 
         Route::get('stores_engineers', [StorekeeperController::class, 'getEngineersAndStores']);
+
+        Route::get('returns', [StorekeeperController::class, 'getMaterialReturns']);
+        Route::post('returns', [StorekeeperController::class, 'postMaterialReturns']);
+        Route::post('returns/{id}', [StorekeeperController::class, 'updateMaterialReturns']);
+
     });
 });

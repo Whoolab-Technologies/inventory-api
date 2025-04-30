@@ -16,6 +16,8 @@ class StockInTransit extends Model
         'material_request_id',
         'stock_transfer_item_id',
         'product_id',
+        'material_return_id',
+        "material_return_item_id",
         'issued_quantity',
         'received_quantity',
         'status'
