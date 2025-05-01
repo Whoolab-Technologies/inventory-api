@@ -272,6 +272,7 @@ class TransactionService
             // Create Inventory Dispatch
             $inventoryDispatch = InventoryDispatch::create([
                 'dispatch_number' => 'DISPATCH-' . str_pad(InventoryDispatch::max('id') + 1001, 6, '0', STR_PAD_LEFT),
+                'delivery_note_number' => $request->deliveryNoteNumber,
                 'store_id' => $storekeeper->store_id,
                 'engineer_id' => $request->engineer_id,
                 'self' => $request->self == true ? 1 : 0,
