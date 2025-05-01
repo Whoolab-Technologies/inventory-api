@@ -46,7 +46,7 @@ class CategoriesController extends Controller
             $category->description = $request->description;
             $category->save();
 
-            return Helpers::sendResponse(200, $category->load('brands'), );
+            return Helpers::sendResponse(200, $category->loadCount('brands'));
         } catch (\Exception $e) {
             \Log::info($e->getMessage());
             return Helpers::sendResponse(500, [], "Failed to store the category");
@@ -71,7 +71,7 @@ class CategoriesController extends Controller
             $category->name = $request->name;
             $category->description = $request->description;
             $category->save();
-            return Helpers::sendResponse(200, $category->load('brands'), );
+            return Helpers::sendResponse(200, $category->loadCount('brands'), );
         } catch (ModelNotFoundException $e) {
             return Helpers::sendResponse(
                 status: 404,
