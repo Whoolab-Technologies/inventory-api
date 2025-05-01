@@ -15,7 +15,7 @@ class StockController extends Controller
     public function index()
     {
         try {
-            $stocks = Stock::with(['store', 'product'])
+            $stocks = Stock::with(['store', 'product.brand'])
                 ->select('id', 'store_id', 'product_id', 'quantity')
                 ->get()
                 ->map(function ($stock) {
@@ -31,7 +31,7 @@ class StockController extends Controller
     public function show($id)
     {
         try {
-            $stock = Stock::find($id);
+            $stock = Stock::with(['store', 'product.brand', 'product.category'])->find($id);
             if ($stock) {
                 $stock = $this->createStockData($stock);
             }
@@ -66,6 +66,7 @@ class StockController extends Controller
             );
 
             $stock->increment('quantity', $quantityChange);
+            $stock = Stock::with(['store', 'product.brand', 'product.category'])->find($stock->id);
             StockTransaction::create([
                 'store_id' => $request->store_id,
                 'product_id' => $request->product_id,
@@ -88,7 +89,7 @@ class StockController extends Controller
     public function update(Request $request, $id)
     {
         try {
-            $stock = Stock::find($id);
+            $stock = Stock::with(['store', 'product.brand', 'product.category'])->find($id);
             if ($stock) {
                 $stock->update($request->all());
                 $stock = $this->createStockData($stock);
@@ -121,6 +122,9 @@ class StockController extends Controller
         return [
             'id' => $stock->id ?? null,
             'store_id' => $stock->store_id ?? null,
+            'brand' => $stock->product->brand ?? null,
+            'category' => $stock->product->category ?? null,
+            'cat_id' => $stock->product->cat_id ?? null,
             'store_name' => $stock->store?->name ?? null,
             'product_id' => $stock->product_id ?? null,
             'product_name' => $stock?->product->item ?? null,
