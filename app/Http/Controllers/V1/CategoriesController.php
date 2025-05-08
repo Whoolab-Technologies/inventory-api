@@ -18,9 +18,10 @@ class CategoriesController extends Controller
     public function index()
     {
         try {
-            $category = Category::withCount('brands')->orderByDesc('id')->get();
-            return Helpers::sendResponse(200, $category, );
-
+            $categories = Category::withCount('brands')
+                ->with('brands')
+                ->orderByDesc('id')->get();
+            return Helpers::sendResponse(200, $categories);
         } catch (\Exception $e) {
             return Helpers::sendResponse(500, [], "Failed to fetch categories");
         }
