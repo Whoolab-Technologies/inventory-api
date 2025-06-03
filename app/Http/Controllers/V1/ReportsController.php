@@ -39,7 +39,7 @@ class ReportsController extends Controller
                 $transactions->where('product_id', $productId);
             }
 
-            $transactions = $transactions->get()->map(function ($tx) {
+            $transactions = $transactions->orderByDesc('id')->get()->map(function ($tx) {
                 return [
                     'material_name' => $tx->product->item ?? 'N/A',
                     'from_store' => $tx->store->name ?? 'N/A',
