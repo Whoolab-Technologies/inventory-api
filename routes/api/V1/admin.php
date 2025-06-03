@@ -3,6 +3,7 @@
 
 use App\Http\Controllers\V1\DepartmentController;
 use App\Http\Controllers\V1\EngineerController;
+use App\Http\Controllers\V1\ReportsController;
 use App\Http\Controllers\V1\StockController;
 
 use Illuminate\Support\Facades\Route;
@@ -91,6 +92,10 @@ Route::prefix('admin')->group(function () {
         Route::put('brands/{id}', [BrandController::class, 'update']);
         Route::delete('brands/{id}', [BrandController::class, 'destroy']);
 
-    });
+        Route::prefix('reports')->group(function () {
+            Route::get('io', [ReportsController::class, 'transactionReport']);
+            Route::get('exportTransactions', [ReportsController::class, 'exportTransactions']);
 
+        });
+    });
 });
