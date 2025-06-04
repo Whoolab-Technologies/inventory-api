@@ -14,6 +14,7 @@ class StockTransaction extends BaseModel
         'engineer_id',
         'stock_movement',
         'quantity',
+        'type',
     ];
     use HasFactory;
 

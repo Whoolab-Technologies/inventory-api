@@ -143,7 +143,8 @@ class MaterialRequestService
                         'product_id' => $item->product_id,
                         'engineer_id' => $materialRequest->engineer_id,
                         'quantity' => $item->issued_quantity,
-                        'stock_movement' => 'IN-TRANSIT',
+                        'stock_movement' => 'TRANSIT',
+                        'type' => 'TRANSFER'
                     ]);
                 }
             }

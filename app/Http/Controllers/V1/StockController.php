@@ -54,7 +54,7 @@ class StockController extends Controller
         try {
             \DB::beginTransaction();
             $quantityChange = $request->quantity;
-            $movementType = $quantityChange > 0 ? 'INCREASED' : 'DECREASED';
+            $movementType = $quantityChange > 0 ? 'IN' : 'OUT';
 
             // $stock = Stock::updateOrCreate(
             //     ['store_id' => $request->store_id, 'product_id' => $request->product_id],
@@ -73,6 +73,7 @@ class StockController extends Controller
                 'engineer_id' => $request->engineer_id,
                 'quantity' => abs($quantityChange),
                 'stock_movement' => $movementType,
+                'type' => "STOCK"
             ]);
 
             $stock = $this->createStockData($stock);

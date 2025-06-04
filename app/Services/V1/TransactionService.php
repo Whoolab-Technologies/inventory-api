@@ -185,21 +185,21 @@ class TransactionService
                 StockTransaction::where('store_id', $fromStoreId)
                     ->where('product_id', $productId)
                     ->where('engineer_id', $engineerId)
-                    ->where('stock_movement', 'IN-TRANSIT')
+                    ->where('stock_movement', 'TRANSIT')
                     ->delete();
 
                 StockTransaction::where('store_id', $fromStoreId)
                     ->where('product_id', $productId)
                     ->where('engineer_id', $engineerId)
                     ->where('quantity', $previousReceivedQuantity)
-                    ->where('stock_movement', 'DECREASED')
+                    ->where('stock_movement', 'OUT')
                     ->delete();
 
                 StockTransaction::where('store_id', $toStoreId)
                     ->where('product_id', $productId)
                     ->where('engineer_id', $engineerId)
                     ->where('quantity', $previousReceivedQuantity)
-                    ->where('stock_movement', 'INCREASED')
+                    ->where('stock_movement', 'IN')
                     ->delete();
 
                 // Log the new transactions
@@ -209,7 +209,8 @@ class TransactionService
                         'product_id' => $productId,
                         'engineer_id' => $engineerId,
                         'quantity' => $newReceivedQuantity,
-                        'stock_movement' => 'DECREASED',
+                        'stock_movement' => 'OUT',
+                        'type' => 'TRANSFER',
                     ]);
 
                     StockTransaction::create([
@@ -217,7 +218,8 @@ class TransactionService
                         'product_id' => $productId,
                         'engineer_id' => $engineerId,
                         'quantity' => $newReceivedQuantity,
-                        'stock_movement' => 'INCREASED',
+                        'stock_movement' => 'IN',
+                        'type' => 'TRANSFER',
                     ]);
                 }
             }
@@ -300,7 +302,8 @@ class TransactionService
                     'product_id' => $item->product_id,
                     'engineer_id' => $request->engineer_id,
                     'quantity' => abs($item->quantity),
-                    'stock_movement' => "DECREASED",
+                    'stock_movement' => "OUT",
+                    'type' => "CONSUMPTION",
                     'created_by' => $user->id ?? null,
                     "created_type" => $tokenName,
                     "updated_by" => $user->id ?? null,
