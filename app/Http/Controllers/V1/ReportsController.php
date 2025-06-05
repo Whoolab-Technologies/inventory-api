@@ -15,17 +15,16 @@ class ReportsController extends Controller
     public function transactionReport(Request $request)
     {
         try {
-
-
             $searchTerm = $request->query('search');
-            $fromDate = $request->query('from_date', Carbon::now()->startOfYear()->format('Y-m-d'));
-            $toDate = $request->query('to_date', Carbon::now()->format('Y-m-d'));
-            $storeId = $request->query('store_id');
-            $productId = $request->query('product_id');
+            $date = $request->query('date', Carbon::now()->format('Y-m-d'));
+            $storeId = $request->query('store');
+            $productId = $request->query('product');
 
-            $transactions = StockTransaction::with(['product', 'store', 'engineer.store'])
-                ->whereDate('created_at', '>=', $fromDate)
-                ->whereDate('created_at', '<=', $toDate);
+            $transactions = StockTransaction::with(['product', 'store'])
+                ->whereBetween('created_at', [
+                    Carbon::parse($date)->startOfDay(),
+                    Carbon::parse($date)->endOfDay(),
+                ]);
 
             if ($searchTerm) {
                 $transactions->search($searchTerm);
@@ -42,18 +41,21 @@ class ReportsController extends Controller
             $transactions = $transactions->orderByDesc('id')->get()->map(function ($tx) {
                 return [
                     'material_name' => $tx->product->item ?? 'N/A',
-                    'from_store' => $tx->store->name ?? 'N/A',
-                    'to_store' => $tx->engineer->store->name ?? 'N/A',
+                    'store' => $tx->store->name ?? 'N/A',
                     'quantity' => $tx->quantity,
-                    'consumption' => $tx->store->id == $tx->engineer->store->id,
+                    'consumption' => $tx->type === "CONSUMPTION",
                     'transaction_type' => strtoupper($tx->stock_movement),
+                    'type' => strtoupper($tx->type),
                     'date_of_transaction' => $tx->created_at->format('Y-m-d'),
                 ];
             });
+
             return Helpers::sendResponse(200, $transactions, 'Transactions retrieved successfully');
+
         } catch (\Exception $e) {
             return Helpers::sendResponse(500, [], $e->getMessage());
         }
+
     }
 
     //  public function transactionReport(Request $request)
