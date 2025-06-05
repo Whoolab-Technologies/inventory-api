@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use App\Models\V1\Admin;
 use App\Services\Helpers;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 class AdminAuthController extends Controller
 {
@@ -76,6 +77,100 @@ class AdminAuthController extends Controller
     {
         $request->user()->tokens()->delete();
         return Helpers::sendResponse(200, [], "Logged out successfully");
+    }
+
+    public function index()
+    {
+        $user = auth()->user();
+        $admins = Admin::where('id', '!=', $user->id)->get();
+        return Helpers::sendResponse(
+            status: 200,
+            data: $admins,
+            messages: '',
+        );
+    }
+
+    public function show($id)
+    {
+        try {
+
+            $admin = Admin::findOrFail($id);
+            return Helpers::sendResponse(
+                status: 200,
+                data: $admin,
+                messages: '',
+            );
+        } catch (ModelNotFoundException $e) {
+            return Helpers::sendResponse(
+                status: 404,
+                data: [],
+                messages: 'Admin not found',
+            );
+        } catch (\Exception $th) {
+            return Helpers::sendResponse(
+                status: 400,
+                data: [],
+                messages: $th->getMessage(),
+            );
+        }
+    }
+
+    public function update(Request $request, $id)
+    {
+        try {
+            $admin = Admin::findOrFail($id);
+            $this->validate($request, [
+                'name' => 'sometimes|required|string|max:255',
+                'email' => "sometimes|required|string|email|max:255|unique:admins,email,{$id}",
+                'password' => 'nullable|string|min:6',
+            ]);
+
+
+            if ($request->has('password')) {
+                $request->merge(['password' => Hash::make($request->password)]);
+            }
+            $admin->update($request->all());
+            return Helpers::sendResponse(
+                status: 200,
+                data: $admin,
+                messages: 'Admin details updated successfully',
+            );
+
+        } catch (ModelNotFoundException $e) {
+            return Helpers::sendResponse(
+                status: 404,
+                data: [],
+                messages: 'Admin not found',
+            );
+        } catch (\Throwable $th) {
+            return Helpers::sendResponse(
+                status: 400,
+                data: [],
+                messages: $th->getMessage(),
+
+            );
+        }
+    }
+
+    public function destroy($id)
+    {
+        try {
+            $admin = Admin::findOrFail($id);
+            $admin->delete();
+            return response()->json(['message' => 'Admin deleted successfully']);
+        } catch (ModelNotFoundException $e) {
+            return Helpers::sendResponse(
+                status: 404,
+                data: [],
+                messages: 'Admin not found',
+            );
+        } catch (\Throwable $th) {
+            return Helpers::sendResponse(
+                status: 400,
+                data: [],
+                messages: $th->getMessage(),
+            );
+        }
     }
 
 

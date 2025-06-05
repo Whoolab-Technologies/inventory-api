@@ -12,4 +12,5 @@ return [
     ],
     'unique' => 'The :attribute has already been taken.',
     'exists' => 'The selected :attribute is invalid.',
+    'confirmed' => 'The :attribute confirmation does not match.',
 ];

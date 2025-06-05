@@ -16,12 +16,17 @@ use App\Http\Controllers\V1\ProductController;
 use App\Http\Controllers\V1\CategoriesController;
 
 Route::prefix('admin')->group(function () {
-
     Route::post('register', [AdminAuthController::class, 'register']);
     Route::post('login', [AdminAuthController::class, 'login']);
 
     Route::middleware('auth:admin')->group(function () {
         Route::post('logout', [AdminAuthController::class, 'logout']);
+
+        Route::post('admins', [AdminAuthController::class, 'register']);
+        Route::get('admins', [AdminAuthController::class, 'index']);
+        Route::get('admins/{id}', [AdminAuthController::class, 'show']);
+        Route::put('admins/{id}', [AdminAuthController::class, 'update']);
+        Route::delete('admins/{id}', [AdminAuthController::class, 'destroy']);
 
         Route::post('storekeepers', [StorekeeperController::class, 'store']);
         Route::get('storekeepers', [StorekeeperController::class, 'index']);
