@@ -98,8 +98,8 @@ Route::prefix('admin')->group(function () {
         Route::delete('brands/{id}', [BrandController::class, 'destroy']);
 
         Route::prefix('reports')->group(function () {
-            Route::get('io', [ReportsController::class, 'transactionReport']);
-            Route::get('exportTransactions', [ReportsController::class, 'exportTransactions']);
+            Route::get('material-in-out', [ReportsController::class, 'transactionReport']);
+            Route::get('material-returns', [ReportsController::class, 'materialReturnReport']);
 
         });
     });

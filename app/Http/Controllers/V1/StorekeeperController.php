@@ -552,6 +552,7 @@ class StorekeeperController extends Controller
             return Helpers::sendResponse(200, $materialReturn, 'Material return created successfully');
 
         } catch (\Throwable $th) {
+            \Log::info($th->getMessage());
             return Helpers::sendResponse(500, [], $th->getMessage());
         }
     }

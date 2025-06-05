@@ -3,12 +3,12 @@
 namespace App\Http\Controllers\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\V1\MaterialReturn;
 use Illuminate\Http\Request;
 use App\Services\Helpers;
 use App\Models\V1\StockTransaction;
+use App\Models\V1\MaterialReturnItem;
 use Illuminate\Support\Carbon;
-use App\Exports\MaterialInOutTransactionExport;
-use Maatwebsite\Excel\Facades\Excel;
 class ReportsController extends Controller
 {
 
@@ -38,17 +38,19 @@ class ReportsController extends Controller
                 $transactions->where('product_id', $productId);
             }
 
-            $transactions = $transactions->orderByDesc('id')->get()->map(function ($tx) {
-                return [
-                    'material_name' => $tx->product->item ?? 'N/A',
-                    'store' => $tx->store->name ?? 'N/A',
-                    'quantity' => $tx->quantity,
-                    'consumption' => $tx->type === "CONSUMPTION",
-                    'transaction_type' => strtoupper($tx->stock_movement),
-                    'type' => strtoupper($tx->type),
-                    'date_of_transaction' => $tx->created_at->format('Y-m-d'),
-                ];
-            });
+            $transactions = $transactions->orderByDesc('id')->get()
+                ->map(function ($tx, $index) {
+                    return [
+                        'id' => $index + 1,
+                        'material_name' => $tx->product->item ?? 'N/A',
+                        'store' => $tx->store->name ?? 'N/A',
+                        'quantity' => $tx->quantity,
+                        'consumption' => $tx->type === "CONSUMPTION",
+                        'transaction_type' => strtoupper($tx->stock_movement),
+                        'type' => strtoupper($tx->type),
+                        'date_of_transaction' => $tx->created_at->format('Y-m-d'),
+                    ];
+                });
 
             return Helpers::sendResponse(200, $transactions, 'Transactions retrieved successfully');
 
@@ -106,22 +108,77 @@ class ReportsController extends Controller
 //             return Helpers::sendResponse(500, [], $e->getMessage());
 //         }
 //     }
-    public function exportTransactions(Request $request)
+
+
+    public function materialReturnReport(Request $request)
     {
         try {
-            $fromDate = $request->query('from_date', Carbon::now()->startOfYear()->format('Y-m-d'));
-            $toDate = $request->query('to_date', Carbon::now()->format('Y-m-d'));
-            $storeId = $request->query('store_id');
-            $productId = $request->query('product_id');
-            $searchTerm = $request->query('search');
-            $fileName = 'exports/stock_transactions.xlsx';
-            Excel::store(
-                new MaterialInOutTransactionExport($fromDate, $toDate, $storeId, $productId, $searchTerm),
-                $fileName,
-                'public'
-            );
-            $filePath = storage_path('app/' . $fileName);
-            return Helpers::download($filePath, false);
+            $date = $request->query('date', Carbon::now()->format('Y-m-d'));
+            $storeId = $request->query('store');
+            $productId = $request->query('product');
+
+            // $returnItems = MaterialReturn::with(['items', 'fromStore'])
+            //     ->whereBetween('created_at', [
+            //         Carbon::parse($date)->startOfDay(),
+            //         Carbon::parse($date)->endOfDay(),
+            //     ])
+            //     ->when($storeId, function ($query, $storeId) {
+            //         $query->whereHas('fromStore', function ($q) use ($storeId) {
+            //             $q->where('id', $storeId);
+            //         });
+            //     })
+            //     ->when($productId, function ($query, $productId) {
+            //         $query->whereHas('items', function ($q) use ($productId) {
+            //             $q->where('product_id', $productId);
+            //         });
+            //     })
+            //     ->orderByDesc('id')
+            //     ->get()
+            //     ->flatMap(function ($item) use ($productId) {
+            //         $filteredItems = $productId
+            //             ? $item->items->where('product_id', $productId)
+            //             : $item->items;
+
+            //         return $filteredItems->map(function ($productItem) use ($item) {
+            //             return [
+            //                 'product_id' => $productItem->product_id,
+            //                 'issued_quantity' => $productItem->issued,
+            //                 'received_quantity' => $productItem->received,
+            //                 'return_date' => $item->created_at?->format('Y-m-d H:i:s'),
+            //                 'site_of_origin' => $item->fromStore->name ?? 'N/A',
+            //             ];
+            //         });
+            //     })
+            //     ->values();
+
+            $returnItems = MaterialReturnItem::with(['materialReturn.fromStore'])
+                ->whereHas('materialReturn', function ($query) use ($date, $storeId) {
+                    $query->whereBetween('created_at', [
+                        Carbon::parse($date)->startOfDay(),
+                        Carbon::parse($date)->endOfDay(),
+                    ]);
+                    if ($storeId) {
+                        $query->where('from_store_id', $storeId);  // or whatever foreign key you use
+                    }
+                })
+                ->when($productId, function ($query, $productId) {
+                    $query->where('product_id', $productId);
+                })
+                ->orderByDesc('id')
+                ->get()
+                ->map(function ($item, $index) {
+                    return [
+                        'id' => $index + 1,
+                        'product_id' => $item->product_id,
+                        'product_name' => $item->product->item,
+                        'quantity' => $item->issued,
+                        'received_quantity' => $item->received,
+                        'return_date' => $item->materialReturn->created_at?->format('Y-m-d H:i:s'),
+                        'site_of_origin' => $item->materialReturn->fromStore->name ?? 'N/A',
+                    ];
+                });
+
+            return Helpers::sendResponse(200, $returnItems, 'Material return transactions retrieved successfully');
         } catch (\Exception $e) {
             return Helpers::sendResponse(500, [], $e->getMessage());
         }

@@ -6,9 +6,9 @@ use App\Models\V1\MaterialReturnItem;
 use App\Models\V1\StockInTransit;
 use App\Models\V1\EngineerStock;
 use App\Models\V1\Stock;
-use App\Models\V1\StockTransferItem;
 use App\Models\V1\StockTransaction;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class MaterialReturnService
 {
@@ -68,7 +68,8 @@ class MaterialReturnService
                     $stockTransaction->product_id = $product['product_id'];
                     $stockTransaction->engineer_id = $engineer['engineer_id'];
                     $stockTransaction->quantity = abs($product['issued']);
-                    $stockTransaction->stock_movement = "IN-TRANSIT";
+                    $stockTransaction->stock_movement = "TRANSIT";
+                    $stockTransaction->type = "RETURN";
                     $stockTransaction->save();
                 }
             }
@@ -137,7 +138,8 @@ class MaterialReturnService
                     ->whereIn('product_id', $productIds)
                     ->get()
                     ->keyBy('product_id');
-
+                $user = Auth::user();
+                $tokenName = optional($user?->currentAccessToken())->name;
                 foreach ($details['items'] as $item) {
                     $productId = $item['product_id'];
                     $receivedQuantity = $item['received'];
@@ -199,14 +201,28 @@ class MaterialReturnService
                                 'product_id' => $productId,
                                 'engineer_id' => $engineerId,
                                 'quantity' => $receivedQuantity,
-                                'stock_movement' => 'DECREASED',
+                                'stock_movement' => 'OUT',
+                                'type' => 'RETURN',
+                                'created_by' => $user->id ?? null,
+                                "created_type" => $tokenName,
+                                "updated_by" => $user->id ?? null,
+                                'updated_type' => $tokenName,
+                                'created_at' => now(),
+                                'updated_at' => now()
                             ],
                             [
                                 'store_id' => $toStoreId,
                                 'product_id' => $productId,
                                 'engineer_id' => $engineerId,
                                 'quantity' => $receivedQuantity,
-                                'stock_movement' => 'INCREASED',
+                                'stock_movement' => 'IN',
+                                'type' => 'RETURN',
+                                'created_by' => $user->id ?? null,
+                                "created_type" => $tokenName,
+                                "updated_by" => $user->id ?? null,
+                                'updated_type' => $tokenName,
+                                'created_at' => now(),
+                                'updated_at' => now()
                             ]
                         ]);
                     }
