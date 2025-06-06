@@ -234,10 +234,11 @@ class MaterialReturnService
                     }
                 }
             }
+            $materialReturn->status = 'RECEIVED';
             if ($isPartiallyReceived) {
                 $materialReturn->status = 'PARTIALLY RECEIVED';
-                $materialReturn->save();
             }
+            $materialReturn->save();
             \DB::commit();
             return $materialReturn;
 

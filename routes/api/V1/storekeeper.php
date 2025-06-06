@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\V1\ReportsController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\V1\StorekeeperAuthController;
 use App\Http\Controllers\V1\StorekeeperController;
@@ -37,6 +38,8 @@ Route::prefix('storekeeper')->group(function () {
         Route::get('returns', [StorekeeperController::class, 'getMaterialReturns']);
         Route::post('returns', [StorekeeperController::class, 'postMaterialReturns']);
         Route::post('returns/{id}', [StorekeeperController::class, 'updateMaterialReturns']);
+
+        Route::get('summary', [ReportsController::class, 'consumptionReport']);
 
     });
 });

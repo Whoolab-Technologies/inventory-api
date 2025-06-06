@@ -181,6 +181,57 @@ class ReportsController extends Controller
             return Helpers::sendResponse(500, [], $e->getMessage());
         }
     }
+    public function consumptionReport(Request $request)
+    {
+        try {
+
+            $storeId = $request->query('store');
+            $productId = $request->query('product');
+            $startDate = $request->query('startDate');
+            $endDate = $request->query('endDate');
+            $start = $startDate ? Carbon::parse($startDate)->startOfDay() : Carbon::now()->subDays(6)->startOfDay();
+            $end = $endDate ? Carbon::parse($endDate)->endOfDay() : Carbon::now()->endOfDay();
+
+            $transactions = StockTransaction::with(['product', 'store', 'engineer.store'])
+                ->whereBetween('created_at', [$start, $end]);
+
+            if ($storeId) {
+                $transactions->where('store_id', $storeId);
+            }
+
+            if ($productId) {
+                $transactions->where('product_id', $productId);
+            }
+
+            $grouped = $transactions->get()
+                ->groupBy(fn($tx) => $tx->store_id . '-' . $tx->product_id . '-' . $tx->created_at->format('Y-m-d'))
+                ->map(function ($group, $key) {
+                    $first = $group->first();
+                    [$storeId, $productId, $date] = explode('-', $key);
+
+                    return [
+                        'id' => $key,
+                        'storeId' => (int) $storeId,
+                        'storeName' => $first->store->name ?? 'N/A',
+                        'productId' => (int) $productId,
+                        'materialName' => $first->product->item ?? 'N/A',
+                        'materialId' => $first->product->cat_id ?? 'N/A',
+                        'brand' => $first->product->brand->name ?? 'N/A',
+                        'category' => $first->product->category->name ?? 'N/A',
+                        'totalIncreased' => $group->where('stock_movement', 'IN')->sum('quantity'),
+                        'totalDecreased' => $group->where('stock_movement', 'OUT')->sum('quantity'),
+                        'date' => optional($first->created_at)->format('Y-m-d'), // or use now() if date missing
+                    ];
+                })
+                ->values();
+
+            //return Helpers::sendResponse(200, ['grouped' => $grouped, 'start' => $start, 'end' => $end], 'Transactions retrieved successfully');
+
+            return Helpers::sendResponse(200, $grouped, 'Transactions retrieved successfully');
+        } catch (\Exception $e) {
+            return Helpers::sendResponse(500, [], $e->getMessage());
+        }
+    }
 
 
 }

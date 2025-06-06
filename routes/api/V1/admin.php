@@ -101,7 +101,7 @@ Route::prefix('admin')->group(function () {
             Route::get('material-in-out', [ReportsController::class, 'transactionReport']);
             Route::get('material-returns', [ReportsController::class, 'materialReturnReport']);
             Route::get('summary', [ReportsController::class, 'summaryReport']);
-
+            Route::get('consumption', [ReportsController::class, 'consumptionReport']);
         });
     });
 });
