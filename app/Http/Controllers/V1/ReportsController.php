@@ -154,26 +154,26 @@ class ReportsController extends Controller
             }
             // $data = $transactions->get();
             $grouped = $transactions->get()
-                ->groupBy(fn($tx) => $tx->product_id)
-                ->map(function ($group, $index) {
+                ->groupBy(fn($tx) => $tx->store_id . '-' . $tx->product_id)
+                ->map(function ($group, $key) {
                     $first = $group->first();
-                    $increased = $group->where('stock_movement', 'IN')->sum('quantity');
-                    $decreased = $group->where('stock_movement', 'OUT')->sum('quantity');
-                    $date = $first->created_at->format('Y-m-d');
+                    [$storeId, $productId] = explode('-', $key);
 
                     return [
-                        'id' => $index,
-                        'materialName' => $first->product->item ?? 'N/A',
-                        'materialId' => $first->product->cat_id ?? 'N/A',
+                        'storeId' => (int) $storeId,
                         'storeName' => $first->store->name ?? 'N/A',
+                        'productId' => (int) $productId,
+                        'materialName' => $first->product->item ?? 'N/A',
+                        'materialCode' => $first->product->cat_id ?? 'N/A',
                         'brand' => $first->product->brand->name ?? 'N/A',
                         'category' => $first->product->category->name ?? 'N/A',
-                        'totalIncreased' => $increased,
-                        'totalDecreased' => $decreased,
-                        'productId' => $first->product_id,
-                        'date' => $date,
+                        'totalIncreased' => $group->where('stock_movement', 'IN')->sum('quantity'),
+                        'totalDecreased' => $group->where('stock_movement', 'OUT')->sum('quantity'),
+                        'date' => optional($first->created_at)->format('Y-m-d'), // or use now() if date missing
                     ];
-                })->values();
+                })
+                ->values();
+
 
             return Helpers::sendResponse(200, $grouped, 'Transactions retrieved successfully');
         } catch (\Exception $e) {
