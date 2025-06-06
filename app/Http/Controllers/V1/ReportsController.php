@@ -154,10 +154,10 @@ class ReportsController extends Controller
             }
             // $data = $transactions->get();
             $grouped = $transactions->get()
-                ->groupBy(fn($tx) => $tx->store_id . '-' . $tx->product_id)
+                ->groupBy(fn($tx) => $tx->store_id . '-' . $tx->product_id . '-' . $tx->created_at->format('Y-m-d'))
                 ->map(function ($group, $key) {
                     $first = $group->first();
-                    [$storeId, $productId] = explode('-', $key);
+                    [$storeId, $productId, $date] = explode('-', $key);
 
                     return [
                         'storeId' => (int) $storeId,
