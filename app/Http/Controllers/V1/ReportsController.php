@@ -160,11 +160,12 @@ class ReportsController extends Controller
                     [$storeId, $productId, $date] = explode('-', $key);
 
                     return [
+                        'id' => $key,
                         'storeId' => (int) $storeId,
                         'storeName' => $first->store->name ?? 'N/A',
                         'productId' => (int) $productId,
                         'materialName' => $first->product->item ?? 'N/A',
-                        'materialCode' => $first->product->cat_id ?? 'N/A',
+                        'materialId' => $first->product->cat_id ?? 'N/A',
                         'brand' => $first->product->brand->name ?? 'N/A',
                         'category' => $first->product->category->name ?? 'N/A',
                         'totalIncreased' => $group->where('stock_movement', 'IN')->sum('quantity'),
