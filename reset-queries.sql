@@ -1,0 +1,17 @@
+DELETE FROM engineer_stock;
+DELETE FROM inventory_dispatches;
+DELETE FROM inventory_dispatch_files;
+DELETE FROM inventory_dispatch_items;
+DELETE FROM material_requests;
+DELETE FROM material_request_items;
+DELETE FROM material_request_stock_transfers;
+DELETE FROM material_returns;
+DELETE FROM material_return_details;
+DELETE FROM material_return_items;
+DELETE FROM stock;
+DELETE FROM stock_in_transit;
+DELETE FROM stock_transfers;
+DELETE FROM stock_transactions;
+DELETE FROM stock_transfer_files;
+DELETE FROM stock_transfer_items;
+DELETE FROM stock_transfer_notes;
