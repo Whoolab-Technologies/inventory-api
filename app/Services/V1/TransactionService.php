@@ -186,6 +186,7 @@ class TransactionService
                     ->where('product_id', $productId)
                     ->where('engineer_id', $engineerId)
                     ->where('stock_movement', 'TRANSIT')
+                    ->where('type', 'TRANSFER')
                     ->delete();
 
                 StockTransaction::where('store_id', $fromStoreId)
@@ -193,6 +194,7 @@ class TransactionService
                     ->where('engineer_id', $engineerId)
                     ->where('quantity', $previousReceivedQuantity)
                     ->where('stock_movement', 'OUT')
+                    ->where('type', 'TRANSFER')
                     ->delete();
 
                 StockTransaction::where('store_id', $toStoreId)
@@ -200,6 +202,7 @@ class TransactionService
                     ->where('engineer_id', $engineerId)
                     ->where('quantity', $previousReceivedQuantity)
                     ->where('stock_movement', 'IN')
+                    ->where('type', 'TRANSFER')
                     ->delete();
 
                 // Log the new transactions

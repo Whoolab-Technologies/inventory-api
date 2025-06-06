@@ -192,6 +192,12 @@ class MaterialReturnService
                         $fromStoreStock->quantity += $remaining;
                         $fromStoreStock->save();
                     }
+                    StockTransaction::where('store_id', $fromStoreId)
+                        ->where('product_id', $productId)
+                        ->where('engineer_id', $engineerId)
+                        ->where('stock_movement', 'TRANSIT')
+                        ->where('type', 'RETURN')
+                        ->delete();
 
                     // Log stock transactions
                     if ($receivedQuantity > 0) {
