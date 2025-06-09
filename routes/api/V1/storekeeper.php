@@ -40,6 +40,7 @@ Route::prefix('storekeeper')->group(function () {
         Route::post('returns/{id}', [StorekeeperController::class, 'updateMaterialReturns']);
 
         Route::get('summary', [ReportsController::class, 'consumptionReport']);
+        Route::post('summary/export', [ReportsController::class, 'exportReport']);
 
     });
 });

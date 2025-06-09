@@ -3,12 +3,15 @@
 namespace App\Http\Controllers\V1;
 
 use App\Http\Controllers\Controller;
-use App\Models\V1\MaterialReturn;
 use Illuminate\Http\Request;
 use App\Services\Helpers;
 use App\Models\V1\StockTransaction;
 use App\Models\V1\MaterialReturnItem;
 use Illuminate\Support\Carbon;
+use App\Exports\MaterialConsumptionExport;
+use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 class ReportsController extends Controller
 {
 
@@ -233,5 +236,16 @@ class ReportsController extends Controller
         }
     }
 
-
+    public function exportReport(Request $request)
+    {
+        try {
+            $reports = $request->input('reports', []);
+            $fileName = 'material_consumption_' . now()->format('Ymd_His') . '.xlsx';
+            $relativePath = "export/$fileName";
+            Excel::store(new MaterialConsumptionExport($reports), $relativePath, 'public');
+            return Helpers::sendResponse(200, URL::to(Storage::url($relativePath)), 'Transactions retrieved successfully');
+        } catch (\Exception $e) {
+            return Helpers::sendResponse(500, [], $e->getMessage());
+        }
+    }
 }
