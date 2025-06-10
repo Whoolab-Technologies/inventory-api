@@ -67,10 +67,7 @@ class ProductController extends Controller
                 ->eye('circle')
                 ->color(0, 0, 255)
                 ->margin(1)
-                ->generate(json_encode([
-                    'id' => $itemId,
-                    'type' => 'product'
-                ]));
+                ->generate($itemId);
             $folderPath = "qrcodes/products/$itemId";
             $fileName = $item->id . '.png';
             $storagePath = storage_path("app/public/{$folderPath}");

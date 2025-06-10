@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\V1;
 
+use App\Exports\GenericExcelExport;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Services\Helpers;
@@ -243,6 +244,22 @@ class ReportsController extends Controller
             $fileName = 'material_consumption_' . now()->format('Ymd_His') . '.xlsx';
             $relativePath = "export/$fileName";
             Excel::store(new MaterialConsumptionExport($reports), $relativePath, 'public');
+            return Helpers::sendResponse(200, URL::to(Storage::url($relativePath)), 'Transactions retrieved successfully');
+        } catch (\Exception $e) {
+            return Helpers::sendResponse(500, [], $e->getMessage());
+        }
+    }
+    public function genericExcelExport(Request $request)
+    {
+        try {
+            $data = $request->input('data', []);
+            $headers = $request->input('headers', []);
+            $title = $request->input('title', "SUMMARY REPORT");
+            $fileName = $title . "_" . now()->format('Ymd_His') . '.xlsx';
+            $relativePath = "export/$fileName";
+            // $filePath = storage_path('app/public/' . $relativePath);
+            Excel::store(new GenericExcelExport($data, $headers, $title), $relativePath, 'public');
+            //return Helpers::download($filePath);
             return Helpers::sendResponse(200, URL::to(Storage::url($relativePath)), 'Transactions retrieved successfully');
         } catch (\Exception $e) {
             return Helpers::sendResponse(500, [], $e->getMessage());
