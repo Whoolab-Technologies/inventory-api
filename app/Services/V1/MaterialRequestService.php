@@ -76,6 +76,7 @@ class MaterialRequestService
                 $stockTransfers->from_store_id = $request->from_store_id;
                 $stockTransfers->status = "in_transit";
                 $stockTransfers->remarks = $request->note;
+                $stockTransfers->dn_number = $request->dn_number;
                 $stockTransfers->save();
 
                 if (!empty($request->images) && is_array($request->images)) {
@@ -144,7 +145,8 @@ class MaterialRequestService
                         'engineer_id' => $materialRequest->engineer_id,
                         'quantity' => $item->issued_quantity,
                         'stock_movement' => 'TRANSIT',
-                        'type' => 'TRANSFER'
+                        'type' => 'TRANSFER',
+                        'dn_number' => $request->dn_number,
                     ]);
                 }
             }

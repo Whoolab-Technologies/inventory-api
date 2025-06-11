@@ -23,6 +23,7 @@ class MaterialReturnService
             $materialReturn = new MaterialReturn();
             $materialReturn->from_store_id = $request->from_store_id;
             $materialReturn->to_store_id = $request->to_store_id;
+            $materialReturn->dn_number = $request->dn_number ?? null;
             $materialReturn->save();
 
             foreach ($request->engineers as $engineer) {
@@ -70,6 +71,7 @@ class MaterialReturnService
                     $stockTransaction->quantity = abs($product['issued']);
                     $stockTransaction->stock_movement = "TRANSIT";
                     $stockTransaction->type = "RETURN";
+                    $stockTransaction->dn_number = $request->dn_number ?? null;
                     $stockTransaction->save();
                 }
             }
@@ -209,6 +211,7 @@ class MaterialReturnService
                                 'quantity' => $receivedQuantity,
                                 'stock_movement' => 'OUT',
                                 'type' => 'RETURN',
+                                'dn_number' => $materialReturn->dn_number ?? null,
                                 'created_by' => $user->id ?? null,
                                 "created_type" => $tokenName,
                                 "updated_by" => $user->id ?? null,
@@ -223,6 +226,7 @@ class MaterialReturnService
                                 'quantity' => $receivedQuantity,
                                 'stock_movement' => 'IN',
                                 'type' => 'RETURN',
+                                'dn_number' => $materialReturn->dn_number ?? null,
                                 'created_by' => $user->id ?? null,
                                 "created_type" => $tokenName,
                                 "updated_by" => $user->id ?? null,

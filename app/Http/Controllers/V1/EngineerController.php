@@ -379,6 +379,7 @@ class EngineerController extends Controller
                         "to_store_id" => $transfer->to_store_id,
                         "status" => $transfer->status,
                         "remarks" => $transfer->remarks,
+                        "dn_number" => $transfer->dn_number,
                         "created_at" => $transfer->created_at,
                         "notes" => $transfer->notes->map(function ($item) {
                             $createBy = $item->createdBy;

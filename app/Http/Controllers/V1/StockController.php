@@ -9,6 +9,7 @@ use App\Services\Helpers;
 use App\Models\V1\Product;
 use App\Models\V1\Store;
 use App\Models\V1\Engineer;
+use App\Models\V1\StockMeta;
 use App\Models\V1\StockTransaction;
 class StockController extends Controller
 {
@@ -60,6 +61,15 @@ class StockController extends Controller
             //     ['store_id' => $request->store_id, 'product_id' => $request->product_id],
             //     ['quantity' => \DB::raw("quantity + $quantityChange")]
             // );
+            $stockMeta = new StockMeta();
+            $stockMeta->store_id = $request->store_id;
+            $stockMeta->product_id = $request->product_id;
+            $stockMeta->quantity = $quantityChange;
+            $stockMeta->supplier = $request->supplier;
+            $stockMeta->lpo = $request->lpo;
+            $stockMeta->dn_number = $request->dn_number;
+
+            $stockMeta->save();
             $stock = Stock::firstOrCreate(
                 ['store_id' => $request->store_id, 'product_id' => $request->product_id],
                 ['quantity' => 0]
@@ -73,7 +83,9 @@ class StockController extends Controller
                 'engineer_id' => $request->engineer_id,
                 'quantity' => abs($quantityChange),
                 'stock_movement' => $movementType,
-                'type' => "STOCK"
+                'type' => "STOCK",
+                'lpo' => $request->lpo,
+                'dn_number' => $request->dn_number,
             ]);
 
             $stock = $this->createStockData($stock);

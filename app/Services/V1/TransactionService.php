@@ -83,6 +83,7 @@ class TransactionService
         try {
             $fromStoreId = $stockTransfer->from_store_id;
             $toStoreId = $stockTransfer->to_store_id;
+            $dnNumber = $stockTransfer->dn_number;
 
             $materialRequest = $stockTransfer->materialRequestStockTransfer->materialRequest;
             $engineerId = $materialRequest->engineer_id;
@@ -214,6 +215,7 @@ class TransactionService
                         'quantity' => $newReceivedQuantity,
                         'stock_movement' => 'OUT',
                         'type' => 'TRANSFER',
+                        'dn_number' => $dnNumber,
                     ]);
 
                     StockTransaction::create([
@@ -223,6 +225,7 @@ class TransactionService
                         'quantity' => $newReceivedQuantity,
                         'stock_movement' => 'IN',
                         'type' => 'TRANSFER',
+                        'dn_number' => $dnNumber,
                     ]);
                 }
             }
@@ -277,7 +280,7 @@ class TransactionService
             // Create Inventory Dispatch
             $inventoryDispatch = InventoryDispatch::create([
                 'dispatch_number' => 'DISPATCH-' . str_pad(InventoryDispatch::max('id') + 1001, 6, '0', STR_PAD_LEFT),
-                'delivery_note_number' => $request->deliveryNoteNumber,
+                'dn_number' => $request->dnNumber,
                 'store_id' => $storekeeper->store_id,
                 'engineer_id' => $request->engineer_id,
                 'self' => $request->self == true ? 1 : 0,
@@ -305,8 +308,10 @@ class TransactionService
                     'product_id' => $item->product_id,
                     'engineer_id' => $request->engineer_id,
                     'quantity' => abs($item->quantity),
+
                     'stock_movement' => "OUT",
                     'type' => "CONSUMPTION",
+                    'dn_number' => $request->dnNumber,
                     'created_by' => $user->id ?? null,
                     "created_type" => $tokenName,
                     "updated_by" => $user->id ?? null,

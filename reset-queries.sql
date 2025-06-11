@@ -15,3 +15,6 @@ DELETE FROM stock_transactions;
 DELETE FROM stock_transfer_files;
 DELETE FROM stock_transfer_items;
 DELETE FROM stock_transfer_notes;
+
+ALTER TABLE `inventory_dispatches` CHANGE `delivery_note_number` `dn_number` TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL;
+php artisan make:migration add_transaction_meta_to_material_returns --path=database/migrations/V1

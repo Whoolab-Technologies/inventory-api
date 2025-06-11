@@ -13,7 +13,7 @@ return new class extends Migration {
     public function up()
     {
         Schema::table('inventory_dispatches', function (Blueprint $table) {
-            $table->text('delivery_note_number')->after(column: 'dispatch_number');
+            $table->text('dn_number')->after(column: 'dispatch_number');
         });
     }
 
@@ -25,7 +25,7 @@ return new class extends Migration {
     public function down()
     {
         Schema::table('inventory_dispatches', function (Blueprint $table) {
-            $table->dropColumn('delivery_note_number');
+            $table->dropColumn('dn_number');
         });
     }
 };
