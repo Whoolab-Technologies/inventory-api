@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use App\Services\Helpers;
 use App\Models\V1\StockTransaction;
 use App\Models\V1\MaterialReturnItem;
+use App\Models\V1\StockMeta;
 use Illuminate\Support\Carbon;
 use App\Exports\MaterialConsumptionExport;
 use Maatwebsite\Excel\Facades\Excel;
@@ -24,7 +25,8 @@ class ReportsController extends Controller
             $storeId = $request->query('store');
             $productId = $request->query('product');
 
-            $transactions = StockTransaction::with(['product', 'store'])
+
+            $transactions = StockTransaction::with(['product', 'store', 'engineer'])
                 ->whereBetween('created_at', [
                     Carbon::parse($date)->startOfDay(),
                     Carbon::parse($date)->endOfDay(),
@@ -44,6 +46,16 @@ class ReportsController extends Controller
 
             $transactions = $transactions->orderByDesc('id')->get()
                 ->map(function ($tx, $index) {
+                    $meta = 'N/A';
+
+                    // Only try to get stock_meta if type is STOCK
+                    if (strtoupper($tx->type) === "STOCK") {
+                        $meta = StockMeta::where('dn_number', $tx->dn_number)
+                            ->where('store_id', $tx->store_id)
+                            ->where('product_id', $tx->product_id)
+                            ->first();
+                    }
+
                     return [
                         'id' => $index + 1,
                         'material_name' => $tx->product->item ?? 'N/A',
@@ -53,6 +65,10 @@ class ReportsController extends Controller
                         'transaction_type' => strtoupper($tx->stock_movement),
                         'type' => strtoupper($tx->type),
                         'date_of_transaction' => $tx->created_at->format('Y-m-d'),
+                        'dn_number' => $tx->dn_number ?? 'N/A',
+                        'lpo' => $tx->lpo ?? 'N/A',
+                        'engineer' => $tx->engineer->name ?? 'N/A',
+                        'meta' => $meta
                     ];
                 });
 
