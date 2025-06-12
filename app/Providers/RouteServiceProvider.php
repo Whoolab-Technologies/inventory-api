@@ -32,6 +32,7 @@ class RouteServiceProvider extends ServiceProvider
             Route::prefix('api/v1')
                 ->middleware('api')
                 ->group(function () {
+                    require base_path('routes/api/V1/common.php');
                     require base_path('routes/api/V1/admin.php');
                     require base_path('routes/api/V1/engineer.php');
                     require base_path('routes/api/V1/storekeeper.php');

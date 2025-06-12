@@ -3,11 +3,6 @@
 use App\Http\Controllers\V1\EngineerAuthController;
 use App\Http\Controllers\V1\EngineerController;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\V1\AdminAuthController;
-use App\Http\Controllers\V1\StorekeeperController;
-use App\Http\Controllers\V1\StoreController;
-use App\Http\Controllers\V1\BrandController;
-use App\Http\Controllers\V1\UnitController;
 use App\Http\Controllers\V1\ProductController;
 
 Route::prefix('engineer')->group(function () {
