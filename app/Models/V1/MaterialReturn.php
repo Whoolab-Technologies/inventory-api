@@ -8,7 +8,7 @@ class MaterialReturn extends BaseModel
 {
     use HasFactory;
     protected $table = "material_returns";
-    protected $fillable = ['from_store_id', 'to_store_id', 'status'];
+    protected $fillable = ['from_store_id', 'to_store_id', 'status', 'dn_number'];
 
 
     protected $hidden = ['created_by', 'created_type', 'updated_by', 'updated_type', 'created_at', 'updated_at'];

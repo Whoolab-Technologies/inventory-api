@@ -68,6 +68,7 @@ class ReportsController extends Controller
                         'dn_number' => $tx->dn_number ?? 'N/A',
                         'lpo' => $tx->lpo ?? 'N/A',
                         'engineer' => $tx->engineer->name ?? 'N/A',
+                        'engineerStore' => $tx->engineer->store->name ?? 'N/A',
                         'meta' => $meta
                     ];
                 });
@@ -123,7 +124,7 @@ class ReportsController extends Controller
             //     })
             //     ->values();
 
-            $returnItems = MaterialReturnItem::with(['materialReturn.fromStore'])
+            $returnItems = MaterialReturnItem::with(['materialReturn.fromStore', 'materialReturnDetail.engineer.store'])
                 ->whereHas('materialReturn', function ($query) use ($date, $storeId) {
                     $query->whereBetween('created_at', [
                         Carbon::parse($date)->startOfDay(),
@@ -145,6 +146,8 @@ class ReportsController extends Controller
                         'product_name' => $item->product->item,
                         'quantity' => $item->issued,
                         'received_quantity' => $item->received,
+                        'engineer' => $item->materialReturnDetail->engineer->name ?? 'N/A',
+                        'dn_number' => $item->materialReturn->dn_number ?? 'N/A',
                         'return_date' => $item->materialReturn->created_at?->format('Y-m-d'),
                         'site_of_origin' => $item->materialReturn->fromStore->name ?? 'N/A',
                     ];
