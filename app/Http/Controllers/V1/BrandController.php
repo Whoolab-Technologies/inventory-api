@@ -13,7 +13,7 @@ class BrandController extends Controller
     public function index()
     {
         try {
-            $brands = Brand::with('category')->orderByDesc('id')->get();
+            $brands = Brand::orderByDesc('id')->get();
             return Helpers::sendResponse(
                 status: 200,
                 data: $brands,
@@ -62,7 +62,7 @@ class BrandController extends Controller
             $brand = Brand::create($request->all());
             return Helpers::sendResponse(
                 status: 200,
-                data: $brand->load('category'),
+                data: $brand,
                 messages: 'Brand created successfully',
             );
         } catch (\Exception $e) {
@@ -85,7 +85,7 @@ class BrandController extends Controller
             $brand->update($request->all());
             return Helpers::sendResponse(
                 status: 200,
-                data: $brand->load('category'),
+                data: $brand,
                 messages: 'Brand updated successfully',
             );
         } catch (ModelNotFoundException $e) {

@@ -60,6 +60,7 @@ Route::prefix('admin')->group(function () {
         Route::get('products', [ProductController::class, 'index']);
         Route::get('products/{id}', [ProductController::class, 'show']);
         Route::put('products/{id}', [ProductController::class, 'update']);
+        Route::get('categories-and-brands', [ProductController::class, 'getCategoriesAndBrands']);
         Route::delete('products/{id}', [ProductController::class, 'destroy']);
 
 

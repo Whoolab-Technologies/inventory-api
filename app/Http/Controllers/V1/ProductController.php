@@ -3,14 +3,17 @@
 namespace App\Http\Controllers\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\V1\Category;
 use Illuminate\Http\Request;
 use App\Models\V1\Product;
+use App\Models\V1\Brand;
 use App\Services\Helpers;
 use Illuminate\Support\Facades\Validator;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Illuminate\Support\Facades\DB;
 class ProductController extends Controller
 {
+
 
     public function index(Request $request)
     {
@@ -192,6 +195,22 @@ class ProductController extends Controller
             return Helpers::sendResponse(200, $item, 'Item retrieved successfully');
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return Helpers::sendResponse(404, [], 'Item not found');
+        } catch (\Exception $e) {
+            return Helpers::sendResponse(500, [], $e->getMessage());
+        }
+    }
+
+    public function getCategoriesAndBrands(Request $request)
+    {
+        try {
+            $data = [];
+            $categories = Category::get();
+            $brands = Brand::get();
+            $data = [
+                'categories' => $categories,
+                'brands' => $brands,
+            ];
+            return Helpers::sendResponse(200, $data, 'Data retrieved successfully');
         } catch (\Exception $e) {
             return Helpers::sendResponse(500, [], $e->getMessage());
         }

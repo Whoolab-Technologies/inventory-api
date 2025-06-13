@@ -25,8 +25,4 @@ class Category extends BaseModel
         'description'
     ];
 
-    public function brands()
-    {
-        return $this->hasMany(Brand::class);
-    }
 }
