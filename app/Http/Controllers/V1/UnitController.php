@@ -36,6 +36,10 @@ class UnitController extends Controller
     public function store(Request $request)
     {
         try {
+            $validated = $this->validate($request, [
+                'name' => 'required|string|max:255|unique:units',
+                'symbol' => 'required|string',
+            ]);
             $unit = Unit::create($request->all());
             return Helpers::sendResponse(201, $unit, 'Unit created successfully');
         } catch (\Exception $e) {
@@ -46,6 +50,10 @@ class UnitController extends Controller
     public function update(Request $request, $id)
     {
         try {
+            $validated = $this->validate($request, [
+                'name' => 'required|string|max:255|unique:units,name,' . $id,
+                'symbol' => 'required|string',
+            ]);
             $unit = Unit::findOrFail($id);
             $unit->update($request->all());
             return Helpers::sendResponse(200, $unit, 'Unit updated successfully');
