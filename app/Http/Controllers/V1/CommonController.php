@@ -116,7 +116,7 @@ class CommonController extends Controller
 
             DB::table('password_reset_tokens')->where('email', $email)->delete();
 
-            return Helpers::sendResponse(200, [], 'Password reset successful.');
+            return Helpers::sendResponse(200, $userType, 'Password reset successful.');
         } catch (\Throwable $th) {
             return Helpers::sendResponse(400, [], $th->getMessage());
         }
