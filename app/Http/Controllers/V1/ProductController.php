@@ -182,12 +182,8 @@ class ProductController extends Controller
                 'engineerStocks.engineer' => function ($query) {
                     $query->select(
                         'id',
-                        DB::raw("CONCAT(first_name, 
-                            CASE WHEN last_name IS NULL OR last_name = '' 
-                            THEN '' 
-                            ELSE CONCAT(' ', last_name) 
-                            END) as name"
-                        )
+                        'first_name',
+                        'last_name'
                     );
                 },
                 'stocksInTransit'
