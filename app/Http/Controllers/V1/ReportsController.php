@@ -4,6 +4,7 @@ namespace App\Http\Controllers\V1;
 
 use App\Exports\GenericExcelExport;
 use App\Http\Controllers\Controller;
+use App\Models\V1\Engineer;
 use Illuminate\Http\Request;
 use App\Services\Helpers;
 use App\Models\V1\StockTransaction;
@@ -169,12 +170,27 @@ class ReportsController extends Controller
         }
     }
 
+    public function getEngineers(Request $request)
+    {
+        try {
+            $storeId = $request->query('store');
+            $engineers = Engineer::query();
+            if ($storeId) {
+                $engineers->where('store_id', $storeId);
+            }
+            $engineers = $engineers->get();
+            return Helpers::sendResponse(200, $engineers, 'Transactions retrieved successfully');
+        } catch (\Exception $e) {
+            return Helpers::sendResponse(500, [], $e->getMessage());
+        }
+    }
     public function summaryReport(Request $request)
     {
         try {
 
             $storeId = $request->query('store');
             $productId = $request->query('product');
+            $engineerId = $request->query('engineer');
 
             $transactions = StockTransaction::with(['product', 'store', 'engineer.store']);
 
@@ -182,9 +198,14 @@ class ReportsController extends Controller
                 $transactions->where('store_id', $storeId);
             }
 
+            if ($engineerId) {
+                $transactions->where('engineer_id', $engineerId);
+            }
+
             if ($productId) {
                 $transactions->where('product_id', $productId);
             }
+
             // $data = $transactions->get();
             $grouped = $transactions->get()
                 ->groupBy(fn($tx) => $tx->store_id . '-' . $tx->product_id)
