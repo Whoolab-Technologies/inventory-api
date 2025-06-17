@@ -238,7 +238,8 @@ class StorekeeperController extends Controller
                     if ($user->store && !$user->store->is_central_store) {
                         if ($isHisStore) {
 
-                            $query->where('store_id', $user->store_id)->where('quantity', '>', 0);
+                            // $query->where('store_id', $user->store_id)->where('quantity', '>', 0);
+                            $query->where('store_id', $user->store_id);
                         } else {
 
                             if ($storeId) {
@@ -266,7 +267,7 @@ class StorekeeperController extends Controller
             if ($user->store && !$user->store->is_central_store) {
                 if ($isHisStore) {
                     $productsQuery->whereHas('stocks', function ($query) use ($user) {
-                        $query->where('quantity', '>', 0)->where('store_id', $user->store_id);
+                        $query->where('store_id', $user->store_id);
                     });
                 } elseif ($storeId) {
                     $productsQuery->whereHas('stocks', function ($query) use ($storeId) {
@@ -345,7 +346,7 @@ class StorekeeperController extends Controller
     {
         try {
             $searchTerm = $request->query('search');
-            $materialRequests = MaterialRequest::with(['store', 'engineer', 'items.product']);
+            $materialRequests = MaterialRequest::with(['store', 'engineer', 'items.product',]);
             if ($searchTerm) {
                 $materialRequests->search($searchTerm);
             }

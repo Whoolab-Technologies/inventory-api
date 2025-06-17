@@ -11,7 +11,7 @@ class Product extends BaseModel
 {
     protected $table = 'products';
     protected $hidden = ['created_by', 'created_type', 'updated_by', 'updated_type', 'created_at', 'updated_at'];
-    protected $appends = ['code', 'symbol', 'image_url'];
+    protected $appends = ['code', 'symbol', 'image_url', 'category_name', 'brand_name', 'product_category'];
     protected $fillable = [
         'item',
         'cat_id',
@@ -35,6 +35,27 @@ class Product extends BaseModel
     // {
     //     return $this->belongsTo(Brand::class);
     // }
+
+    public function getCategoryNameAttribute()
+    {
+        $categoryName = $this->category?->name ?? "";
+        unset($this->category);
+        return $categoryName;
+    }
+    public function getProductCategoryAttribute()
+    {
+        $categoryId = $this->category?->category_id ?? "";
+        unset($this->category);
+        return $categoryId;
+    }
+
+    public function getBrandNameAttribute()
+    {
+        $brandName = $this->brand?->name ?? "";
+        unset($this->brand);
+        return $brandName;
+
+    }
 
     public function getSymbolAttribute()
     {

@@ -59,6 +59,11 @@ class ReportsController extends Controller
                     return [
                         'id' => $index + 1,
                         'material_name' => $tx->product->item ?? 'N/A',
+                        'cat_id' => $tx->product->cat_id ?? 'N/A',
+                        'category_name' => $tx->product->category_name ?? 'N/A',
+                        'category_id' => $tx->product->product_category ?? 'N/A',
+                        'brand' => $tx->product->brand_name ?? 'N/A',
+                        "unit" => $tx->product->symbol,
                         'store' => $tx->store->name ?? 'N/A',
                         'quantity' => $tx->quantity,
                         'consumption' => $tx->type === "CONSUMPTION",
@@ -144,6 +149,11 @@ class ReportsController extends Controller
                         'id' => $index + 1,
                         'product_id' => $item->product_id,
                         'product_name' => $item->product->item,
+                        'cat_id' => $item->product->cat_id ?? 'N/A',
+                        'category_name' => $item->product->category_name ?? 'N/A',
+                        'category_id' => $item->product->product_category ?? 'N/A',
+                        'brand' => $item->product->brand_name ?? 'N/A',
+                        "unit" => $item->product->symbol,
                         'quantity' => $item->issued,
                         'received_quantity' => $item->received,
                         'engineer' => $item->materialReturnDetail->engineer->name ?? 'N/A',
@@ -177,10 +187,10 @@ class ReportsController extends Controller
             }
             // $data = $transactions->get();
             $grouped = $transactions->get()
-                ->groupBy(fn($tx) => $tx->store_id . '-' . $tx->product_id . '-' . $tx->created_at->format('Y-m-d'))
+                ->groupBy(fn($tx) => $tx->store_id . '-' . $tx->product_id)
                 ->map(function ($group, $key) {
                     $first = $group->first();
-                    [$storeId, $productId, $date] = explode('-', $key);
+                    [$storeId, $productId] = explode('-', $key);
 
                     return [
                         'id' => $key,
@@ -189,8 +199,8 @@ class ReportsController extends Controller
                         'productId' => (int) $productId,
                         'materialName' => $first->product->item ?? 'N/A',
                         'materialId' => $first->product->cat_id ?? 'N/A',
-                        'brand' => $first->product->brand->name ?? 'N/A',
-                        'category' => $first->product->category->name ?? 'N/A',
+                        'brand' => $first->product->brandName ?? 'N/A',
+                        'category' => $first->product->category_name ?? 'N/A',
                         'totalIncreased' => $group->where('stock_movement', 'IN')->sum('quantity'),
                         'totalDecreased' => $group->where('stock_movement', 'OUT')->sum('quantity'),
                         'date' => optional($first->created_at)->format('Y-m-d'), // or use now() if date missing
