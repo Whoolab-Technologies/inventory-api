@@ -18,9 +18,7 @@ class CategoriesController extends Controller
     public function index()
     {
         try {
-            $categories = Category::withCount('brands')
-                ->with('brands')
-                ->orderByDesc('id')->get();
+            $categories = Category::orderByDesc('id')->get();
             return Helpers::sendResponse(200, $categories);
         } catch (\Exception $e) {
             return Helpers::sendResponse(500, [], "Failed to fetch categories");
@@ -47,7 +45,7 @@ class CategoriesController extends Controller
             $category->description = $request->description;
             $category->save();
 
-            return Helpers::sendResponse(200, $category->loadCount('brands'));
+            return Helpers::sendResponse(200, $category);
         } catch (\Exception $e) {
             \Log::info($e->getMessage());
             return Helpers::sendResponse(500, [], "Failed to store the category");
@@ -72,7 +70,7 @@ class CategoriesController extends Controller
             $category->name = $request->name;
             $category->description = $request->description;
             $category->save();
-            return Helpers::sendResponse(200, $category->loadCount('brands'), );
+            return Helpers::sendResponse(200, $category, );
         } catch (ModelNotFoundException $e) {
             return Helpers::sendResponse(
                 status: 404,
