@@ -260,6 +260,9 @@ class EngineerController extends Controller
                         "category_id" => $item->product->product_category,
                         "category_name" => $item->product->category_name,
                         "brand_name" => $item->product->brand_name,
+                        'requested_quantity' => $item->quantity,
+                        'issued_quantity' => 0,
+                        'received_quantity' => 0
                     ];
                 }),
             ];
@@ -286,28 +289,37 @@ class EngineerController extends Controller
         try {
             $user = auth()->user();
 
-            $materialRequests = MaterialRequest::with(['items.product'])
+            $materialRequests = MaterialRequest::with(['items.product', 'stockTransfer.items'])
                 ->where('engineer_id', $user->id)
                 ->orderBy('created_at', 'desc')
-                ->get()->map(function ($mr) {
+                ->get()
+                ->map(function ($mr) {
+                    // Map stock transfer items by product_id for quick lookup
+                    $stockItems = collect(optional($mr->stockTransfer)->items ?? [])->keyBy('product_id');
+
                     return [
                         'id' => $mr->id,
                         'store_id' => $mr->store_id,
                         'request_number' => $mr->request_number,
                         'created_at' => $mr->created_at,
                         'status' => $mr->status,
-                        'items' => $mr->items->map(function ($item) {
+                        'items' => $mr->items->map(function ($item) use ($stockItems) {
+                            $stock = $stockItems->get($item->product_id);
+
                             return [
                                 'id' => $item->id,
                                 'product_id' => $item->product->id,
                                 'product_name' => $item->product->item,
                                 'product_image' => $item->product->image_url,
-                                "cat_id" => $item->product->cat_id,
-                                "category_id" => $item->product->product_category,
-                                "category_name" => $item->product->category_name,
-                                "brand_name" => $item->product->brand_name,
+                                'cat_id' => $item->product->cat_id,
+                                'category_id' => $item->product->product_category,
+                                'category_name' => $item->product->category_name,
+                                'brand_name' => $item->product->brand_name,
                                 'unit' => $item->product->symbol,
                                 'quantity' => $item->quantity,
+                                'requested_quantity' => $stock->requested_quantity ?? $item->quantity,
+                                'issued_quantity' => $stock->issued_quantity ?? 0,
+                                'received_quantity' => $stock->received_quantity ?? 0,
                             ];
                         }),
                     ];
