@@ -256,6 +256,10 @@ class EngineerController extends Controller
                         'product_image' => $item->product->image_url,
                         'unit' => $item->product->symbol,
                         'quantity' => $item->quantity,
+                        "cat_id" => $item->product->cat_id,
+                        "category_id" => $item->product->product_category,
+                        "category_name" => $item->product->category_name,
+                        "brand_name" => $item->product->brand_name,
                     ];
                 }),
             ];
@@ -298,6 +302,10 @@ class EngineerController extends Controller
                                 'product_id' => $item->product->id,
                                 'product_name' => $item->product->item,
                                 'product_image' => $item->product->image_url,
+                                "cat_id" => $item->product->cat_id,
+                                "category_id" => $item->product->product_category,
+                                "category_name" => $item->product->category_name,
+                                "brand_name" => $item->product->brand_name,
                                 'unit' => $item->product->symbol,
                                 'quantity' => $item->quantity,
                             ];
@@ -381,6 +389,7 @@ class EngineerController extends Controller
                         "remarks" => $transfer->remarks,
                         "dn_number" => $transfer->dn_number,
                         "created_at" => $transfer->created_at,
+
                         "notes" => $transfer->notes->map(function ($item) {
                             $createBy = $item->createdBy;
                             $store = $item->createdBy->store;
@@ -403,6 +412,10 @@ class EngineerController extends Controller
                                 'requested_quantity' => $item->requested_quantity,
                                 'issued_quantity' => $item->issued_quantity,
                                 'received_quantity' => $item->received_quantity,
+                                "cat_id" => $item->product->cat_id,
+                                "category_id" => $item->product->product_category,
+                                "category_name" => $item->product->category_name,
+                                "brand_name" => $item->product->brand_name,
                             ];
                         }),
                         "material_request" => $transfer->materialRequestStockTransfer->materialRequest,

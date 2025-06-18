@@ -17,7 +17,7 @@ DELETE FROM stock_transfer_items;
 DELETE FROM stock_transfer_notes;
 
 ALTER TABLE `inventory_dispatches` CHANGE `delivery_note_number` `dn_number` TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL;
-php artisan make:migration add_transaction_meta_to_material_returns --path=database/migrations/V1
+php artisan make:migration add_material_request_id_to_stock_transfers_table  --table=stock_transfers  --path=database/migrations/V1
 
 
 SET FOREIGN_KEY_CHECKS = 0;
@@ -54,3 +54,6 @@ TRUNCATE TABLE units;
 TRUNCATE TABLE users;
 
 SET FOREIGN_KEY_CHECKS = 1;
+
+
+php artisan make:migration update_status_to_material_requests_table --table=material_requests --path=database/migrations/V1

@@ -55,7 +55,7 @@ class MaterialRequestService
             $materialRequest->status = $request->status;
 
 
-            if ($request->status == 'completed') {
+            if ($request->status == 'completed' || $request->status == 'awaiting_procurement') {
 
                 if (empty($request->items)) {
                     throw new \Exception('Invalid items data');

@@ -12,6 +12,7 @@ use App\Models\V1\Storekeeper;
 use App\Models\V1\Product;
 use App\Models\V1\MaterialRequest;
 use App\Models\V1\StockTransfer;
+use App\Models\V1\Stock;
 
 use App\Services\Helpers;
 use App\Services\V1\MaterialRequestService;
@@ -342,26 +343,83 @@ class StorekeeperController extends Controller
 
     }
 
+    // public function getMaterialRequests(Request $request)
+    // {
+    //     try {
+    //         $searchTerm = $request->query('search');
+    //         $materialRequests = MaterialRequest::with(['store', 'engineer', 'items.product', 'stockTransfer.items']);
+    //         if ($searchTerm) {
+    //             $materialRequests->search($searchTerm);
+    //         }
+    //         $materialRequests = $materialRequests->orderBy('created_at', 'desc')
+    //             ->get();
+    //         return Helpers::sendResponse(200, $materialRequests, 'Material requests retrieved successfully');
+    //     } catch (\Throwable $th) {
+    //         return Helpers::sendResponse(500, [], $th->getMessage());
+    //     }
+    // }
+
+
     public function getMaterialRequests(Request $request)
     {
         try {
             $searchTerm = $request->query('search');
-            $materialRequests = MaterialRequest::with(['store', 'engineer', 'items.product',]);
+
+            $materialRequests = MaterialRequest::with(['store', 'engineer', 'items.product', 'stockTransfer.items']);
+
             if ($searchTerm) {
                 $materialRequests->search($searchTerm);
             }
-            $materialRequests = $materialRequests->orderBy('created_at', 'desc')
-                ->get();
+
+            $materialRequests = $materialRequests->orderBy('created_at', 'desc')->get();
+
+            $materialRequests = $materialRequests->map(function ($request) {
+                // Safely get stockTransfer items map by product_id
+                $stockItems = collect(optional($request->stockTransfer)->items ?? [])->keyBy('product_id');
+
+                // Map each item and add stock transfer data if available
+                $request->items = collect($request->items)->map(function ($item) use ($stockItems) {
+                    $stock = $stockItems->get($item->product_id);
+
+                    $item->requested_quantity = $stock->requested_quantity ?? $item->quantity;
+                    $item->issued_quantity = $stock->issued_quantity ?? 0;
+                    $item->received_quantity = $stock->received_quantity ?? 0;
+
+                    return $item;
+                });
+
+                return $request;
+            });
+
             return Helpers::sendResponse(200, $materialRequests, 'Material requests retrieved successfully');
         } catch (\Throwable $th) {
             return Helpers::sendResponse(500, [], $th->getMessage());
         }
     }
 
+
     public function updateMaterialrequest(Request $request, $id)
     {
         try {
             $materialRequest = $this->materialRequestService->updateMaterialRequest($request, $id);
+
+            // Eager-load related models
+            $materialRequest->load(['store', 'engineer', 'items.product', 'stockTransfer.items']);
+
+            // Safely map stockTransfer items by product_id
+            $stockItems = collect(optional($materialRequest->stockTransfer)->items ?? [])->keyBy('product_id');
+
+            // Map stock transfer fields into each item
+            $materialRequestItems = collect($materialRequest->items)->map(function ($item) use ($stockItems) {
+                $stock = $stockItems->get($item->product_id);
+
+                $item->requested_quantity = $stock->requested_quantity ?? null;
+                $item->issued_quantity = $stock->issued_quantity ?? null;
+                $item->received_quantity = $stock->received_quantity ?? null;
+
+                return $item;
+            });
+            $materialRequest->setRelation('items', $materialRequestItems);
             return Helpers::sendResponse(200, $materialRequest, 'Material requests updated successfully');
 
         } catch (\Throwable $th) {
@@ -564,6 +622,35 @@ class StorekeeperController extends Controller
             $materialReturn = $this->materialReturnService->updateMaterialReturns($id, $request);
             return Helpers::sendResponse(200, $materialReturn, 'Material return updated successfully');
 
+        } catch (\Throwable $th) {
+            return Helpers::sendResponse(500, [], $th->getMessage());
+        }
+    }
+
+
+    public function getAvailableStock(Request $request)
+    {
+        $storeId = $request->input('store');
+        $productIds = $request->input('products');
+        try {
+            if (!$storeId || !is_array($productIds)) {
+                return Helpers::sendResponse(400, [], 'Invalid parameters');
+            }
+
+            // Fetch quantities for given products in the store
+            $stocks = Stock::where('store_id', $storeId)
+                ->whereIn('product_id', $productIds)
+                ->select('product_id', 'quantity')
+                ->get()
+                ->groupBy('product_id')
+                ->map(fn($rows) => $rows->sum('quantity'));
+
+            $stockMap = [];
+            foreach ($productIds as $productId) {
+                $stockMap[$productId] = $stocks[$productId] ?? 0;
+            }
+
+            return Helpers::sendResponse(200, $stockMap);
         } catch (\Throwable $th) {
             return Helpers::sendResponse(500, [], $th->getMessage());
         }

@@ -21,7 +21,8 @@ class Product extends BaseModel
         'category_id',
         'brand_id',
         'image',
-        'remarks'
+        'remarks',
+        'min_stock_qty'
     ];
     use HasFactory;
 

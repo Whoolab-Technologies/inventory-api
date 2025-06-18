@@ -74,4 +74,9 @@ class StockTransfer extends BaseModel
     {
         return $this->belongsToMany(MaterialRequest::class, 'material_request_stock_transfer');
     }
+
+    public function items()
+    {
+        return $this->hasMany(StockTransferItem::class, 'stock_transfer_id');
+    }
 }

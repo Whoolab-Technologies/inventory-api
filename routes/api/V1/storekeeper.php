@@ -40,6 +40,7 @@ Route::prefix('storekeeper')->group(function () {
 
         Route::get('summary', [ReportsController::class, 'consumptionReport']);
         Route::post('summary/export', [ReportsController::class, 'exportReport']);
+        Route::post('stocks', [StorekeeperController::class, 'getAvailableStock']);
 
     });
 });
