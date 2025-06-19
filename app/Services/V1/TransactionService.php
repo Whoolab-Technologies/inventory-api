@@ -69,6 +69,23 @@ class TransactionService
 
             $this->updateStock($request, $stockTransfer);
 
+            $isPartiallyReceived = false;
+            foreach ($stockTransfer->items as $item) {
+                if ($item->received_quantity < $item->issued_quantity) {
+                    $isPartiallyReceived = true;
+                    break;
+                }
+            }
+            if ($isPartiallyReceived) {
+                $stockTransfer->status = 'partially_received';
+                $stockTransfer->save();
+            } else {
+                foreach ($stockTransfer->materialRequests as $materialRequest) {
+                    $materialRequest->status = 'completed';
+                    $materialRequest->save();
+                }
+            }
+
             \DB::commit();
             return $stockTransfer;
         } catch (\Throwable $e) {

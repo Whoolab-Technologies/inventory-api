@@ -56,7 +56,7 @@ class MaterialRequestService
             $materialRequest = MaterialRequest::findOrFail($id);
             $materialRequest->status = $request->status;
 
-            if ($request->status == 'completed' || $request->status == 'awaiting_procurement') {
+            if ($request->status == 'in_transit' || $request->status == 'awaiting_procurement') {
 
                 if (empty($request->items)) {
                     throw new \Exception('Invalid items data');
@@ -178,8 +178,6 @@ class MaterialRequestService
                 foreach ($materialRequest->items as $item) {
                     $requested = $item->requested_quantity ?? $item->quantity;
                     $issued = $item->issued_quantity ?? 0;
-                    \Log::info(" $item->requested_quantity " . $item->requested_quantity . "  item->quantity " . $item->quantity);
-                    \Log::info(" issued " . $issued . " item->issued_quantity " . $item->issued_quantity);
                     if ($issued < $requested) {
                         PurchaseRequestItem::create([
                             'purchase_request_id' => $pr->id,

@@ -14,7 +14,7 @@ return new class extends Migration {
     {
         DB::statement("ALTER TABLE `material_requests` DROP `status`");
         Schema::table('material_requests', function (Blueprint $table) {
-            $table->enum('status', ['pending', 'approved', 'awaiting_procurement', 'rejected', 'completed'])->default('pending')->after("store_id");
+            $table->enum('status', ['pending', 'approved', 'awaiting_procurement', 'rejected', 'in_transit', 'completed'])->default('pending')->after("store_id");
         });
     }
 
