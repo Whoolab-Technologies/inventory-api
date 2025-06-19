@@ -13,6 +13,8 @@ use App\Models\V1\Product;
 use App\Models\V1\MaterialRequest;
 use App\Models\V1\StockTransfer;
 use App\Models\V1\Stock;
+use App\Models\V1\PurchaseRequestItem;
+use App\Models\V1\PurchaseRequest;
 
 use App\Services\Helpers;
 use App\Services\V1\MaterialRequestService;
@@ -402,24 +404,6 @@ class StorekeeperController extends Controller
     {
         try {
             $materialRequest = $this->materialRequestService->updateMaterialRequest($request, $id);
-
-            // Eager-load related models
-            $materialRequest->load(['store', 'engineer', 'items.product', 'stockTransfer.items']);
-
-            // Safely map stockTransfer items by product_id
-            $stockItems = collect(optional($materialRequest->stockTransfer)->items ?? [])->keyBy('product_id');
-
-            // Map stock transfer fields into each item
-            $materialRequestItems = collect($materialRequest->items)->map(function ($item) use ($stockItems) {
-                $stock = $stockItems->get($item->product_id);
-
-                $item->requested_quantity = $stock->requested_quantity ?? null;
-                $item->issued_quantity = $stock->issued_quantity ?? null;
-                $item->received_quantity = $stock->received_quantity ?? null;
-
-                return $item;
-            });
-            $materialRequest->setRelation('items', $materialRequestItems);
             return Helpers::sendResponse(200, $materialRequest, 'Material requests updated successfully');
 
         } catch (\Throwable $th) {

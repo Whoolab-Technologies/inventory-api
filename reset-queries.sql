@@ -16,9 +16,13 @@ DELETE FROM stock_transfer_files;
 DELETE FROM stock_transfer_items;
 DELETE FROM stock_transfer_notes;
 
-ALTER TABLE `inventory_dispatches` CHANGE `delivery_note_number` `dn_number` TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL;
-php artisan make:migration add_material_request_id_to_stock_transfers_table  --table=stock_transfers  --path=database/migrations/V1
 
+-- ------ for development purpose -----
+
+ALTER TABLE `inventory_dispatches` CHANGE `delivery_note_number` `dn_number` TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL;
+php artisan make:migration _table  --table=stock_transfers  --path=database/migrations/V1
+php artisan make:migration create_prs_table --path=database/migrations/V1
+php artisan make:migration create_items_table --path=database/migrations/V1
 
 SET FOREIGN_KEY_CHECKS = 0;
 

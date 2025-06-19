@@ -11,6 +11,11 @@ use App\Models\V1\Engineer;
 use App\Models\V1\Product;
 use App\Models\V1\Store;
 use App\Models\V1\StockTransfer;
+use App\Models\V1\MaterialReturn;
+use App\Models\V1\MaterialReturnDetail;
+use App\Models\V1\StockInTransit;
+use App\Models\V1\MaterialReturnItem;
+use App\Models\V1\StockTransaction;
 use Illuminate\Support\Facades\Hash;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 class EngineerController extends Controller
@@ -171,7 +176,7 @@ class EngineerController extends Controller
 
             $productsQuery = Product::
                 whereHas('engineerStocks', function ($query) use ($engineerId) {
-                    $query->where('quantity', '>', 0);
+                    //  $query->where('quantity', '>', 0);
                     if ($engineerId) {
                         $query->where('engineer_id', $engineerId);
                     }
@@ -463,5 +468,114 @@ class EngineerController extends Controller
         } catch (\Throwable $th) {
             return Helpers::sendResponse(500, [], $th->getMessage());
         }
+    }
+
+
+
+    public function getMaterialReturns(Request $request)
+    {
+        try {
+            $user = auth()->user();
+            $materialReturns = MaterialReturn::with([
+                'toStore',
+                'fromStore',
+                'details.engineer',
+                'details.items.product',
+            ])
+                ->where('toStore', $user->store->id)
+                ->where('fromStore', $user->store->id)
+                ->whereHas('details', function ($q) use ($user) {
+                    $q->where('engineer_id', $user->id);
+                })
+                ->orderByDesc('id')
+                ->get();
+            return Helpers::sendResponse(200, $materialReturns, 'Material Returns retrieved successfully');
+        } catch (\Throwable $th) {
+            return Helpers::sendResponse(500, [], $th->getMessage());
+
+        }
+    }
+
+    public function createMaterialReturns(Request $request)
+    {
+        try {
+            $user = auth()->user();
+
+            // Validate incoming request
+            $validated = $request->validate([
+                'dn_number' => 'nullable|string|max:255',
+                'products' => 'required|array|min:1',
+                'products.*.product_id' => 'required|integer|exists:products,id',
+                'products.*.issued' => 'required|numeric|min:1',
+            ]);
+
+            $request->merge([
+                'from_store_id' => $user->store->id,
+                'to_store_id' => $user->store->id,
+                'engineer_id' => $user->id,
+            ]);
+
+            \DB::beginTransaction();
+
+            // Create Material Return
+            $materialReturn = MaterialReturn::create([
+                'from_store_id' => $request->from_store_id,
+                'to_store_id' => $request->to_store_id,
+                'dn_number' => $request->dn_number,
+            ]);
+
+            // Create Material Return Detail
+            $materialReturnDetail = MaterialReturnDetail::create([
+                'material_return_id' => $materialReturn->id,
+                'engineer_id' => $request->engineer_id,
+            ]);
+
+            foreach ($validated['products'] as $product) {
+                // Create Material Return Item
+                $materialReturnItem = MaterialReturnItem::create([
+                    'material_return_id' => $materialReturn->id,
+                    'material_return_detail_id' => $materialReturnDetail->id,
+                    'product_id' => $product['product_id'],
+                    'issued' => $product['issued'],
+                ]);
+
+                // Create Stock In Transit
+                StockInTransit::create([
+                    'material_return_id' => $materialReturn->id,
+                    'material_return_item_id' => $materialReturnItem->id,
+                    'product_id' => $product['product_id'],
+                    'issued_quantity' => $product['issued'],
+                ]);
+
+                // Create Stock Transaction
+                StockTransaction::create([
+                    'store_id' => $request->from_store_id,
+                    'product_id' => $product['product_id'],
+                    'engineer_id' => $request->engineer_id,
+                    'quantity' => abs($product['issued']),
+                    'stock_movement' => 'TRANSIT',
+                    'type' => 'RETURN',
+                    'dn_number' => $request->dn_number,
+                ]);
+            }
+
+            \DB::commit();
+
+            // Load relations
+            $materialReturn->load([
+                'fromStore',
+                'toStore',
+                'details.engineer',
+                'details.items.product',
+            ]);
+
+            return Helpers::sendResponse(200, $materialReturn, 'Material return created successfully');
+
+        } catch (\Throwable $th) {
+            \DB::rollBack();
+            \Log::error('Material return creation failed: ' . $th->getMessage());
+            return Helpers::sendResponse(500, [], 'Failed to create material return: ' . $th->getMessage());
+        }
+
     }
 }

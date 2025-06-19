@@ -11,6 +11,8 @@ use App\Models\V1\StockTransferFile;
 use App\Models\V1\StockTransferItem;
 use App\Models\V1\StockTransferNote;
 use App\Models\V1\StockTransaction;
+use App\Models\V1\PurchaseRequestItem;
+use App\Models\V1\PurchaseRequest;
 use App\Models\V1\Stock;
 use Illuminate\Http\Request;
 use App\Services\Helpers;
@@ -53,7 +55,6 @@ class MaterialRequestService
         try {
             $materialRequest = MaterialRequest::findOrFail($id);
             $materialRequest->status = $request->status;
-
 
             if ($request->status == 'completed' || $request->status == 'awaiting_procurement') {
 
@@ -151,6 +152,44 @@ class MaterialRequestService
                 }
             }
             $materialRequest->save();
+            $materialRequest->load(['store', 'engineer', 'items.product', 'stockTransfer.items']);
+
+            // Safely map stockTransfer items by product_id
+            $stockItems = collect(optional($materialRequest->stockTransfer)->items ?? [])->keyBy('product_id');
+
+            // Map stock transfer fields into each item
+            $materialRequestItems = collect($materialRequest->items)->map(function ($item) use ($stockItems) {
+                $stock = $stockItems->get($item->product_id);
+                $item->requested_quantity = $stock->requested_quantity ?? $item->quantity;
+                $item->issued_quantity = $stock->issued_quantity ?? null;
+                $item->received_quantity = $stock->received_quantity ?? null;
+                return $item;
+            });
+            $materialRequest->setRelation('items', $materialRequestItems);
+
+
+            if ($materialRequest->status == 'awaiting_procurement') {
+                $pr = PurchaseRequest::create([
+                    'purchase_request_number' => 'PR' . str_pad(PurchaseRequest::max('id') + 1001, 6, '0', STR_PAD_LEFT),
+                    'material_request_id' => $materialRequest->id,
+                    'material_request_number' => $materialRequest->request_number,
+                ]);
+
+                foreach ($materialRequest->items as $item) {
+                    $requested = $item->requested_quantity ?? $item->quantity;
+                    $issued = $item->issued_quantity ?? 0;
+                    \Log::info(" $item->requested_quantity " . $item->requested_quantity . "  item->quantity " . $item->quantity);
+                    \Log::info(" issued " . $issued . " item->issued_quantity " . $item->issued_quantity);
+                    if ($issued < $requested) {
+                        PurchaseRequestItem::create([
+                            'purchase_request_id' => $pr->id,
+                            'material_request_item_id' => $item->id,
+                            'product_id' => $item->product_id,
+                            'quantity' => $requested - $issued,
+                        ]);
+                    }
+                }
+            }
             \DB::commit();
             return $materialRequest;
         } catch (\Throwable $th) {
