@@ -43,6 +43,6 @@ class PurchaseRequest extends Model
 
     public function items()
     {
-        return $this->hasMany(PurchaseRequestItem::class, 'pr_id');
+        return $this->hasMany(PurchaseRequestItem::class, 'purchase_request_id');
     }
 }

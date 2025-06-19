@@ -1,6 +1,7 @@
 <?php
 
 
+use App\Http\Controllers\V1\CommonController;
 use App\Http\Controllers\V1\DepartmentController;
 use App\Http\Controllers\V1\EngineerController;
 use App\Http\Controllers\V1\ReportsController;
@@ -14,6 +15,7 @@ use App\Http\Controllers\V1\BrandController;
 use App\Http\Controllers\V1\UnitController;
 use App\Http\Controllers\V1\ProductController;
 use App\Http\Controllers\V1\CategoriesController;
+use App\Http\Controllers\V1\PurchaseRequestController;
 
 Route::prefix('admin')->group(function () {
     Route::post('register', [AdminAuthController::class, 'register']);
@@ -97,6 +99,9 @@ Route::prefix('admin')->group(function () {
         Route::post('brands', [BrandController::class, 'store']);
         Route::put('brands/{id}', [BrandController::class, 'update']);
         Route::delete('brands/{id}', [BrandController::class, 'destroy']);
+
+        Route::get('prs', [PurchaseRequestController::class, 'index']);
+        Route::get('mrs', [CommonController::class, 'getMaterialRequests']);
 
         Route::prefix('reports')->group(function () {
             Route::get('material-in-out', [ReportsController::class, 'transactionReport']);

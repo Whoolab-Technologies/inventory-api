@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\V1\PurchaseRequestController;
 use App\Http\Controllers\V1\ReportsController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\V1\StorekeeperAuthController;
@@ -41,6 +42,9 @@ Route::prefix('storekeeper')->group(function () {
         Route::get('summary', [ReportsController::class, 'consumptionReport']);
         Route::post('summary/export', [ReportsController::class, 'exportReport']);
         Route::post('stocks', [StorekeeperController::class, 'getAvailableStock']);
+
+        Route::get('prs', [PurchaseRequestController::class, 'index']);
+        Route::put('prs/{id}', [PurchaseRequestController::class, 'update']);
 
     });
 });

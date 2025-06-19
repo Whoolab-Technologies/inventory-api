@@ -37,7 +37,7 @@ class PurchaseRequestItem extends Model
     }
     public function pr()
     {
-        return $this->belongsTo(PurchaseRequest::class, 'pr_id');
+        return $this->belongsTo(PurchaseRequest::class, 'purchase_request_id');
     }
 
     public function materialRequestItem()

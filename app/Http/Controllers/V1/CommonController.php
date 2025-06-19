@@ -9,6 +9,7 @@ use App\Services\Helpers;
 use App\Models\V1\Admin;
 use App\Models\V1\Engineer;
 use App\Models\V1\Storekeeper;
+use App\Models\V1\MaterialRequest;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
@@ -122,4 +123,14 @@ class CommonController extends Controller
         }
     }
 
+    public function getMaterialRequests(Request $request)
+    {
+        try {
+            $materialRequests = MaterialRequest::with(['items', 'items.product', 'store', 'engineer'])->orderByDesc('id')->get();
+            return Helpers::sendResponse(200, $materialRequests);
+        } catch (\Throwable $th) {
+            return Helpers::sendResponse(400, [], $th->getMessage());
+        }
+
+    }
 }
