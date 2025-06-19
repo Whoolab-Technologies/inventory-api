@@ -16,6 +16,7 @@ use App\Models\V1\MaterialReturnDetail;
 use App\Models\V1\StockInTransit;
 use App\Models\V1\MaterialReturnItem;
 use App\Models\V1\StockTransaction;
+use App\Models\V1\InventoryDispatch;
 use Illuminate\Support\Facades\Hash;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 class EngineerController extends Controller
@@ -480,10 +481,10 @@ class EngineerController extends Controller
                 'toStore',
                 'fromStore',
                 'details.engineer',
-                'details.items.product',
+                'items.product',
             ])
-                ->where('toStore', $user->store->id)
-                ->where('fromStore', $user->store->id)
+                ->where('to_store_id', $user->store->id)
+                ->where('from_store_id', $user->store->id)
                 ->whereHas('details', function ($q) use ($user) {
                     $q->where('engineer_id', $user->id);
                 })
@@ -529,7 +530,7 @@ class EngineerController extends Controller
                 'material_return_id' => $materialReturn->id,
                 'engineer_id' => $request->engineer_id,
             ]);
-
+            \Log::info("materialReturnDetail " . $materialReturnDetail->id);
             foreach ($validated['products'] as $product) {
                 // Create Material Return Item
                 $materialReturnItem = MaterialReturnItem::create([
@@ -566,7 +567,7 @@ class EngineerController extends Controller
                 'fromStore',
                 'toStore',
                 'details.engineer',
-                'details.items.product',
+                'items.product',
             ]);
 
             return Helpers::sendResponse(200, $materialReturn, 'Material return created successfully');
@@ -574,8 +575,37 @@ class EngineerController extends Controller
         } catch (\Throwable $th) {
             \DB::rollBack();
             \Log::error('Material return creation failed: ' . $th->getMessage());
-            return Helpers::sendResponse(500, [], 'Failed to create material return: ' . $th->getMessage());
+            return Helpers::sendResponse(500, [], $th->getMessage());
         }
 
+    }
+
+    public function getReturnableProducts(Request $request)
+    {
+        try {
+            $user = auth()->user();
+
+            $dispatches = InventoryDispatch::where('engineer_id', $user->id)
+                ->with(['items', 'items.product'])
+                ->get();
+
+            $products = $dispatches->flatMap(function ($dispatch) {
+                return $dispatch->items->pluck('product');
+            });
+
+            $uniqueProducts = $products->unique('id')->values();
+
+            return Helpers::sendResponse(
+                status: 200,
+                data: $uniqueProducts,
+                messages: "",
+            );
+        } catch (\Exception $th) {
+            return Helpers::sendResponse(
+                status: 400,
+                data: [],
+                messages: $th->getMessage(),
+            );
+        }
     }
 }

@@ -9,7 +9,7 @@ class MaterialReturnItem extends BaseModel
     use HasFactory;
 
     protected $table = "material_return_items";
-    protected $fillable = ['material_return_id', 'material_return_details_id', 'product_id', 'issued', 'returned'];
+    protected $fillable = ['material_return_id', 'material_return_detail_id', 'product_id', 'issued', 'returned'];
     protected $hidden = ['created_by', 'created_type', 'updated_by', 'updated_type', 'created_at', 'updated_at'];
 
     public function materialReturnDetail()

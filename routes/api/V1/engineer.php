@@ -20,9 +20,10 @@ Route::prefix('engineer')->group(function () {
         Route::get('home', [EngineerController::class, 'getDashboardData']);
 
         Route::get('transactions', [EngineerController::class, 'getTransactions']);
+
         Route::get('material-returns', [EngineerController::class, 'getMaterialReturns']);
         Route::post('material-returns', [EngineerController::class, 'createMaterialReturns']);
-        Route::post('material-returns/products', [EngineerController::class, 'getReturnableProducts']);
+        Route::get('material-returns/products', [EngineerController::class, 'getReturnableProducts']);
 
         Route::get('stores_engineers', [EngineerController::class, 'getEngineersAndStores']);
 
