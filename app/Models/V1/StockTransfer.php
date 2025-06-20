@@ -70,13 +70,25 @@ class StockTransfer extends BaseModel
         return $this->hasMany(StockTransferFile::class, 'stock_transfer_id');
     }
 
-    public function materialRequests()
-    {
-        return $this->belongsToMany(MaterialRequest::class, 'material_request_stock_transfer');
-    }
+    // public function materialRequests()
+    // {
+    //     return $this->belongsToMany(MaterialRequest::class, 'material_request_stock_transfer');
+    // }
 
     public function items()
     {
         return $this->hasMany(StockTransferItem::class, 'stock_transfer_id');
+    }
+
+    public function materialRequest()
+    {
+        return $this->hasOneThrough(
+            MaterialRequest::class,
+            MaterialRequestStockTransfer::class,
+            'stock_transfer_id', // FK on the pivot table
+            'id',                // PK on material_requests
+            'id',                // Local key on stock_transfers
+            'material_request_id'// FK on the pivot table
+        );
     }
 }

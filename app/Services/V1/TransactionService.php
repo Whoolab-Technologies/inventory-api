@@ -71,20 +71,24 @@ class TransactionService
 
             $isPartiallyReceived = false;
             foreach ($stockTransfer->items as $item) {
+                \Log::info('$item->received_quantity ' . $item->received_quantity);
+                \Log::info('$item->issued_quantity ' . $item->issued_quantity);
                 if ($item->received_quantity < $item->issued_quantity) {
                     $isPartiallyReceived = true;
                     break;
                 }
             }
+            \Log::info('$isPartiallyReceived ' . $isPartiallyReceived);
             if ($isPartiallyReceived) {
                 $stockTransfer->status = 'partial_received';
-                $stockTransfer->save();
+
             } else {
-                foreach ($stockTransfer->materialRequests as $materialRequest) {
-                    $materialRequest->status = 'completed';
-                    $materialRequest->save();
-                }
+                $stockTransfer->status = 'received';
+                $materialRequest = $stockTransfer->materialRequest;
+                $materialRequest->status = 'completed';
+                $materialRequest->save();
             }
+            $stockTransfer->save();
 
             \DB::commit();
             return $stockTransfer;

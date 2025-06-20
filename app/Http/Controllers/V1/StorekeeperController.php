@@ -231,14 +231,14 @@ class StorekeeperController extends Controller
             }
 
             $searchTerm = $request->query('search');
-            $storeId = $request->query('store_id'); // Optional store filter
+            $storeId = $request->query('store_id');
             $engineerId = $request->query('engineer_id');
 
             $isHisStore = $storeId == $user->store_id;
-
             $productsQuery = Product::with([
                 'stocks' => function ($query) use ($user, $storeId, $isHisStore) {
                     if ($user->store && !$user->store->is_central_store) {
+                        \Log::info("for Site ");
                         if ($isHisStore) {
 
                             // $query->where('store_id', $user->store_id)->where('quantity', '>', 0);
@@ -252,9 +252,10 @@ class StorekeeperController extends Controller
                             }
                         }
                     } elseif ($user->store->is_central_store) {
-
                         if ($storeId && $storeId != $user->store_id) {
                             $query->where('store_id', $storeId);
+                        } else {
+                            $query->where('store_id', $user->store_id);
                         }
                     }
                 },
@@ -479,6 +480,7 @@ class StorekeeperController extends Controller
             unset($transfer->materialRequestStockTransfer);
             return Helpers::sendResponse(200, $transaction, 'Transaction updated successfully');
         } catch (\Throwable $th) {
+            \Log::info($th->getMessage());
             return Helpers::sendResponse(500, [], $th->getMessage());
         }
     }

@@ -117,19 +117,21 @@ class MaterialRequestService
                     $transferItem->requested_quantity = $item->requested_quantity;
                     $transferItem->issued_quantity = $item->issued_quantity;
                     $transferItem->save();
-
                     $fromStock = Stock::where('store_id', $request->from_store_id)
                         ->where('product_id', $item->product_id)
                         ->first();
 
                     if ($fromStock) {
-                        $fromStock->quantity -= $item->issued_quantity;
-                        if ($fromStock->quantity < 0) {
+                        if ($fromStock->quantity < $item->issued_quantity) {
                             throw new \Exception('Insufficient stock (' . $product->item . ')');
                         }
+
+                        $fromStock->quantity -= $item->issued_quantity;
                         $fromStock->save();
                     } else {
-                        throw new \Exception('Insufficient stock (' . $product->item . ')');
+                        if ($item->issued_quantity > 0) {
+                            throw new \Exception('Insufficient stock (' . $product->item . ')');
+                        }
                     }
 
                     $stockInTransit = new StockInTransit();
