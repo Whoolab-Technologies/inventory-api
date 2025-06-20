@@ -77,7 +77,7 @@ class TransactionService
                 }
             }
             if ($isPartiallyReceived) {
-                $stockTransfer->status = 'partially_received';
+                $stockTransfer->status = 'partial_received';
                 $stockTransfer->save();
             } else {
                 foreach ($stockTransfer->materialRequests as $materialRequest) {
