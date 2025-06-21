@@ -1,20 +1,20 @@
-DELETE FROM engineer_stock;
-DELETE FROM inventory_dispatches;
-DELETE FROM inventory_dispatch_files;
-DELETE FROM inventory_dispatch_items;
-DELETE FROM material_requests;
-DELETE FROM material_request_items;
-DELETE FROM material_request_stock_transfers;
-DELETE FROM material_returns;
-DELETE FROM material_return_details;
-DELETE FROM material_return_items;
-DELETE FROM stock;
-DELETE FROM stock_in_transit;
-DELETE FROM stock_transfers;
-DELETE FROM stock_transactions;
-DELETE FROM stock_transfer_files;
-DELETE FROM stock_transfer_items;
-DELETE FROM stock_transfer_notes;
+TRUNCATE FROM engineer_stock;
+TRUNCATE FROM inventory_dispatches;
+TRUNCATE FROM inventory_dispatch_files;
+TRUNCATE FROM inventory_dispatch_items;
+TRUNCATE FROM material_requests;
+TRUNCATE FROM material_request_items;
+TRUNCATE FROM material_request_stock_transfers;
+TRUNCATE FROM material_returns;
+TRUNCATE FROM material_return_details;
+TRUNCATE FROM material_return_items;
+TRUNCATE FROM stock;
+TRUNCATE FROM stock_in_transit;
+TRUNCATE FROM stock_transfers;
+TRUNCATE FROM stock_transactions;
+TRUNCATE FROM stock_transfer_files;
+TRUNCATE FROM stock_transfer_items;
+TRUNCATE FROM stock_transfer_notes;
 
 
 -- ------ for development purpose -----
