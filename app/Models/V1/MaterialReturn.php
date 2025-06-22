@@ -16,6 +16,10 @@ class MaterialReturn extends BaseModel
         'status' => 'IN TRANSIT',
     ];
 
+    public function status()
+    {
+        return $this->hasOne(Status::class, 'status_id');
+    }
     public function details()
     {
         return $this->hasMany(MaterialReturnDetail::class, 'material_return_id', 'id');

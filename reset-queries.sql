@@ -61,3 +61,7 @@ SET FOREIGN_KEY_CHECKS = 1;
 
 
 php artisan make:migration update_status_to_material_requests_table --table=material_requests --path=database/migrations/V1
+
+
+
+php artisan make:migration update_status_to_stock_transfers_table --table=material_requests --path=database/migrations/V1

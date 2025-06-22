@@ -15,6 +15,7 @@ return new class extends Migration {
         Schema::create('inventory_dispatches', function (Blueprint $table) {
             $table->id();
             $table->string('dispatch_number');
+            $table->text('dn_number');
             $table->integer('engineer_id');
             $table->integer('store_id');
             $table->boolean('self')->default(false);

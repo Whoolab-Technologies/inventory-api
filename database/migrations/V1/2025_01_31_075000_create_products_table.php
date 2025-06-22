@@ -19,6 +19,9 @@ class CreateProductsTable extends Migration
             $table->string('cat_id');
             $table->string('description')->nullable();
             $table->bigInteger('unit_id')->index();
+            $table->bigInteger("category_id");
+            $table->bigInteger("brand_id");
+            $table->integer('min_stock_qty');
             $table->string('qr_code')->nullable();
             $table->string('image')->nullable();
             $table->text('remarks')->nullable();

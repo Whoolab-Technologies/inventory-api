@@ -17,10 +17,13 @@ return new class extends Migration {
             $table->integer('stock_transfer_id');
             $table->integer('material_request_id');
             $table->integer('stock_transfer_item_id');
+            $table->integer('material_return_id')->nullable();
+            $table->integer('material_return_item_id')->nullable();
             $table->integer('product_id');
             $table->integer('issued_quantity')->default(0);
             $table->integer('received_quantity')->default(0);
-            $table->enum('status', ['in_transit', 'received', 'partial_received'])->default('in_transit');
+            $table->foreignId('status_id')->nullable()->default(1)->constrained('statuses')->nullOnDelete();
+
             $table->timestamps();
         });
     }

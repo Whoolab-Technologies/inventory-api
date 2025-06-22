@@ -12,10 +12,17 @@ return new class extends Migration {
      */
     public function up()
     {
-        Schema::table('products', function (Blueprint $table) {
-            $table->bigInteger("category_id")->after('unit_id');
-            $table->bigInteger("brand_id")->after('category_id');
+        Schema::create('statuses', function (Blueprint $table) {
+            $table->id();
+
+            $table->string('name');
+            $table->string('code')->unique();
+            $table->string('color')->nullable();
+            $table->text('description')->nullable();
+
+            $table->timestamps();
         });
+
     }
 
     /**
@@ -25,9 +32,8 @@ return new class extends Migration {
      */
     public function down()
     {
-        Schema::table('products', function (Blueprint $table) {
-            $table->dropColumn('category_id');
-            $table->dropColumn('brand_id');
+        Schema::table('statuses', function (Blueprint $table) {
+            //
         });
     }
 };

@@ -16,8 +16,8 @@ return new class extends Migration {
             $table->id();
             $table->unsignedBigInteger("from_store_id");
             $table->unsignedBigInteger(column: "to_store_id");
-            $table->enum('status', ['IN TRANSIT', 'RECEIVED', "PARTIALLY RECEIVED"])
-                ->default('IN TRANSIT');
+            $table->foreignId('status_id')->nullable()->default(1)->constrained('statuses')->nullOnDelete();
+            $table->string('dn_number')->nullable();
             $table->bigInteger('created_by')->nullable();
             $table->string('created_type')->nullable();
             $table->bigInteger('updated_by')->nullable();

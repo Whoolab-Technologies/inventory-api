@@ -22,6 +22,10 @@ class MaterialRequest extends BaseModel
     ];
 
 
+    public function status()
+    {
+        return $this->hasOne(Status::class, 'status_id');
+    }
     public function products()
     {
         return $this->belongsToMany(Product::class, 'material_request_items')
@@ -70,15 +74,12 @@ class MaterialRequest extends BaseModel
         return $this->hasOne(MaterialRequestStockTransfer::class, 'material_request_id');
     }
 
-    public function stockTransfer()
+    public function stockTransfers()
     {
-        return $this->hasOneThrough(
+        return $this->hasMany(
             StockTransfer::class,
-            MaterialRequestStockTransfer::class,
-            'material_request_id',
-            'id',
-            'id',
-            'stock_transfer_id'
+            'request_id',
+            'id'
         );
     }
 }

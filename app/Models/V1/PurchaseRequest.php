@@ -35,6 +35,11 @@ class PurchaseRequest extends Model
             }
         });
     }
+
+    public function status()
+    {
+        return $this->hasOne(Status::class, 'status_id');
+    }
     // Example: PR belongs to MaterialRequest
     public function materialRequest()
     {

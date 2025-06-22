@@ -247,7 +247,7 @@ class EngineerController extends Controller
             }, $request->items);
 
             $materialRequest->items()->createMany($items);
-            $materialRequest = $materialRequest->load("items.product");
+            $materialRequest = $materialRequest->load(["status", "items.product"]);
             $materialRequest = [
                 'id' => $materialRequest->id,
                 'store_id' => $materialRequest->store_id,
@@ -295,13 +295,16 @@ class EngineerController extends Controller
         try {
             $user = auth()->user();
 
-            $materialRequests = MaterialRequest::with(['items.product', 'stockTransfer.items'])
+            $materialRequests = MaterialRequest::with(['status', 'items.product', 'stockTransfers.items'])
                 ->where('engineer_id', $user->id)
                 ->orderBy('created_at', 'desc')
                 ->get()
                 ->map(function ($mr) {
-                    // Map stock transfer items by product_id for quick lookup
-                    $stockItems = collect(optional($mr->stockTransfer)->items ?? [])->keyBy('product_id');
+                    $stockItemsGrouped = collect($mr->stockTransfers)
+                        ->flatMap(function ($transfer) {
+                            return $transfer->items;
+                        })
+                        ->groupBy('product_id');
 
                     return [
                         'id' => $mr->id,
@@ -309,8 +312,12 @@ class EngineerController extends Controller
                         'request_number' => $mr->request_number,
                         'created_at' => $mr->created_at,
                         'status' => $mr->status,
-                        'items' => $mr->items->map(function ($item) use ($stockItems) {
-                            $stock = $stockItems->get($item->product_id);
+                        'items' => $mr->items->map(function ($item) use ($stockItemsGrouped) {
+                            $stockItems = $stockItemsGrouped->get($item->product_id, collect());
+
+                            $totalIssued = $stockItems->sum('issued_quantity');
+                            $totalReceived = $stockItems->sum('received_quantity');
+                            $requestedQuantity = $stockItems->first()->requested_quantity ?? $item->quantity;
 
                             return [
                                 'id' => $item->id,
@@ -323,9 +330,9 @@ class EngineerController extends Controller
                                 'brand_name' => $item->product->brand_name,
                                 'unit' => $item->product->symbol,
                                 'quantity' => $item->quantity,
-                                'requested_quantity' => $stock->requested_quantity ?? $item->quantity,
-                                'issued_quantity' => $stock->issued_quantity ?? 0,
-                                'received_quantity' => $stock->received_quantity ?? 0,
+                                'requested_quantity' => $requestedQuantity,
+                                'issued_quantity' => $totalIssued,
+                                'received_quantity' => $totalReceived,
                             ];
                         }),
                     ];
@@ -354,9 +361,9 @@ class EngineerController extends Controller
                 $query->where('store_id', $engineer->store->id)
                     ->where('quantity', '<=', 0);
             })->with('unit')->get();
-            $material_requests = MaterialRequest::with(['items', 'stockTransfer'])
+            $material_requests = MaterialRequest::with(['items'])
                 ->where('engineer_id', $engineer->id)
-                //->where('status', "pending")
+                // ->where('status_id', 1) //For status map check statuses table
                 ->orderBy('created_at', 'desc')
                 ->get()->map(function ($mr) {
                     return [
@@ -366,7 +373,6 @@ class EngineerController extends Controller
                         'created_at' => $mr->created_at,
                         'status' => $mr->status,
                         'items' => $mr->items,
-                        'stock_transfer' => $mr->stockTransfer,
                     ];
                 });
 
@@ -391,11 +397,10 @@ class EngineerController extends Controller
         try {
 
             $engineerId = auth()->id();
-
-            $stockTransfers = StockTransfer::whereHas('materialRequestStockTransfer.materialRequest', function ($query) use ($engineerId) {
+            $stockTransfers = StockTransfer::whereHas('materialRequest', function ($query) use ($engineerId) {
                 $query->where('engineer_id', $engineerId);
             })
-                ->with(['stockTransferItems.product']) // Load stock transfer items and product details
+                ->with(['status', 'stockTransferItems.product', 'materialRequest', 'notes.createdBy.store'])
                 ->orderBy('created_at', 'desc')
                 ->get()
                 ->map(function ($transfer) {
@@ -436,10 +441,11 @@ class EngineerController extends Controller
                                 "brand_name" => $item->product->brand_name,
                             ];
                         }),
-                        "material_request" => $transfer->materialRequestStockTransfer->materialRequest,
-                    ];
 
+                        "material_request" => $transfer->materialRequest,
+                    ];
                 });
+
             return Helpers::sendResponse(200, $stockTransfers, 'Transactions retrieved successfully');
 
         } catch (\Throwable $th) {
@@ -478,6 +484,7 @@ class EngineerController extends Controller
         try {
             $user = auth()->user();
             $materialReturns = MaterialReturn::with([
+                'status',
                 'toStore',
                 'fromStore',
                 'details.engineer',
@@ -564,6 +571,7 @@ class EngineerController extends Controller
 
             // Load relations
             $materialReturn->load([
+                'status',
                 'fromStore',
                 'toStore',
                 'details.engineer',

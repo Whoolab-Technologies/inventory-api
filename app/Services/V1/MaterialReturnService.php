@@ -78,6 +78,7 @@ class MaterialReturnService
 
             \DB::commit();
             return $materialReturn->load([
+                'status',
                 'fromStore',
                 'toStore',
                 'details.engineer',
@@ -99,6 +100,7 @@ class MaterialReturnService
             \DB::commit();
             return $materialReturn->load([
                 'fromStore',
+                'status',
                 'toStore',
                 'details.engineer',
                 'details.items.product',
@@ -155,7 +157,7 @@ class MaterialReturnService
                     // Update stock in transit
                     $stockInTransit->update([
                         'received_quantity' => $receivedQuantity,
-                        'status' => $remaining > 0 ? 'partial_received' : 'received',
+                        'status' => $remaining > 0 ? 8 : 7,
                     ]);
 
                     // Update material return item
@@ -238,9 +240,9 @@ class MaterialReturnService
                     }
                 }
             }
-            $materialReturn->status = 'RECEIVED';
+            $materialReturn->status_id = 11;
             if ($isPartiallyReceived) {
-                $materialReturn->status = 'PARTIALLY RECEIVED';
+                $materialReturn->status_id = 9;
             }
             $materialReturn->save();
             \DB::commit();

@@ -53,10 +53,11 @@ class MaterialRequestService
     {
         \DB::beginTransaction();
         try {
+            $user = auth()->user();
             $materialRequest = MaterialRequest::findOrFail($id);
-            $materialRequest->status = $request->status;
+            $materialRequest->status_id = $request->status == 10 ? "processing" : $request->status;
 
-            if ($request->status == 'in_transit' || $request->status == 'awaiting_procurement') {
+            if (in_array($request->status, [9, 10])) {
 
                 if (empty($request->items)) {
                     throw new \Exception('Invalid items data');
@@ -75,8 +76,10 @@ class MaterialRequestService
                 $stockTransfers = new StockTransfer();
                 $stockTransfers->to_store_id = $materialRequest->store_id;
                 $stockTransfers->from_store_id = $request->from_store_id;
-                $stockTransfers->status = "in_transit";
+                $stockTransfers->request_id = $id;
+                $stockTransfers->status = "IN TRANSIT";
                 $stockTransfers->remarks = $request->note;
+                $stockTransfers->send_by = $user->id;
                 $stockTransfers->dn_number = $request->dn_number;
                 $stockTransfers->save();
 
@@ -85,7 +88,6 @@ class MaterialRequestService
                         $stockTransferFile = new StockTransferFile();
                         $mimeType = $image->getMimeType();
                         $imagePath = Helpers::uploadFile($image, "files/stock-transfer/$stockTransfers->id");
-
                         $stockTransferFile->file = $imagePath;
                         $stockTransferFile->file_mime_type = $mimeType;
                         $stockTransferFile->stock_transfer_id = $stockTransfers->id;
@@ -93,7 +95,6 @@ class MaterialRequestService
                         $stockTransferFile->transaction_type = "transfer";
                         $stockTransferFile->save();
                     }
-
                 }
 
                 if (!empty($request->note)) {
@@ -103,10 +104,10 @@ class MaterialRequestService
                     $stockTransferNote->notes = $request->note;
                     $stockTransferNote->save();
                 }
-                $materialRequestStockTransfer = new MaterialRequestStockTransfer();
-                $materialRequestStockTransfer->stock_transfer_id = $stockTransfers->id;
-                $materialRequestStockTransfer->material_request_id = $materialRequest->id;
-                $materialRequestStockTransfer->save();
+                // $materialRequestStockTransfer = new MaterialRequestStockTransfer();
+                // $materialRequestStockTransfer->stock_transfer_id = $stockTransfers->id;
+                // $materialRequestStockTransfer->material_request_id = $materialRequest->id;
+                // $materialRequestStockTransfer->save();
 
                 foreach ($request->items as $item) {
                     $product = Product::findOrFail($item->product_id);
@@ -154,23 +155,26 @@ class MaterialRequestService
                 }
             }
             $materialRequest->save();
-            $materialRequest->load(['store', 'engineer', 'items.product', 'stockTransfer.items']);
+            $materialRequest->load(['status', 'store', 'engineer', 'items.product', 'stockTransfers.items']);
 
-            // Safely map stockTransfer items by product_id
-            $stockItems = collect(optional($materialRequest->stockTransfer)->items ?? [])->keyBy('product_id');
+            $stockItems = collect($materialRequest->stockTransfers ?? [])
+                ->pluck('items')
+                ->flatten(1)
+                ->groupBy('product_id');
 
-            // Map stock transfer fields into each item
             $materialRequestItems = collect($materialRequest->items)->map(function ($item) use ($stockItems) {
-                $stock = $stockItems->get($item->product_id);
-                $item->requested_quantity = $stock->requested_quantity ?? $item->quantity;
-                $item->issued_quantity = $stock->issued_quantity ?? null;
-                $item->received_quantity = $stock->received_quantity ?? null;
+                $group = $stockItems->get($item->product_id);
+
+                $item->requested_quantity = $group ? $group->first()->requested_quantity ?? $item->quantity : $item->quantity;
+                $item->issued_quantity = $group ? $group->sum('issued_quantity') : null;
+                $item->received_quantity = $group ? $group->sum('received_quantity') : null;
+
                 return $item;
             });
+
             $materialRequest->setRelation('items', $materialRequestItems);
 
-
-            if ($materialRequest->status == 'awaiting_procurement') {
+            if ($materialRequest->status_id == 9) {
                 $pr = PurchaseRequest::create([
                     'purchase_request_number' => 'PR' . str_pad(PurchaseRequest::max('id') + 1001, 6, '0', STR_PAD_LEFT),
                     'material_request_id' => $materialRequest->id,

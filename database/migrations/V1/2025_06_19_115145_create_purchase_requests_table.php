@@ -19,7 +19,7 @@ return new class extends Migration {
             $table->string('material_request_number');
             $table->string('lpo')->nullable();
             $table->string('do')->nullable();
-            $table->enum('status', ['PENDING', 'WAITING', 'RECEIVED', 'COMPLETED'])->default('PENDING');
+            $table->foreignId('status_id')->nullable()->default(2)->constrained('statuses')->nullOnDelete();
             $table->bigInteger('created_by')->nullable();
             $table->string('created_type')->nullable();
             $table->bigInteger('updated_by')->nullable();
@@ -35,6 +35,6 @@ return new class extends Migration {
      */
     public function down()
     {
-        Schema::dropIfExists('prs');
+        Schema::dropIfExists('purchase_requests');
     }
 };

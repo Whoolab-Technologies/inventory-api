@@ -10,6 +10,10 @@ class StockTransfer extends BaseModel
 
     protected $hidden = ['created_by', 'created_type', 'updated_by', 'updated_type', 'created_at', 'updated_at'];
 
+    public function status()
+    {
+        return $this->hasOne(Status::class, 'status_id');
+    }
     /**
      * Get the store from which stock is transferred.
      */
@@ -82,13 +86,7 @@ class StockTransfer extends BaseModel
 
     public function materialRequest()
     {
-        return $this->hasOneThrough(
-            MaterialRequest::class,
-            MaterialRequestStockTransfer::class,
-            'stock_transfer_id', // FK on the pivot table
-            'id',                // PK on material_requests
-            'id',                // Local key on stock_transfers
-            'material_request_id'// FK on the pivot table
-        );
+        return $this->belongsTo(MaterialRequest::class, 'request_id', 'id')
+            ->where('type', 'MR');
     }
 }
