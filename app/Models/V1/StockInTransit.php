@@ -20,9 +20,16 @@ class StockInTransit extends Model
         "material_return_item_id",
         'issued_quantity',
         'received_quantity',
-        'status'
+        'status_id'
     ];
-
+    protected static function booted()
+    {
+        static::creating(function ($model) {
+            if (is_null($model->status_id)) {
+                $model->status_id = 10;
+            }
+        });
+    }
     public function stockTransfer()
     {
         return $this->belongsTo(StockTransfer::class);

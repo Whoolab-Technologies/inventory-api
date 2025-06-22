@@ -16,7 +16,7 @@ return new class extends Migration {
             $table->string('description')->nullable();
             $table->bigInteger('engineer_id');
             $table->bigInteger('store_id');
-            $table->foreignId('status_id')->nullable()->default(1)->constrained('statuses')->nullOnDelete();
+            $table->foreignId('status_id')->nullable()->default(2)->constrained('statuses')->nullOnDelete();
             $table->bigInteger('created_by')->nullable();
             $table->string('created_type')->nullable();
             $table->bigInteger('updated_by')->nullable();

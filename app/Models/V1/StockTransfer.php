@@ -6,13 +6,21 @@ class StockTransfer extends BaseModel
 {
     use HasFactory;
 
-    protected $fillable = ['from_store_id', 'to_store_id', 'status', 'dn_number', 'remarks',];
+    protected $fillable = ['from_store_id', 'to_store_id', 'status_id', 'dn_number', 'remarks',];
 
     protected $hidden = ['created_by', 'created_type', 'updated_by', 'updated_type', 'created_at', 'updated_at'];
 
+    protected static function booted()
+    {
+        static::creating(function ($model) {
+            if (is_null($model->status_id)) {
+                $model->status_id = 2;
+            }
+        });
+    }
     public function status()
     {
-        return $this->hasOne(Status::class, 'status_id');
+        return $this->belongsTo(Status::class, 'status_id', 'id');
     }
     /**
      * Get the store from which stock is transferred.

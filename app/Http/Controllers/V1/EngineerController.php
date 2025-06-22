@@ -248,6 +248,7 @@ class EngineerController extends Controller
 
             $materialRequest->items()->createMany($items);
             $materialRequest = $materialRequest->load(["status", "items.product"]);
+            \Log::info($materialRequest->status);
             $materialRequest = [
                 'id' => $materialRequest->id,
                 'store_id' => $materialRequest->store_id,

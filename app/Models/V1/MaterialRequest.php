@@ -18,13 +18,20 @@ class MaterialRequest extends BaseModel
         'engineer_id',
         'store_id',
         'qr_code',
-        'status',
+        'status_id',
     ];
-
+    protected static function booted()
+    {
+        static::creating(function ($model) {
+            if (is_null($model->status_id)) {
+                $model->status_id = 2;
+            }
+        });
+    }
 
     public function status()
     {
-        return $this->hasOne(Status::class, 'status_id');
+        return $this->belongsTo(Status::class, 'status_id', 'id');
     }
     public function products()
     {

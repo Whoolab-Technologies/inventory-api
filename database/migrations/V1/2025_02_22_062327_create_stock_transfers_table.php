@@ -14,7 +14,7 @@ return new class extends Migration {
             $table->id();
             $table->bigInteger('from_store_id')->index()->nullable(); // Store sending stock
             $table->bigInteger('to_store_id')->index();   // Store receiving stock
-            $table->foreignId('status_id')->nullable()->default(1)->constrained('statuses')->nullOnDelete();
+            $table->foreignId('status_id')->nullable()->default(10)->constrained('statuses')->nullOnDelete();
             $table->string('dn_number')->nullable();
             $table->text('remarks')->nullable();
             $table->integer('request_id')->nullable();

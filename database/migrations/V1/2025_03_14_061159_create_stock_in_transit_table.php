@@ -22,7 +22,7 @@ return new class extends Migration {
             $table->integer('product_id');
             $table->integer('issued_quantity')->default(0);
             $table->integer('received_quantity')->default(0);
-            $table->foreignId('status_id')->nullable()->default(1)->constrained('statuses')->nullOnDelete();
+            $table->foreignId('status_id')->nullable()->default(10)->constrained('statuses')->nullOnDelete();
 
             $table->timestamps();
         });
