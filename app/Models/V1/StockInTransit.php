@@ -14,6 +14,7 @@ class StockInTransit extends Model
     protected $fillable = [
         'stock_transfer_id',
         'material_request_id',
+        "material_request_item_id",
         'stock_transfer_item_id',
         'product_id',
         'material_return_id',

@@ -12,6 +12,8 @@ return new class extends Migration {
      */
     public function up()
     {
+        \DB::statement('DROP TABLE `stock_in_transit`');
+
         Schema::create('stock_in_transit', function (Blueprint $table) {
             $table->id();
             $table->integer('stock_transfer_id');
@@ -26,6 +28,7 @@ return new class extends Migration {
             $table->foreignId('status_id')->nullable()->default(10)->constrained('statuses')->nullOnDelete();
             $table->timestamps();
         });
+
     }
 
     /**
@@ -35,6 +38,8 @@ return new class extends Migration {
      */
     public function down()
     {
-        Schema::dropIfExists('stock_in_transit');
+        Schema::table('stock-in-transit', function (Blueprint $table) {
+            //
+        });
     }
 };

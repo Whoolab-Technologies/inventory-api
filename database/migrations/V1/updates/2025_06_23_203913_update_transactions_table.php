@@ -12,7 +12,7 @@ return new class extends Migration {
      */
     public function up()
     {
-        //\DB::statement('ALTER TABLE `stock_transactions` DROP `type`');
+        \DB::statement('ALTER TABLE `stock_transactions` DROP `type`');
         Schema::table('stock_transactions', function (Blueprint $table) {
             $table->enum('type', ['DIRECT', 'MR', 'PR', 'SS-REUTRN', 'ENG-RETURN'])->default(value: 'DIRECT')->after('quantity');
         });
@@ -26,7 +26,8 @@ return new class extends Migration {
     public function down()
     {
         Schema::table('stock_transactions', function (Blueprint $table) {
-            //
+            $table->dropColumn(['type']);
+
         });
     }
 };

@@ -6,7 +6,22 @@ class StockTransfer extends BaseModel
 {
     use HasFactory;
 
-    protected $fillable = ['from_store_id', 'to_store_id', 'status_id', 'dn_number', 'remarks',];
+    protected $fillable = [
+        'transaction_number',
+        'from_store_id',
+        'to_store_id',
+        'status_id',
+        'dn_number',
+        'remarks',
+        'request_id',
+        'type',
+        'transaction_type',
+        'send_by',
+        'sender_role',
+        'received_by',
+        'receiver_role',
+        'note',
+    ];
 
     protected $hidden = ['created_by', 'created_type', 'updated_by', 'updated_type', 'created_at', 'updated_at'];
 

@@ -7,6 +7,7 @@ use App\Models\V1\PurchaseRequest;
 use App\Models\V1\PurchaseRequestItem;
 use App\Models\V1\StockTransfer;
 use App\Models\V1\StockTransferItem;
+use App\Models\V1\StockInTransit;
 use App\Models\V1\StockTransaction;
 use App\Models\V1\Stock;
 use App\Services\Helpers;
@@ -17,6 +18,7 @@ class PurchaseRequestController extends Controller
 {
     public function update(Request $request, $id)
     {
+        \DB::beginTransaction();
         try {
             $data = $request->validate([
                 'lpo' => 'nullable|string',
@@ -26,182 +28,76 @@ class PurchaseRequestController extends Controller
                 'items.*.id' => 'required|integer|exists:purchase_request_items,id',
                 'items.*.received_quantity' => 'required|numeric|min:0',
             ]);
-            $purchaseRequest = PurchaseRequest::with('items')->findOrFail($id);
-            // Validate LPO requirement BEFORE saving status
+
+            $purchaseRequest = PurchaseRequest::with(['items', 'materialRequest'])->findOrFail($id);
+
             if ($data['status_id'] == 5 && empty($data['lpo'])) {
                 return Helpers::sendResponse(422, null, 'LPO is required when status is Processing');
             }
+
             $hasOverReceived = collect($data['items'])->contains(function ($item) use ($purchaseRequest) {
                 $existingItem = $purchaseRequest->items->firstWhere('id', $item['id']);
-                $newTotalReceived = $existingItem->received_quantity + $item['received_quantity'];
-                return $newTotalReceived > $existingItem->quantity;
+                return $existingItem->received_quantity + $item['received_quantity'] > $existingItem->quantity;
             });
 
             if ($hasOverReceived) {
-                return Helpers::sendResponse(422, null, 'Received quantity exceeds the ordered quantity for one or more items.');
+                return Helpers::sendResponse(422, null, 'Received quantity exceeds ordered quantity for one or more items.');
             }
 
-            $anyQuantityEntered = collect($data['items'])->contains(function ($item) {
-                return $item['received_quantity'] > 0;
-            });
+            $anyQuantityEntered = collect($data['items'])->contains(fn($item) => $item['received_quantity'] > 0);
 
             if ($anyQuantityEntered && empty($data['do'])) {
                 return Helpers::sendResponse(422, null, 'Delivery Order (DO) is required when item quantity is provided.');
             }
 
-            // Now safe to update PurchaseRequest
-            $purchaseRequest->lpo = $data['lpo'];
-            $purchaseRequest->do = $data['do'];
-            $purchaseRequest->status_id = $data['status_id'];
-            $purchaseRequest->save();
+            $purchaseRequest->fill([
+                'lpo' => $data['lpo'],
+                'do' => $data['do'],
+                'status_id' => $data['status_id'],
+            ])->save();
 
-            // Update item quantities
             foreach ($data['items'] as $itemData) {
-                \Log::info("item");
-                \Log::info($itemData['received_quantity']);
-
                 PurchaseRequestItem::where('id', $itemData['id'])
                     ->where('purchase_request_id', $purchaseRequest->id)
                     ->increment('received_quantity', $itemData['received_quantity']);
             }
 
-            $allFullyReceived = $purchaseRequest->items->every(function ($item) {
-                return $item->quantity == $item->received_quantity;
-            });
+            $purchaseRequest->refresh();
 
-            \Log::info($purchaseRequest);
+            $allFullyReceived = $purchaseRequest->items->every(fn($item) => $item->quantity == $item->received_quantity);
 
-            // If LPO is added & status is 2 (Pending), change to 5 (Awaiting DO)
             if (!empty($purchaseRequest->lpo) && $purchaseRequest->status_id == 2) {
-                \Log::info(message: "Changing to processing");
-                $purchaseRequest->status_id = 5;
-                $purchaseRequest->save();
+                $purchaseRequest->update(['status_id' => 5]);
             }
 
-
-            //If all items fully received, DO is entered, set status to 7 (Completed)
             if ($allFullyReceived && !empty($purchaseRequest->do)) {
-                $purchaseRequest->status_id = 7;
-                $purchaseRequest->save();
+                $purchaseRequest->update(['status_id' => 7]);
             }
 
             if (!empty($data['do'])) {
-                // For stock in 
-                $user = auth()->user();
-                $stockTransfers = new StockTransfer();
-                $stockTransfers->to_store_id = $user->store->id;
-                //$stockTransfers->to_store_id = $purchaseRequest->materialRequest->store_id;
-                // $stockTransfers->from_store_id 
-                $stockTransfers->request_id = $purchaseRequest->material_request_id;
-                $stockTransfers->send_by = $user->id;
-                $stockTransfers->type = "PR";
-                $stockTransfers->dn_number = $purchaseRequest->do;
-                $stockTransfers->save();
-
-                collect($data['items'])->contains(function ($item) use ($purchaseRequest, $stockTransfers, $user) {
-                    $existingItem = $purchaseRequest->items->firstWhere('id', $item['id']);
-                    $productId = $existingItem->product_id;
-                    $storeId = $user->store->id;
-                    $receivedQuantity = $item['received_quantity'];
-                    $stockTransferItem = new StockTransferItem();
-                    $stockTransferItem->stock_transfer_id = $stockTransfers->id;
-                    $stockTransferItem->product_id = $productId;
-                    $stockTransferItem->requested_quantity = $existingItem->quantity;
-                    $stockTransferItem->issued_quantity = $receivedQuantity;
-                    $stockTransferItem->save();
-                    // stock in transaction  central store
-                    $stockTransaction = new StockTransaction();
-                    $stockTransaction->store_id = $storeId;
-                    $stockTransaction->product_id = $productId;
-                    $stockTransaction->engineer_id = $existingItem->materialRequest->engineer_id;
-                    $stockTransaction->quantity = abs($receivedQuantity);
-                    $stockTransaction->stock_movement = "IN";
-                    $stockTransaction->type = "PR";
-                    $stockTransaction->dn_number = $purchaseRequest->do ?? null;
-                    $stockTransaction->save();
-
-                    // show stock in to the central store
-                    $toStoreStocks = Stock::where('store_id', $storeId)
-                        ->whereIn('product_id', $productId)
-                        ->get()
-                        ->keyBy('product_id');
-                    $toStock = $toStoreStocks[$productId] ?? new Stock([
-                        'store_id' => $storeId,
-                        'product_id' => $productId,
-                        'quantity' => 0,
-                    ]);
-                    $toStock->quantity += $receivedQuantity;
-                    $toStock->save();
-
-                });
-
-                // For stock out of central store
-
-
-
-                $stockTransfers = new StockTransfer();
-                $stockTransfers->to_store_id = $purchaseRequest->materialRequest->store_id;
-                $stockTransfers->from_store_id = $user->store->id;
-                $stockTransfers->request_id = $purchaseRequest->material_request_id;
-                $stockTransfers->send_by = $user->id;
-                $stockTransfers->type = "PR";
-                $stockTransfers->dn_number = $purchaseRequest->do;
-                $stockTransfers->save();
-
-                collect($data['items'])->contains(function ($item) use ($purchaseRequest, $stockTransfers, $user) {
-                    $existingItem = $purchaseRequest->items->firstWhere('id', $item['id']);
-                    $productId = $existingItem->product_id;
-                    $storeId = $user->store->id;
-                    $receivedQuantity = $item['received_quantity'];
-                    $stockTransferItem = new StockTransferItem();
-                    $stockTransferItem->stock_transfer_id = $stockTransfers->id;
-                    $stockTransferItem->product_id = $productId;
-                    $stockTransferItem->requested_quantity = $existingItem->quantity;
-                    $stockTransferItem->issued_quantity = $receivedQuantity;
-                    $stockTransferItem->save();
-                    // stock in transaction  central store
-                    $stockTransaction = new StockTransaction();
-                    $stockTransaction->store_id = $storeId;
-                    $stockTransaction->product_id = $productId;
-                    $stockTransaction->engineer_id = $existingItem->materialRequest->engineer_id;
-                    $stockTransaction->quantity = abs($receivedQuantity);
-                    $stockTransaction->stock_movement = "TRANSIT";
-                    $stockTransaction->type = "PR";
-                    $stockTransaction->dn_number = $purchaseRequest->do ?? null;
-                    $stockTransaction->save();
-
-                    // show stock in to the central store
-                    $toStoreStocks = Stock::where('store_id', $storeId)
-                        ->whereIn('product_id', $productId)
-                        ->get()
-                        ->keyBy('product_id');
-                    $toStock = $toStoreStocks[$productId] ?? new Stock([
-                        'store_id' => $storeId,
-                        'product_id' => $productId,
-                        'quantity' => 0,
-                    ]);
-                    $toStock->quantity -= $receivedQuantity;
-                    $toStock->save();
-
-                });
-
+                $this->processStockMovement($purchaseRequest, $data['items']);
             }
 
-            // Final Response with updated data
+            if ($purchaseRequest->materialRequest) {
+                $purchaseRequest->materialRequest->status_id = $purchaseRequest->status_id;
+                $purchaseRequest->materialRequest->save();
+            }
+            \DB::commit();
+
             $purchaseRequest->load(['materialRequest', 'items', 'items.product', 'status']);
 
             return Helpers::sendResponse(200, $purchaseRequest, 'Purchase Request updated successfully');
 
         } catch (ModelNotFoundException $e) {
-            return Helpers::sendResponse(
-                status: 404,
-                data: [],
-                messages: 'Purchase request not found',
-            );
-        } catch (\Exception $e) {
+            \DB::rollBack();
+            return Helpers::sendResponse(404, [], 'Purchase request not found');
+        } catch (\Throwable $e) {
+            \DB::rollBack();
+            \Log::info($e->getMessage());
             return Helpers::sendResponse(500, null, 'Error updating purchase request: ' . $e->getMessage());
         }
     }
+
     public function index(Request $request)
     {
         try {
@@ -269,4 +165,81 @@ class PurchaseRequestController extends Controller
 
         return $purchaseRequest;
     }
+
+    protected function processStockMovement($purchaseRequest, $items)
+    {
+        $user = auth()->user();
+        $centralStoreId = $user->store->id;
+        $siteStoreId = $purchaseRequest->materialRequest->store_id;
+
+        // Stock IN to Central Store
+        $inTransfer = StockTransfer::create([
+            'transaction_number' => 'TXN-' . str_pad(StockTransfer::max('id') + 1001, 6, '0', STR_PAD_LEFT),
+            'to_store_id' => $centralStoreId,
+            'request_id' => $purchaseRequest->material_request_id,
+            'send_by' => $user->id,
+            'type' => 'PR',
+            'transaction_type' => 'PR',
+            'dn_number' => $purchaseRequest->do,
+        ]);
+
+        $this->handleStockItems($items, $purchaseRequest, $inTransfer, $centralStoreId, 'IN', true);
+
+        // Stock OUT from Central Store to Site
+        $outTransfer = StockTransfer::create([
+            'transaction_number' => 'TXN-' . str_pad(StockTransfer::max('id') + 1001, 6, '0', STR_PAD_LEFT),
+            'to_store_id' => $siteStoreId,
+            'from_store_id' => $centralStoreId,
+            'request_id' => $purchaseRequest->material_request_id,
+            'send_by' => $user->id,
+            'type' => 'PR',
+            'dn_number' => $purchaseRequest->do,
+        ]);
+
+        $this->handleStockItems($items, $purchaseRequest, $outTransfer, $centralStoreId, 'TRANSIT', false);
+
+    }
+
+    protected function handleStockItems($items, $purchaseRequest, $stockTransfer, $storeId, $movement, $isStockIn)
+    {
+        foreach ($items as $item) {
+            $existingItem = $purchaseRequest->items->firstWhere('id', $item['id']);
+            $receivedQuantity = $item['received_quantity'];
+            $productId = $existingItem->product_id;
+
+            $stockTransferItem = StockTransferItem::create([
+                'stock_transfer_id' => $stockTransfer->id,
+                'product_id' => $productId,
+                'requested_quantity' => $existingItem->quantity,
+                'issued_quantity' => $receivedQuantity,
+            ]);
+
+            StockTransaction::create([
+                'store_id' => $storeId,
+                'product_id' => $productId,
+                'engineer_id' => $purchaseRequest->materialRequest->engineer_id,
+                'quantity' => abs($receivedQuantity),
+                'stock_movement' => $movement,
+                'type' => 'PR',
+                'dn_number' => $purchaseRequest->do ?? null,
+                'lpo' => $purchaseRequest->lpo ?? null,
+            ]);
+            if (!$isStockIn) {
+                $stockInTransit = new StockInTransit();
+                $stockInTransit->stock_transfer_id = $stockTransfer->id;
+                $stockInTransit->stock_transfer_item_id = $stockTransferItem->id;
+                $stockInTransit->material_request_id = $purchaseRequest->material_request_id;
+                $stockInTransit->material_request_item_id = $existingItem->material_request_item_id;
+                $stockInTransit->product_id = $productId;
+                $stockInTransit->issued_quantity = $receivedQuantity;
+                $stockInTransit->save();
+            }
+
+            $stock = Stock::firstOrNew(['store_id' => $storeId, 'product_id' => $productId]);
+            $stock->quantity += $isStockIn ? $receivedQuantity : -$receivedQuantity;
+            $stock->save();
+        }
+    }
+
+
 }

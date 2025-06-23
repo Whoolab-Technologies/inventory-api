@@ -7,6 +7,8 @@ use App\Models\V1\StockInTransit;
 use App\Models\V1\EngineerStock;
 use App\Models\V1\Stock;
 use App\Models\V1\StockTransaction;
+use App\Models\V1\StockTransfer;
+use App\Models\V1\StockTransferItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -20,6 +22,7 @@ class MaterialReturnService
             }
 
             \DB::beginTransaction();
+            $user = Auth::user();
             $materialReturn = new MaterialReturn();
             $materialReturn->from_store_id = $request->from_store_id;
             $materialReturn->to_store_id = $request->to_store_id;
@@ -32,6 +35,19 @@ class MaterialReturnService
                 $materialReturnDetail->engineer_id = $engineer['engineer_id'];
                 $materialReturnDetail->save();
 
+                $stockTransfer = new StockTransfer();
+                $stockTransfer->request_id = $materialReturnDetail->id;
+                $stockTransfer->transaction_number = 'TXN-' . str_pad(StockTransfer::max('id') + 1001, 6, '0', STR_PAD_LEFT);
+                $stockTransfer->type = "SS-RETURN";
+                $stockTransfer->transaction_type = "SS-CS";
+                $stockTransfer->from_store_id = $request->from_store_id;
+                $stockTransfer->to_store_id = $request->to_store_id;
+                $stockTransfer->dn_number = $request->dn_number ?? null;
+                $stockTransfer->status_id = 10;
+                $stockTransfer->send_by = $user->id;
+                $stockTransfer->sender_role = "SITE STORE";
+                $stockTransfer->save();
+
                 foreach ($engineer['products'] as $product) {
                     $materialReturnItem = new MaterialReturnItem();
                     $materialReturnItem->material_return_id = $materialReturn->id;
@@ -40,7 +56,15 @@ class MaterialReturnService
                     $materialReturnItem->issued = $product['issued'];
                     $materialReturnItem->save();
 
+                    $stockTransferItem = StockTransferItem::create([
+                        'stock_transfer_id' => $stockTransfer->id,
+                        'product_id' => $product['product_id'],
+                        'requested_quantity' => $product['issued']
+                    ]);
+
                     $stockInTransit = new StockInTransit();
+                    $stockInTransit->stock_transfer_id = $stockTransfer->id;
+                    $stockInTransit->stock_transfer_item_id = $stockTransferItem->id;
                     $stockInTransit->material_return_id = $materialReturn->id;
                     $stockInTransit->material_return_item_id = $materialReturnItem->id;
                     $stockInTransit->product_id = $product['product_id'];
@@ -118,9 +142,13 @@ class MaterialReturnService
             $fromStoreId = $materialReturn->from_store_id;
             $toStoreId = $materialReturn->to_store_id;
             $isPartiallyReceived = false;
+
             foreach ($request->details as $details) {
                 $engineerId = $details['engineer_id'];
                 $productIds = collect($details['items'])->pluck('product_id')->unique();
+
+                $stockTransfer = StockTransfer::where('request_id', $details['id'])
+                    ->where('type', 'SS-RETURN')->firstOrFail();
 
                 $stockInTransitRecords = StockInTransit::whereIn('product_id', $productIds)
                     ->whereIn('material_return_item_id', collect($details['items'])->pluck('id'))
@@ -147,6 +175,11 @@ class MaterialReturnService
                 foreach ($details['items'] as $item) {
                     $productId = $item['product_id'];
                     $receivedQuantity = $item['received'];
+                    collect($stockTransfer->items)->map(function ($stockTransfer) use ($item) {
+                        $stockTransferItem = $stockTransfer->firstWhere('product_id', $item['product_id']);
+                        $stockTransferItem->received_quantity = $item['received'];
+                        $stockTransferItem->save();
+                    });
 
                     $stockInTransit = $stockInTransitRecords[$productId] ?? null;
                     if (!$stockInTransit)
@@ -239,11 +272,14 @@ class MaterialReturnService
                         ]);
                     }
                 }
+                $stockTransfer->status_id = 7;
+                $stockTransfer->save();
             }
             $materialReturn->status_id = 11;
             if ($isPartiallyReceived) {
                 $materialReturn->status_id = 9;
             }
+
             $materialReturn->save();
             \DB::commit();
             return $materialReturn;

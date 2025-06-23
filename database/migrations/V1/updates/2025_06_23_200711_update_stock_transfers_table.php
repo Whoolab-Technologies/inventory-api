@@ -14,7 +14,7 @@ return new class extends Migration {
     {
         Schema::table('stock_transfers', function (Blueprint $table) {
             $table->string('transaction_number')->after('id')->nullable();
-            $table->enum('transaction_type', ['CS-SS', 'SS-SS', 'ENGG-SS'])->after('type')->default('CS-SS');
+            $table->enum('transaction_type', ['PR', 'CS-SS', 'SS-SS', 'ENGG-SS'])->after('type')->default('CS-SS');
             $table->enum('sender_role', ['CENTRAL STORE', 'SITE STORE', 'ENGINEER'])->after('send_by')->default('CENTRAL STORE');
             $table->enum('receiver_role', ['CENTRAL STORE', 'SITE STORE', 'ENGINEER'])->after('received_by')->nullable();
         });
@@ -28,7 +28,7 @@ return new class extends Migration {
     public function down()
     {
         Schema::table('stock_transfers', function (Blueprint $table) {
-            //
+            $table->dropColumn(['transaction_number', 'transaction_type', 'sender_role', 'receiver_role']);
         });
     }
 };
