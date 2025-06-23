@@ -19,8 +19,7 @@ return new class extends Migration {
             $table->foreignId('engineer_id')->constrained('engineers')->onDelete('cascade');
             $table->integer('quantity')->default(0);
             $table->enum('stock_movement', ['IN', 'TRANSIT', 'OUT']);
-            $table->enum('type', ['STOCK', 'TRANSFER', 'CONSUMPTION', "RETURN"])
-                ->default('TRANSFER');
+            $table->enum('type', ['DIRECT', 'MR', 'PR', 'SS-REUTRN', 'ENG-RETURN', 'DISPATCH'])->default(value: 'DIRECT');
             $table->string('lpo')->nullable();
             $table->string('dn_number')->nullable();
             $table->bigInteger('created_by')->nullable();

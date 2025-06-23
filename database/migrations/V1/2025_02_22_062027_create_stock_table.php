@@ -14,6 +14,7 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('store_id')->constrained('stores')->onDelete('cascade');
             $table->foreignId('product_id')->constrained('products')->onDelete('cascade');
+            $table->integer('engineer_id')->default(0);
             $table->integer('quantity')->default(0); // Total stock in store
             $table->bigInteger('created_by')->nullable();
             $table->string('created_type')->nullable();

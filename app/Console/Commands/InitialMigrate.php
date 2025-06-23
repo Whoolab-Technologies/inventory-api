@@ -18,7 +18,7 @@ class InitialMigrate extends Command
     {
         // Migrate the default migrations (in case you want to migrate the main folder too)
         $this->call('migrate', [
-            '--path' => 'database/migrations/V1/2025_06_21_214912_create_statuses_table.php'
+            '--path' => 'database/migrations/2025_06_21_214912_create_statuses_table.php'
         ]);
 
         // Seed the statuses table

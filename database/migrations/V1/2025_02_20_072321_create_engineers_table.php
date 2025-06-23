@@ -17,6 +17,7 @@ return new class extends Migration {
             $table->string('email')->unique();
             $table->string('password');
             $table->bigInteger('store_id');
+            $table->bigInteger('department_id');
             $table->rememberToken();
             $table->bigInteger('created_by')->nullable();
             $table->string('created_type')->nullable();
