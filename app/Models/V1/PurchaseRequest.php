@@ -11,7 +11,12 @@ class PurchaseRequest extends BaseModel
     protected $fillable = ['purchase_request_number', 'material_request_id', 'material_request_number', 'lpo', 'do', 'status_id'];
 
     use HasFactory;
+    protected $appends = ['created_datetime'];
 
+    public function getCreatedDateTimeAttribute()
+    {
+        return $this->created_at ? $this->created_at : null;
+    }
     public function status()
     {
         return $this->belongsTo(Status::class, 'status_id', 'id');
@@ -26,4 +31,11 @@ class PurchaseRequest extends BaseModel
     {
         return $this->hasMany(PurchaseRequestItem::class, 'purchase_request_id');
     }
+
+    public function transactions()
+    {
+        return $this->hasMany(StockTransfer::class, 'request_id', 'material_request_id')
+            ->where('type', 'PR');
+    }
+
 }

@@ -100,8 +100,9 @@ class StockTransfer extends BaseModel
     {
         return $this->belongsTo(MaterialRequest::class, 'request_id', 'id');
     }
-    // public function purchaseRequest()
-    // {
-    //     return $this->belongsTo(PurchaseRequest::class, 'request_id', 'id');
-    // }
+
+    public function purchaseRequest()
+    {
+        return $this->belongsTo(PurchaseRequest::class, 'request_id', 'material_request_id');
+    }
 }

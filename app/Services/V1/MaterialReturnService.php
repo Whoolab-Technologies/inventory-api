@@ -70,7 +70,7 @@ class MaterialReturnService
                     $stockTransaction->engineer_id = $engineer['engineer_id'];
                     $stockTransaction->quantity = abs($product['issued']);
                     $stockTransaction->stock_movement = "TRANSIT";
-                    $stockTransaction->type = "RETURN";
+                    $stockTransaction->type = "SS-RETURN";
                     $stockTransaction->dn_number = $request->dn_number ?? null;
                     $stockTransaction->save();
                 }
@@ -200,7 +200,7 @@ class MaterialReturnService
                         ->where('product_id', $productId)
                         ->where('engineer_id', $engineerId)
                         ->where('stock_movement', 'TRANSIT')
-                        ->where('type', 'RETURN')
+                        ->where('type', 'SS-RETURN')
                         ->delete();
 
                     // Log stock transactions
@@ -212,7 +212,7 @@ class MaterialReturnService
                                 'engineer_id' => $engineerId,
                                 'quantity' => $receivedQuantity,
                                 'stock_movement' => 'OUT',
-                                'type' => 'RETURN',
+                                'type' => 'SS-RETURN',
                                 'dn_number' => $materialReturn->dn_number ?? null,
                                 'created_by' => $user->id ?? null,
                                 "created_type" => $tokenName,
@@ -227,7 +227,7 @@ class MaterialReturnService
                                 'engineer_id' => $engineerId,
                                 'quantity' => $receivedQuantity,
                                 'stock_movement' => 'IN',
-                                'type' => 'RETURN',
+                                'type' => 'SS-RETURN',
                                 'dn_number' => $materialReturn->dn_number ?? null,
                                 'created_by' => $user->id ?? null,
                                 "created_type" => $tokenName,

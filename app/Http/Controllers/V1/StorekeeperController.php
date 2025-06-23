@@ -468,6 +468,8 @@ class StorekeeperController extends Controller
                     'fromStore',
                     'toStore',
                     'files',
+                    'materialRequest',
+                    'purchaseRequest',
                     'status',
                 ]
             );
@@ -484,16 +486,17 @@ class StorekeeperController extends Controller
 
             $stockTransfer = $stockTransfer->get()
                 ->map(function ($transfer) {
+                    $transfer->engineer = $transfer->materialRequest->engineer;
 
-                    if ($transfer->type == "MR") {
-                        $transfer->engineer = $transfer->materialRequest->engineer;
-                    }
-                    if ($transfer->type == "PR") {
-                        $materialRequest = $transfer->materialRequest;
-                        $transfer->engineer = $materialRequest->engineer;
-                        $transfer->purchaseRequests = $materialRequest->purchaseRequests;
-                    }
-
+                    // if ($transfer->type == "MR") {
+                    //     $transfer->engineer = $transfer->materialRequest->engineer;
+                    // }
+                    // if ($transfer->type == "PR" && $transfer->materialRequest) {
+                    //     $materialRequest = $transfer->materialRequest;
+                    //     $transfer->engineer = $materialRequest->engineer;
+                    //     $transfer->purchaseRequests = $materialRequest->purchaseRequests;
+                    // }
+    
                     $transfer->notes = $transfer->notes->map(function ($item) {
                         $createBy = $item->createdBy;
                         $store = $item->createdBy->store;

@@ -45,6 +45,7 @@ Route::prefix('storekeeper')->group(function () {
         Route::post('stocks', [StorekeeperController::class, 'getAvailableStock']);
 
         Route::get('prs', [PurchaseRequestController::class, 'index']);
+        Route::get('prs/{id}', [PurchaseRequestController::class, 'show']);
         Route::put('prs/{id}', [PurchaseRequestController::class, 'update']);
 
     });

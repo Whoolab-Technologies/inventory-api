@@ -563,7 +563,7 @@ class EngineerController extends Controller
                     'engineer_id' => $request->engineer_id,
                     'quantity' => abs($product['issued']),
                     'stock_movement' => 'TRANSIT',
-                    'type' => 'RETURN',
+                    'type' => 'SS-RETURN',
                     'dn_number' => $request->dn_number,
                 ]);
             }

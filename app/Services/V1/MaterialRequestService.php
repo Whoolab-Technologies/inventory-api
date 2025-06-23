@@ -162,7 +162,7 @@ class MaterialRequestService
             $materialRequestItems = $this->mapStockItemsProduct($materialRequest, $stockItems);
             $materialRequest->setRelation('items', $materialRequestItems);
 
-            if ($materialRequest->status_id == 9) {
+            if (in_array($request->status_id, [5, 9])) {
                 $pr = PurchaseRequest::create([
                     'purchase_request_number' => 'PR' . str_pad(PurchaseRequest::max('id') + 1001, 6, '0', STR_PAD_LEFT),
                     'material_request_id' => $materialRequest->id,
