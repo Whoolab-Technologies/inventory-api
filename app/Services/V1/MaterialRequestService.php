@@ -54,10 +54,11 @@ class MaterialRequestService
         \DB::beginTransaction();
         try {
             $user = auth()->user();
+            \Log::info($request->status_id);
             $materialRequest = MaterialRequest::findOrFail($id);
-            $materialRequest->status_id = $request->status == 10 ? "processing" : $request->status;
+            $materialRequest->status_id = $request->status_id;
 
-            if (in_array($request->status, [9, 10])) {
+            if (in_array($request->status_id, [5, 10])) {
 
                 if (empty($request->items)) {
                     throw new \Exception('Invalid items data');
@@ -77,9 +78,9 @@ class MaterialRequestService
                 $stockTransfers->to_store_id = $materialRequest->store_id;
                 $stockTransfers->from_store_id = $request->from_store_id;
                 $stockTransfers->request_id = $id;
-                $stockTransfers->status = "IN TRANSIT";
                 $stockTransfers->remarks = $request->note;
                 $stockTransfers->send_by = $user->id;
+                $stockTransfers->type = "MR";
                 $stockTransfers->dn_number = $request->dn_number;
                 $stockTransfers->save();
 
@@ -104,10 +105,6 @@ class MaterialRequestService
                     $stockTransferNote->notes = $request->note;
                     $stockTransferNote->save();
                 }
-                // $materialRequestStockTransfer = new MaterialRequestStockTransfer();
-                // $materialRequestStockTransfer->stock_transfer_id = $stockTransfers->id;
-                // $materialRequestStockTransfer->material_request_id = $materialRequest->id;
-                // $materialRequestStockTransfer->save();
 
                 foreach ($request->items as $item) {
                     $product = Product::findOrFail($item->product_id);
@@ -162,16 +159,7 @@ class MaterialRequestService
                 ->flatten(1)
                 ->groupBy('product_id');
 
-            $materialRequestItems = collect($materialRequest->items)->map(function ($item) use ($stockItems) {
-                $group = $stockItems->get($item->product_id);
-
-                $item->requested_quantity = $group ? $group->first()->requested_quantity ?? $item->quantity : $item->quantity;
-                $item->issued_quantity = $group ? $group->sum('issued_quantity') : null;
-                $item->received_quantity = $group ? $group->sum('received_quantity') : null;
-
-                return $item;
-            });
-
+            $materialRequestItems = $this->mapStockItemsProduct($materialRequest, $stockItems);
             $materialRequest->setRelation('items', $materialRequestItems);
 
             if ($materialRequest->status_id == 9) {
@@ -201,5 +189,19 @@ class MaterialRequestService
             throw $th;
         }
 
+    }
+
+
+    public function mapStockItemsProduct($materialRequest, $stockItems)
+    {
+        return collect($materialRequest->items)->map(function ($item) use ($stockItems) {
+            $group = $stockItems->get($item->product_id);
+
+            $item->requested_quantity = $group ? $group->first()->requested_quantity ?? $item->quantity : $item->quantity;
+            $item->issued_quantity = $group ? $group->sum('issued_quantity') : null;
+            $item->received_quantity = $group ? $group->sum('received_quantity') : null;
+
+            return $item;
+        });
     }
 }

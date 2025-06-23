@@ -14,7 +14,7 @@ class StockTransfer extends BaseModel
     {
         static::creating(function ($model) {
             if (is_null($model->status_id)) {
-                $model->status_id = 2;
+                $model->status_id = 10;
             }
         });
     }
@@ -54,23 +54,27 @@ class StockTransfer extends BaseModel
     public function scopeSearch($query, $term)
     {
         $term = "%{$term}%";
-        return $query->whereHas('stockTransferItems.product', function ($query) use ($term) {
-            $query->where('item', 'LIKE', $term);
-        })
-            ->orWhereHas('fromStore', function ($q) use ($term) {
-                $q->where('name', 'LIKE', $term);
+
+        return $query->where(function ($query) use ($term) {
+            $query->whereHas('stockTransferItems.product', function ($query) use ($term) {
+                $query->where('item', 'LIKE', $term);
             })
-            ->orWhereHas('toStore', function ($q) use ($term) {
-                $q->where('name', 'LIKE', $term);
-            })
-            ->orWhereHas('materialRequestStockTransfer.materialRequest', function ($q) use ($term) {
-                $q->where('request_number', 'LIKE', $term)
-                    ->orWhereHas('engineer', function ($q) use ($term) {
-                        $q->where('first_name', 'LIKE', $term)
-                            ->orWhere('last_name', 'LIKE', $term);
-                    });
-            });
+                ->orWhereHas('fromStore', function ($q) use ($term) {
+                    $q->where('name', 'LIKE', $term);
+                })
+                ->orWhereHas('toStore', function ($q) use ($term) {
+                    $q->where('name', 'LIKE', $term);
+                })
+                ->orWhereHas('materialRequest', function ($q) use ($term) {
+                    $q->where('request_number', 'LIKE', $term)
+                        ->orWhereHas('engineer', function ($q) use ($term) {
+                            $q->where('first_name', 'LIKE', $term)
+                                ->orWhere('last_name', 'LIKE', $term);
+                        });
+                });
+        });
     }
+
     public function notes()
     {
         return $this->hasMany(StockTransferNote::class, 'stock_transfer_id');
@@ -94,7 +98,10 @@ class StockTransfer extends BaseModel
 
     public function materialRequest()
     {
-        return $this->belongsTo(MaterialRequest::class, 'request_id', 'id')
-            ->where('type', 'MR');
+        return $this->belongsTo(MaterialRequest::class, 'request_id', 'id');
     }
+    // public function purchaseRequest()
+    // {
+    //     return $this->belongsTo(PurchaseRequest::class, 'request_id', 'id');
+    // }
 }

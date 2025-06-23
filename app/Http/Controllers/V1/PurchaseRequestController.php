@@ -55,7 +55,7 @@ class PurchaseRequestController extends Controller
     public function index(Request $request)
     {
         try {
-            $purchaseRequests = PurchaseRequest::with(['materialRequest', 'items', 'items.product'])->get();
+            $purchaseRequests = PurchaseRequest::with(['status', 'materialRequest', 'items', 'items.product'])->get();
             return Helpers::sendResponse(200, $purchaseRequests, 'Purchase requests retrieved successfully');
         } catch (\Exception $e) {
             return Helpers::sendResponse(500, null, 'Error retrieving purchase requests: ' . $e->getMessage());

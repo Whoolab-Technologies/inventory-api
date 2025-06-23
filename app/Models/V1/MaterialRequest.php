@@ -89,4 +89,12 @@ class MaterialRequest extends BaseModel
             'id'
         );
     }
+    public function purchaseRequests()
+    {
+        return $this->hasMany(
+            PurchaseRequest::class,
+            'material_request_id',
+            'id'
+        );
+    }
 }

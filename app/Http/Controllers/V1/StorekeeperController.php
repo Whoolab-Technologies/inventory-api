@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\V1\Engineer;
 use App\Models\V1\InventoryDispatch;
 use App\Models\V1\MaterialReturn;
+use App\Models\V1\PurchaseRequest;
 use App\Models\V1\Store;
 use Illuminate\Http\Request;
 use App\Models\V1\Storekeeper;
@@ -416,6 +417,44 @@ class StorekeeperController extends Controller
         }
     }
 
+    public function getMaterialRequestTransactions(Request $request, $id)
+    {
+        try {
+            $materialRequest = MaterialRequest::with([
+                'status',
+                'items',
+                'store',
+                'engineer',
+                'items.product',
+                'purchaseRequests',
+                'stockTransfers' => function ($q) {
+                    $q->whereIn('type', ['MR', 'PR']);
+                },
+                'stockTransfers.fromStore',
+                'stockTransfers.toStore',
+                'stockTransfers.status',
+                'stockTransfers.items',
+                'stockTransfers.notes',
+                'stockTransfers.files',
+                'stockTransfers.items.product'
+            ])->findOrFail($id);
+
+            $stockItems = collect($materialRequest->stockTransfers ?? [])
+                ->pluck('items')
+                ->flatten(1)
+                ->groupBy('product_id');
+
+            $materialRequestItems = $this->materialRequestService->mapStockItemsProduct($materialRequest, $stockItems);
+            $materialRequest->setRelation('items', $materialRequestItems);
+
+            return Helpers::sendResponse(200, $materialRequest, 'Material request transactions retreived successfully');
+        } catch (\Throwable $th) {
+            \Log::info("error " . $th->getMessage());
+            return Helpers::sendResponse(500, [], $th->getMessage());
+        }
+    }
+
+
 
     public function getTransactions(Request $request)
     {
@@ -425,11 +464,10 @@ class StorekeeperController extends Controller
 
             $stockTransfer = StockTransfer::with(
                 [
-                    'stockTransferItems.product',
+                    'items.product',
                     'fromStore',
                     'toStore',
                     'files',
-                    'materialRequest',
                     'status',
                 ]
             );
@@ -446,7 +484,15 @@ class StorekeeperController extends Controller
 
             $stockTransfer = $stockTransfer->get()
                 ->map(function ($transfer) {
-                    $transfer->engineer = $transfer->materialRequest->engineer;
+
+                    if ($transfer->type == "MR") {
+                        $transfer->engineer = $transfer->materialRequest->engineer;
+                    }
+                    if ($transfer->type == "PR") {
+                        $materialRequest = $transfer->materialRequest;
+                        $transfer->engineer = $materialRequest->engineer;
+                        $transfer->purchaseRequests = $materialRequest->purchaseRequests;
+                    }
 
                     $transfer->notes = $transfer->notes->map(function ($item) {
                         $createBy = $item->createdBy;
@@ -459,8 +505,6 @@ class StorekeeperController extends Controller
                             "store" => $store
                         ];
                     });
-
-                    unset($transfer->materialRequestStockTransfer);
                     return $transfer;
                 });
             return Helpers::sendResponse(200, $stockTransfer, 'Transactions retrieved successfully');
@@ -475,7 +519,7 @@ class StorekeeperController extends Controller
         try {
             $transaction = $this->transactionService->updateTransaction($request, $id);
             $transaction = $transaction->load([
-                'stockTransferItems.product',
+                'items.product',
                 'fromStore',
                 'toStore',
                 'status',

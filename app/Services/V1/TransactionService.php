@@ -25,9 +25,6 @@ class TransactionService
     {
         \DB::beginTransaction();
         try {
-            if (empty($request->status)) {
-                throw new \Exception('Invalid status value');
-            }
             if (empty($request->items)) {
                 throw new \Exception('Invalid items data');
             } else {
@@ -40,10 +37,9 @@ class TransactionService
             }
 
             $stockTransfer = StockTransfer::findOrFail($id);
-            $stockTransfer->status = $request->status;
+            $stockTransfer->status_id = 7;
             $stockTransfer->remarks = $request->note;
             $stockTransfer->save();
-            $materialRequestStockTransfer = MaterialRequestStockTransfer::where("stock_transfer_id", $stockTransfer->id)->first();
             if (!empty($request->note)) {
                 $stockTransferNote = new StockTransferNote();
                 $stockTransferNote->stock_transfer_id = $stockTransfer->id;
@@ -71,23 +67,15 @@ class TransactionService
 
             $isPartiallyReceived = false;
             foreach ($stockTransfer->items as $item) {
-                \Log::info('$item->received_quantity ' . $item->received_quantity);
-                \Log::info('$item->issued_quantity ' . $item->issued_quantity);
                 if ($item->received_quantity < $item->issued_quantity) {
                     $isPartiallyReceived = true;
                     break;
                 }
             }
             \Log::info('$isPartiallyReceived ' . $isPartiallyReceived);
-            if ($isPartiallyReceived) {
-                $stockTransfer->status = 'partial_received';
-
-            } else {
-                $stockTransfer->status = 'received';
-                $materialRequest = $stockTransfer->materialRequest;
-                $materialRequest->status = 'completed';
-                $materialRequest->save();
-            }
+            $materialRequest = $stockTransfer->materialRequest;
+            $materialRequest->status_id = $isPartiallyReceived ? 8 : 7;
+            $materialRequest->save();
             $stockTransfer->save();
 
             \DB::commit();
@@ -141,7 +129,7 @@ class TransactionService
 
                 // Update stock in transit
                 $stockInTransit->received_quantity = $newReceivedQuantity;
-                $stockInTransit->status = $newReceivedQuantity < $stockInTransit->issued_quantity ? 'partial_received' : 'received';
+                $stockInTransit->status_id = $newReceivedQuantity < $stockInTransit->issued_quantity ? 8 : 11;
                 $stockInTransit->save();
 
                 // Return remaining quantity to fromStore
