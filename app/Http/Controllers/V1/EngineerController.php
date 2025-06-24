@@ -173,45 +173,82 @@ class EngineerController extends Controller
             $searchTerm = $request->query('search');
             $storeId = $request->query('store_id');
             $engineerId = $request->query('engineer_id');
+            if (empty($engineerId)) {
+                $engineerId = $user->id;
+            }
             $isHisShock = !$engineerId || $engineerId == $user->id;
-
-            $productsQuery = Product::
-                whereHas('engineerStocks', function ($query) use ($engineerId) {
-                    //  $query->where('quantity', '>', 0);
-                    if ($engineerId) {
-                        $query->where('engineer_id', $engineerId);
-                    }
-                })
+            $productsQuery = Product::whereHas('stocks', function ($query) use ($engineerId, $user) {
+                $query->where('engineer_id', $engineerId)
+                    ->where('store_id', $user->store_id);
+                // ->where('quantity', '>', 0);
+            })
                 ->with([
-                    'engineerStocks' => function ($query) use ($user, $isHisShock, $engineerId) {
-
-                        $query->where('quantity', '>', 0)
-                            ->where('store_id', $user->store_id);
-                        if (!$isHisShock && $engineerId) {
-                            $query->where('engineer_id', $engineerId);
-                        }
+                    'stocks' => function ($query) use ($user, $engineerId) {
+                        $query->where('store_id', $user->store_id)
+                            ->where('quantity', '>', 0)
+                            ->where(function ($q) use ($engineerId) {
+                                $q->where('engineer_id', $engineerId)
+                                    ->orWhere('engineer_id', 0);
+                            });
                     },
-                    'engineerStocks.engineer',
-                    'stocks' => function ($query) use ($user) {
-                        $query->where('store_id', $user->store_id);
-                    },
+                    'stocks.engineer',
+                    'stocks.store'
                 ]);
 
             if ($searchTerm) {
                 $productsQuery->search($searchTerm);
             }
 
-            $products = $productsQuery->get()->map(function ($product) use ($user, $engineerId, $isHisShock) {
-                $product->total_stock = $product->stocks->sum('quantity');
-                $product->engineer_stock = $product->engineerStocks->sum('quantity');
-                if ($isHisShock) {
-                    $product->my_stock = $product->engineerStocks->where('engineer_id', $user->id)->sum('quantity');
-                } else {
-                    $product->my_stock = $product->engineerStocks->where('engineer_id', $engineerId)->sum('quantity');
-                }
-                $product->stock_with_others = $product->engineerStocks->where('engineer_id', '!=', ($isHisShock ? $user->id : $engineerId))->sum('quantity');
+            $products = $productsQuery->get()->map(function ($product) use ($engineerId) {
+
+                $product->total_stock = $product->stocks->where('engineer_id', 0)->sum('quantity');
+                $product->engineer_stock = $product->stocks->where('engineer_id', $engineerId)->sum('quantity');
+                $product->stock_with_others = $product->stocks
+                    ->where('engineer_id', '!=', 0)
+                    ->where('engineer_id', '!=', $engineerId)
+                    ->sum('quantity');
+
                 return $product;
             });
+
+
+            // $productsQuery = Product::
+            //     whereHas('engineerStocks', function ($query) use ($engineerId) {
+            //         //  $query->where('quantity', '>', 0);
+            //         if ($engineerId) {
+            //             $query->where('engineer_id', $engineerId);
+            //         }
+            //     })
+            //     ->with([
+            //         'engineerStocks' => function ($query) use ($user, $isHisShock, $engineerId) {
+
+            //             $query->where('quantity', '>', 0)
+            //                 ->where('store_id', $user->store_id);
+            //             if (!$isHisShock && $engineerId) {
+            //                 $query->where('engineer_id', $engineerId);
+            //             }
+            //         },
+            //         'engineerStocks.engineer',
+            //         'stocks' => function ($query) use ($user) {
+            //             $query->where('store_id', $user->store_id);
+            //         },
+            //     ]);
+
+            // if ($searchTerm) {
+            //     $productsQuery->search($searchTerm);
+            // }
+
+            // $products = $productsQuery->get()->map(function ($product) use ($user, $engineerId, $isHisShock) {
+            //     $product->total_stock = $product->stocks->sum('quantity');
+            //     $product->engineer_stock = $product->engineerStocks->sum('quantity');
+            //     if ($isHisShock) {
+            //         $product->my_stock = $product->engineerStocks->where('engineer_id', $user->id)->sum('quantity');
+            //     } else {
+            //         $product->my_stock = $product->engineerStocks->where('engineer_id', $engineerId)->sum('quantity');
+            //     }
+            //     $product->stock_with_others = $product->engineerStocks->where('engineer_id', '!=', ($isHisShock ? $user->id : $engineerId))->sum('quantity');
+            //     return $product;
+            // });
             return Helpers::sendResponse(
                 status: 200,
                 data: $products,
