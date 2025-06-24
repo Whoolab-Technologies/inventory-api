@@ -26,6 +26,10 @@ class Stock extends BaseModel
     {
         return $this->belongsTo(Product::class);
     }
+    public function engineer()
+    {
+        return $this->belongsTo(Engineer::class);
+    }
     // public function getTransactionsAttribute()
     // {
     //     return StockTransaction::

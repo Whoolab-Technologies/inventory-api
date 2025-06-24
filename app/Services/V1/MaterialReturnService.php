@@ -4,11 +4,11 @@ use App\Models\V1\MaterialReturn;
 use App\Models\V1\MaterialReturnDetail;
 use App\Models\V1\MaterialReturnItem;
 use App\Models\V1\StockInTransit;
-use App\Models\V1\EngineerStock;
 use App\Models\V1\Stock;
 use App\Models\V1\StockTransaction;
 use App\Models\V1\StockTransfer;
 use App\Models\V1\StockTransferItem;
+use App\Models\V1\Store;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -70,22 +70,18 @@ class MaterialReturnService
                     $stockInTransit->product_id = $product['product_id'];
                     $stockInTransit->issued_quantity = $product['issued'];
                     $stockInTransit->save();
-
-                    // 🔻 Decrease From Store Stock
-                    $fromStock = Stock::firstOrNew([
+                    $attribute = [
                         'store_id' => $request->from_store_id,
                         'product_id' => $product['product_id'],
-                    ]);
+                    ];
+
+                    $attribute = $this->appendEngineerId($attribute, $request->from_store_id, $engineer['engineer_id']);
+
+                    // 🔻 Decrease From Store Stock
+                    $fromStock = Stock::firstOrNew($attribute);
                     $fromStock->quantity = max(0, ($fromStock->quantity ?? 0) - $product['issued']);
                     $fromStock->save();
 
-                    // 🔻 Decrease Engineer Stock
-                    $engineerStock = EngineerStock::firstOrNew([
-                        'engineer_id' => $engineer['engineer_id'],
-                        'product_id' => $product['product_id'],
-                    ]);
-                    $engineerStock->quantity = max(0, ($engineerStock->quantity ?? 0) - $product['issued']);
-                    $engineerStock->save();
 
                     // 📦 Log Stock Transaction
                     $stockTransaction = new StockTransaction();
@@ -155,21 +151,30 @@ class MaterialReturnService
                     ->get()
                     ->keyBy('product_id');
 
-                $toStoreStocks = Stock::where('store_id', $toStoreId)
-                    ->whereIn('product_id', $productIds)
-                    ->get()
-                    ->keyBy('product_id');
+                // $toStoreStocks = Stock::where('store_id', $toStoreId)
+                //     ->whereIn('product_id', $productIds)
+                //     ->get()
+                //     ->keyBy('product_id');
+
+                $toStoreQuery = Stock::where('store_id', $toStoreId)
+                    ->whereIn('product_id', $productIds);
+                $toStore = Store::find($toStoreId);
+                if ($toStore && !$toStore->is_central_store) {
+                    $toStoreQuery->where('engineer_id', $engineerId);
+                }
+                $toStoreStocks = $toStoreQuery->get()->keyBy('product_id');
+                ////neeed to add another.. logic
 
                 $fromStoreStocks = Stock::where('store_id', $fromStoreId)
                     ->whereIn('product_id', $productIds)
                     ->get()
                     ->keyBy('product_id');
 
-                $engineerStocks = EngineerStock::where('engineer_id', $engineerId)
-                    ->where('store_id', $fromStoreId)
-                    ->whereIn('product_id', $productIds)
-                    ->get()
-                    ->keyBy('product_id');
+                // $engineerStocks = EngineerStock::where('engineer_id', $engineerId)
+                //     ->where('store_id', $fromStoreId)
+                //     ->whereIn('product_id', $productIds)
+                //     ->get()
+                //     ->keyBy('product_id');
                 $user = Auth::user();
                 $tokenName = optional($user?->currentAccessToken())->name;
                 foreach ($details['items'] as $item) {
@@ -211,21 +216,22 @@ class MaterialReturnService
                     // Restore remaining quantity to engineer stock
                     if ($remaining > 0) {
                         $isPartiallyReceived = true;
-                        $engineerStock = $engineerStocks[$productId] ?? new EngineerStock([
-                            'engineer_id' => $engineerId,
+                        // $engineerStock = $engineerStocks[$productId] ?? new EngineerStock([
+                        //     'engineer_id' => $engineerId,
+                        //     'store_id' => $fromStoreId,
+                        //     'product_id' => $productId,
+                        //     'quantity' => 0,
+                        // ]);
+                        // $engineerStock->quantity += $remaining;
+                        // $engineerStock->save();
+                        $attributes = [
                             'store_id' => $fromStoreId,
                             'product_id' => $productId,
                             'quantity' => 0,
-                        ]);
-                        $engineerStock->quantity += $remaining;
-                        $engineerStock->save();
-
+                        ];
+                        $attribute = $this->appendEngineerId($attribute, $fromStoreId, $engineerId);
                         // Also restore remaining to from store stock
-                        $fromStoreStock = $fromStoreStocks[$productId] ?? new Stock([
-                            'store_id' => $fromStoreId,
-                            'product_id' => $productId,
-                            'quantity' => 0,
-                        ]);
+                        $fromStoreStock = $fromStoreStocks[$productId] ?? new Stock($attributes);
                         $fromStoreStock->quantity += $remaining;
                         $fromStoreStock->save();
                     }
@@ -289,6 +295,14 @@ class MaterialReturnService
             \Log::error("Stock update failed", ['error' => $e->getMessage()]);
             throw $e;
         }
+    }
+
+    protected function appendEngineerId($attribute, $storeId, $engineerId)
+    {
+        if (optional(Store::find($storeId))->is_central_store === false) {
+            $attribute['engineer_id'] = $engineerId;
+        }
+        return $attribute;
     }
 
 

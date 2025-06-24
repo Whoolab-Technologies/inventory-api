@@ -10,6 +10,7 @@ use App\Models\V1\StockTransfer;
 use App\Models\V1\StockTransferItem;
 use App\Models\V1\StockTransferNote;
 use App\Models\V1\Stock;
+use App\Models\V1\Store;
 use App\Models\V1\EngineerStock;
 use App\Models\V1\StockTransferFile;
 use App\Models\V1\MaterialRequestStockTransfer;
@@ -67,7 +68,7 @@ class TransactionService
 
             $isPartiallyReceived = false;
             foreach ($stockTransfer->items as $item) {
-                if ($item->received_quantity < $item->issued_quantity) {
+                if ($item->received_quantity = 0 || $item->received_quantity < $item->issued_quantity) {
                     $isPartiallyReceived = true;
                     break;
                 }
@@ -104,16 +105,22 @@ class TransactionService
                 ->get()
                 ->keyBy('product_id');
 
-            $toStoreStocks = Stock::where('store_id', $toStoreId)
-                ->whereIn('product_id', $productIds)
-                ->get()
+            $toStoreQuery = Stock::where('store_id', $toStoreId)
+                ->whereIn('product_id', $productIds);
+            $toStore = Store::find($toStoreId);
+            if ($toStore && !$toStore->is_central_store) {
+                $toStoreQuery->where('engineer_id', $engineerId);
+            }
+            $toStoreStocks = $toStoreQuery->get()
                 ->keyBy('product_id');
 
-            $engineerStocks = EngineerStock::where('engineer_id', $engineerId)
-                ->where('store_id', $toStoreId)
-                ->whereIn('product_id', $productIds)
-                ->get()
-                ->keyBy('product_id');
+
+
+            // $engineerStocks = EngineerStock::where('engineer_id', $engineerId)
+            //     ->where('store_id', $toStoreId)
+            //     ->whereIn('product_id', $productIds)
+            //     ->get()
+            //     ->keyBy('product_id');
 
             foreach ($request->items as $item) {
                 $productId = $item->product_id;
@@ -135,6 +142,7 @@ class TransactionService
                 // Return remaining quantity to fromStore
                 $remainingQuantity = max(0, $stockInTransit->issued_quantity - $newReceivedQuantity);
                 if ($remainingQuantity > 0) {
+
                     $fromStock = $fromStoreStocks[$productId] ?? new Stock([
                         'store_id' => $fromStoreId,
                         'product_id' => $productId,
@@ -143,53 +151,61 @@ class TransactionService
                     $fromStock->quantity += $remainingQuantity;
                     $fromStock->save();
                 }
-
-                // Update toStore stock
-                $toStock = $toStoreStocks[$productId] ?? new Stock([
+                $attributes = [
                     'store_id' => $toStoreId,
                     'product_id' => $productId,
                     'quantity' => 0
-                ]);
+                ];
+
+                $attributes = $this->appendEngineerId($attributes, $toStoreId, $engineerId);
+                // Update toStore stock
+                $toStock = $toStoreStocks[$productId] ?? new Stock($attributes);
                 $toStock->quantity += $newReceivedQuantity;
                 $toStock->save();
 
                 // Update engineer stock
-                $engineerStock = $engineerStocks[$productId] ?? new EngineerStock([
-                    'engineer_id' => $engineerId,
-                    'store_id' => $toStoreId,
-                    'product_id' => $productId,
-                    'quantity' => 0
-                ]);
-                $engineerStock->quantity += $newReceivedQuantity;
-                $engineerStock->save();
+                // $engineerStock = $engineerStocks[$productId] ?? new EngineerStock([
+                //     'engineer_id' => $engineerId,
+                //     'store_id' => $toStoreId,
+                //     'product_id' => $productId,
+                //     'quantity' => 0
+                // ]);
+                // $engineerStock->quantity += $newReceivedQuantity;
+                // $engineerStock->save();
 
                 // Update transfer item
                 StockTransferItem::where('id', $item->id)->update([
                     'received_quantity' => $newReceivedQuantity
                 ]);
 
-                // Create new stock transactions
-                if ($newReceivedQuantity > 0) {
-                    StockTransaction::create([
-                        'store_id' => $fromStoreId,
-                        'product_id' => $productId,
-                        'engineer_id' => $engineerId,
-                        'quantity' => $newReceivedQuantity,
-                        'stock_movement' => 'OUT',
-                        'type' => 'TRANSFER',
-                        'dn_number' => $dnNumber,
-                    ]);
 
-                    StockTransaction::create([
-                        'store_id' => $toStoreId,
-                        'product_id' => $productId,
-                        'engineer_id' => $engineerId,
-                        'quantity' => $newReceivedQuantity,
-                        'stock_movement' => 'IN',
-                        'type' => 'TRANSFER',
-                        'dn_number' => $dnNumber,
-                    ]);
-                }
+                StockTransaction::where('store_id', $fromStoreId)
+                    ->where('product_id', $productId)
+                    ->where('engineer_id', $engineerId)
+                    ->where('stock_movement', 'TRANSIT')
+                    ->where('type', 'MR')
+                    ->delete();
+
+                StockTransaction::create([
+                    'store_id' => $fromStoreId,
+                    'product_id' => $productId,
+                    'engineer_id' => $engineerId,
+                    'quantity' => $newReceivedQuantity,
+                    'stock_movement' => 'OUT',
+                    'type' => 'MR',
+                    'dn_number' => $dnNumber,
+                ]);
+
+                StockTransaction::create([
+                    'store_id' => $toStoreId,
+                    'product_id' => $productId,
+                    'engineer_id' => $engineerId,
+                    'quantity' => $newReceivedQuantity,
+                    'stock_movement' => 'IN',
+                    'type' => 'MR',
+                    'dn_number' => $dnNumber,
+                ]);
+
             }
 
             \DB::commit();
@@ -200,6 +216,14 @@ class TransactionService
         }
     }
 
+
+    protected function appendEngineerId($attribute, $storeId, $engineerId)
+    {
+        if (optional(Store::find($storeId))->is_central_store === false) {
+            $attribute['engineer_id'] = $engineerId;
+        }
+        return $attribute;
+    }
 
     // private function updateStock(Request $request, StockTransfer $stockTransfer)
     // {

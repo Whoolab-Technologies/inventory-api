@@ -14,6 +14,7 @@ use App\Models\V1\StockTransaction;
 use App\Models\V1\PurchaseRequestItem;
 use App\Models\V1\PurchaseRequest;
 use App\Models\V1\Stock;
+use App\Models\V1\Store;
 use Illuminate\Http\Request;
 use App\Services\Helpers;
 class MaterialRequestService
@@ -73,14 +74,16 @@ class MaterialRequestService
                     }
                 }
 
-
+                $isCentralStore = (Store::find($request->from_store_id))->is_central_store;
                 $stockTransfers = new StockTransfer();
+                $stockTransfers->transaction_number = 'TXN-' . str_pad(StockTransfer::max('id') + 1001, 6, '0', STR_PAD_LEFT);
                 $stockTransfers->to_store_id = $materialRequest->store_id;
                 $stockTransfers->from_store_id = $request->from_store_id;
                 $stockTransfers->request_id = $id;
                 $stockTransfers->remarks = $request->note;
                 $stockTransfers->send_by = $user->id;
-                $stockTransfers->type = "MR";
+                $stockTransfers->request_type = "MR";
+                $stockTransfers->transaction_type = $isCentralStore ? "CS-SS" : "SS-SS";
                 $stockTransfers->dn_number = $request->dn_number;
                 $stockTransfers->save();
 
@@ -115,9 +118,14 @@ class MaterialRequestService
                     $transferItem->requested_quantity = $item->requested_quantity;
                     $transferItem->issued_quantity = $item->issued_quantity;
                     $transferItem->save();
-                    $fromStock = Stock::where('store_id', $request->from_store_id)
-                        ->where('product_id', $item->product_id)
-                        ->first();
+                    $fromStockQuery = Stock::where('store_id', $request->from_store_id)
+                        ->where('product_id', $item->product_id);
+                    if (!$isCentralStore) {
+                        //get the from engineerid
+                        //$fromStockQuery->where('engineer_id', $engineerId);
+                    }
+
+                    $fromStock = $fromStockQuery->first();
 
                     if ($fromStock) {
                         if ($fromStock->quantity < $item->issued_quantity) {
@@ -146,7 +154,7 @@ class MaterialRequestService
                         'engineer_id' => $materialRequest->engineer_id,
                         'quantity' => $item->issued_quantity,
                         'stock_movement' => 'TRANSIT',
-                        'type' => 'TRANSFER',
+                        'type' => 'MR',
                         'dn_number' => $request->dn_number,
                     ]);
                 }
