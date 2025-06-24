@@ -428,7 +428,7 @@ class StorekeeperController extends Controller
                 'items.product',
                 'purchaseRequests',
                 'stockTransfers' => function ($q) {
-                    $q->whereIn('type', ['MR', 'PR']);
+                    $q->whereIn('request_type', ['MR', 'PR']);
                 },
                 'stockTransfers.fromStore',
                 'stockTransfers.toStore',
