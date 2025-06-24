@@ -237,13 +237,10 @@ class StorekeeperController extends Controller
             $productsQuery = Product::with([
                 'stocks' => function ($query) use ($user, $storeId, $isHisStore, $engineerId) {
                     if ($user->store && !$user->store->is_central_store) {
-                        \Log::info("for Site ");
                         if ($isHisStore) {
-                            \Log::info("own store ");
                             // $query->where('store_id', $user->store_id)->where('quantity', '>', 0);
                             $query->where('store_id', $user->store_id);
                         } else {
-                            \Log::info("for other stores ");
                             if ($storeId) {
                                 \Log::info("for other stores wirh storeId $storeId");
                                 $query->where('store_id', $storeId);
@@ -252,7 +249,7 @@ class StorekeeperController extends Controller
                                 $query->where('store_id', '!=', $user->store_id);
                             }
                         }
-                        \Log::info("end");
+
                     } elseif ($user->store->is_central_store) {
 
                         if ($storeId && $storeId != $user->store_id) {
@@ -271,14 +268,11 @@ class StorekeeperController extends Controller
             ]);
 
             if ($user->store && !$user->store->is_central_store) {
-                \Log::info("productsQuery for site store ");
                 if ($isHisStore) {
-                    \Log::info("productsQuery for own site store ");
                     $productsQuery->whereHas('stocks', function ($query) use ($user) {
                         $query->where('store_id', $user->store_id);
                     });
                 } elseif ($storeId) {
-                    \Log::info("productsQuery for other sites with storeId $storeId");
                     $productsQuery->whereHas('stocks', function ($query) use ($storeId) {
                         $query->where('store_id', $storeId);
                     });
