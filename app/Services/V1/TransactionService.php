@@ -157,10 +157,14 @@ class TransactionService
                     'quantity' => 0
                 ];
 
+                $isCentralStore = (Store::find(id: $toStoreId))->is_central_store;
                 $attributes = $this->appendEngineerId($attributes, $toStoreId, $engineerId);
                 // Update toStore stock
                 $toStock = $toStoreStocks[$productId] ?? new Stock($attributes);
                 $toStock->quantity += $newReceivedQuantity;
+                if (!$isCentralStore) {
+                    $toStock->engineer_id = $engineerId;
+                }
                 $toStock->save();
 
                 // Update engineer stock
