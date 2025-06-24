@@ -61,6 +61,7 @@ class StockController extends Controller
             //     ['store_id' => $request->store_id, 'product_id' => $request->product_id],
             //     ['quantity' => \DB::raw("quantity + $quantityChange")]
             // );
+            $store = Store::findOrFail($request->store_id);
             $stockMeta = new StockMeta();
             $stockMeta->store_id = $request->store_id;
             $stockMeta->product_id = $request->product_id;
@@ -70,8 +71,14 @@ class StockController extends Controller
             $stockMeta->dn_number = $request->dn_number;
 
             $stockMeta->save();
+            $attributes = ['store_id' => $request->store_id, 'product_id' => $request->product_id];
+
+            if (!$store->is_central_store) {
+                $attributes['engineer_id'] = $request->engineer_id;
+            }
+
             $stock = Stock::firstOrCreate(
-                ['store_id' => $request->store_id, 'product_id' => $request->product_id],
+                $attributes,
                 ['quantity' => 0]
             );
 
@@ -83,7 +90,7 @@ class StockController extends Controller
                 'engineer_id' => $request->engineer_id,
                 'quantity' => abs($quantityChange),
                 'stock_movement' => $movementType,
-                'type' => "STOCK",
+                'type' => "DIRECT",
                 'lpo' => $request->lpo,
                 'dn_number' => $request->dn_number,
             ]);
@@ -129,9 +136,8 @@ class StockController extends Controller
             return Helpers::sendResponse(500, [], $e->getMessage());
         }
     }
-    private function createStockData(Stock $stock)
+    private function createStockData($stock)
     {
-        \Log::info($stock);
         return [
             'id' => $stock->id ?? null,
             'store_id' => $stock->store_id ?? null,
