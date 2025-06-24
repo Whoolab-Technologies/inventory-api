@@ -7,6 +7,7 @@ use App\Models\V1\Category;
 use Illuminate\Http\Request;
 use App\Models\V1\Product;
 use App\Models\V1\Brand;
+use App\Models\V1\Stock;
 use App\Services\Helpers;
 use Illuminate\Support\Facades\Validator;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
@@ -172,23 +173,41 @@ class ProductController extends Controller
     public function getProduct(Request $request, $id)
     {
         try {
-            $item = Product::with([
-                'stocks.store' => function ($query) {
-                    $query->select('id', 'name');
-                },
-                'engineerStocks.store' => function ($query) {
-                    $query->select('id', 'name');
-                },
-                'engineerStocks.engineer' => function ($query) {
-                    $query->select(
-                        'id',
-                        'first_name',
-                        'last_name'
-                    );
-                },
-                'stocksInTransit'
-            ])->findOrFail($id);
-            return Helpers::sendResponse(200, $item, 'Item retrieved successfully');
+            $product = Product::findOrFail($id);
+
+            $stores = Stock::where('product_id', $id)
+                ->select('store_id')
+                ->selectRaw('SUM(quantity) as total_quantity')
+                ->groupBy('store_id')
+                ->with('store:id,name')
+                ->get()
+                ->map(fn($s) => [
+                    'store_id' => $s->store_id,
+                    'store_name' => $s->store->name ?? '',
+                    'total_quantity' => $s->total_quantity
+                ]);
+
+            $engineers = Stock::where('product_id', $id)
+                ->where('engineer_id', '!=', 0)
+                ->select('engineer_id', 'store_id')
+                ->selectRaw('SUM(quantity) as total_quantity')
+                ->groupBy('engineer_id', 'store_id')
+                ->with([
+                    'engineer:id,first_name,last_name',
+                    'store:id,name'
+                ])
+                ->get()
+                ->map(fn($e) => [
+                    'engineer_id' => $e->engineer_id,
+                    'engineer_name' => $e->engineer ? $e->engineer->first_name . ' ' . $e->engineer->last_name : '',
+                    'store_id' => $e->store_id,
+                    'store_name' => $e->store ? $e->store->name : '',
+                    'total_quantity' => $e->total_quantity
+                ]);
+            $response = $product->toArray();
+            $response['stores'] = $stores;
+            $response['engineers'] = $engineers;
+            return Helpers::sendResponse(200, $response, 'Item retrieved successfully');
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return Helpers::sendResponse(404, [], 'Item not found');
         } catch (\Exception $e) {
