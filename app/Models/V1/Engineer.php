@@ -45,7 +45,7 @@ class Engineer extends BaseModel implements AuthenticatableContract
 
     public function stocks()
     {
-        return $this->hasMany(EngineerStock::class);
+        return $this->hasMany(Stock::class);
     }
 
     public function getNameAttribute()

@@ -412,19 +412,20 @@ class TransactionService
             $productIds = array_column($items, 'product_id');
             \Log::info("productIds " . json_encode($productIds));
 
-            $stockLevels = EngineerStock::where('engineer_id', $request->engineer_id)
-                ->where('store_id', $storekeeper->store_id)
-                ->whereIn('product_id', $productIds)
-                ->get()
-                ->keyBy('product_id');
+            // $stockLevels = EngineerStock::where('engineer_id', $request->engineer_id)
+            //     ->where('store_id', $storekeeper->store_id)
+            //     ->whereIn('product_id', $productIds)
+            //     ->get()
+            //     ->keyBy('product_id');
             $storeStockLevels = Stock::where('store_id', $storekeeper->store_id)
                 ->whereIn('product_id', $productIds)
+                ->where('engineer_id', $request->engineer_id)
                 ->get()
                 ->keyBy('product_id');
 
             // Check stock before proceeding
             foreach ($items as $item) {
-                $stock = $stockLevels[$item->product_id] ?? null;
+                $stock = $storeStockLevels[$item->product_id] ?? null;
                 if (!$stock || $stock->quantity < $item->quantity) {
                     throw new \Exception("Insufficient stock for product ID: {$item->product_name}");
                 }
@@ -443,6 +444,23 @@ class TransactionService
             $dispatchItems = [];
             $user = Auth::user();
             $tokenName = optional($user?->currentAccessToken())->name;
+
+            $stockTransfer = new StockTransfer();
+            $stockTransfer->transaction_number = 'TXN-' . str_pad(StockTransfer::max('id') + 1001, 6, '0', STR_PAD_LEFT);
+            $stockTransfer->to_store_id = $storekeeper->store_id;
+            $stockTransfer->from_store_id = $storekeeper->store_id;
+            $stockTransfer->request_id = $inventoryDispatch->id;
+            $stockTransfer->remarks = $request->note;
+            $stockTransfer->send_by = $user->id;
+            $stockTransfer->request_type = "DISPATCH";
+            $stockTransfer->transaction_type = "SS-ENGG";
+            $stockTransfer->dn_number = $request->dn_number;
+            $stockTransfer->send_by = $storekeeper->id;
+            $stockTransfer->sender_role = "SITE STORE";
+            $stockTransfer->receiver_role = "ENGINEER";
+            $stockTransfer->received_by = $request->engineer_id;
+            $stockTransfer->save();
+
             foreach ($items as $item) {
                 $dispatchItems[] = [
                     'inventory_dispatch_id' => $inventoryDispatch->id,
@@ -452,9 +470,20 @@ class TransactionService
                     'updated_at' => now(),
                 ];
 
-                $stockLevels[$item->product_id]->decrement('quantity', $item->quantity);
                 $storeStockLevels[$item->product_id]->decrement('quantity', $item->quantity);
-
+                $stockTransferItems[] = [
+                    'stock_transfer_id' => $stockTransfer->id,
+                    'product_id' => $item->product_id,
+                    'requested_quantity' => abs($item->quantity),
+                    'issued_quantity' => abs($item->quantity),
+                    'received_quantity' => abs($item->quantity),
+                    'created_by' => $user->id ?? null,
+                    "created_type" => $tokenName,
+                    "updated_by" => $user->id ?? null,
+                    'updated_type' => $tokenName,
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ];
                 $stockTransactions[] = [
                     'store_id' => $storekeeper->store_id,
                     'product_id' => $item->product_id,
@@ -462,7 +491,7 @@ class TransactionService
                     'quantity' => abs($item->quantity),
 
                     'stock_movement' => "OUT",
-                    'type' => "CONSUMPTION",
+                    'type' => "DISPATCH",
                     'dn_number' => $request->dnNumber,
                     'created_by' => $user->id ?? null,
                     "created_type" => $tokenName,
@@ -486,6 +515,7 @@ class TransactionService
             }
             InventoryDispatchItem::insert($dispatchItems);
             StockTransaction::insert($stockTransactions);
+            StockTransferItem::insert($stockTransferItems);
 
             \DB::commit();
             return $inventoryDispatch->load(['items.product', 'store', 'engineer', 'files']);

@@ -564,16 +564,25 @@ class StorekeeperController extends Controller
     {
         try {
             $storekeeper = auth()->user();
-            $engineers = Engineer::with('stocks.product')->where('store_id', $storekeeper->store_id)->get()
-                ->map(callback: function ($item) {
-                    $item->products = $item->stocks->map(function ($stock) {
-                        $temp = $stock;
-                        $stock = $stock->product;
-                        $stock->quantity = $temp->quantity;
-                        return $stock;
-                    });
-                    unset($item->stocks);
-                    return $item;
+            $storeId = $storekeeper->store_id;
+            $engineers = Engineer::with([
+                'stocks' => function ($query) use ($storeId) {
+                    $query->where('store_id', $storeId)
+                        ->where('quantity', '>', 0);
+                },
+                'stocks.product'
+            ])
+                ->where('store_id', $storeId)
+                ->get()
+                ->map(function ($engineer) {
+                    $engineer->products = $engineer->stocks->map(function ($stock) {
+                        $productArray = $stock->product ? $stock->product->toArray() : [];
+                        $productArray['quantity'] = $stock->quantity;
+                        return $productArray;
+                    })->filter()->values();
+
+                    unset($engineer->stocks);
+                    return $engineer;
                 });
             return Helpers::sendResponse(200, $engineers, 'Engineers retrieved successfully');
 
