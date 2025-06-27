@@ -160,14 +160,9 @@ class MaterialRequestService
             //     }
             // }
             $materialRequest->save();
-            $materialRequest->load(['status', 'store', 'engineer', 'items.product', 'stockTransfers.items']);
 
-            $stockItems = collect($materialRequest->stockTransfers ?? [])
-                ->pluck('items')
-                ->flatten(1)
-                ->groupBy('product_id');
 
-            $materialRequestItems = $this->mapStockItemsProduct($materialRequest, $stockItems);
+            $materialRequestItems = $this->mapStockItemsProduct($materialRequest);
             $materialRequest->setRelation('items', $materialRequestItems);
 
             // if (in_array($request->status_id, [5, 9])) {
@@ -200,8 +195,14 @@ class MaterialRequestService
     }
 
 
-    public function mapStockItemsProduct($materialRequest, $stockItems)
+    public function mapStockItemsProduct($materialRequest)
     {
+        $materialRequest->load(['status', 'store', 'engineer', 'items.product', 'stockTransfers.items']);
+
+        $stockItems = collect($materialRequest->stockTransfers ?? [])
+            ->pluck('items')
+            ->flatten(1)
+            ->groupBy('product_id');
         return collect($materialRequest->items)->map(function ($item) use ($stockItems) {
             $group = $stockItems->get($item->product_id);
 

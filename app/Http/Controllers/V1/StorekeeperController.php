@@ -7,6 +7,7 @@ use App\Models\V1\Engineer;
 use App\Models\V1\InventoryDispatch;
 use App\Models\V1\MaterialReturn;
 use App\Models\V1\PurchaseRequest;
+use App\Models\V1\StockTransaction;
 use App\Models\V1\Store;
 use Illuminate\Http\Request;
 use App\Models\V1\Storekeeper;
@@ -408,6 +409,7 @@ class StorekeeperController extends Controller
     {
         try {
             $materialRequest = $this->materialRequestService->updateMaterialRequest($request, $id);
+
             return Helpers::sendResponse(200, $materialRequest, 'Material requests updated successfully');
 
         } catch (\Throwable $th) {
@@ -419,6 +421,9 @@ class StorekeeperController extends Controller
     {
         try {
             $materialRequest = $this->transactionService->createTransaction($request);
+            $materialRequest->refresh();
+            $materialRequestItems = $this->materialRequestService->mapStockItemsProduct($materialRequest);
+            $materialRequest->setRelation('items', $materialRequestItems);
             return Helpers::sendResponse(200, $materialRequest, 'Transaction created successfully');
 
         } catch (\Throwable $th) {
@@ -449,12 +454,8 @@ class StorekeeperController extends Controller
                 'stockTransfers.items.product'
             ])->findOrFail($id);
 
-            $stockItems = collect($materialRequest->stockTransfers ?? [])
-                ->pluck('items')
-                ->flatten(1)
-                ->groupBy('product_id');
 
-            $materialRequestItems = $this->materialRequestService->mapStockItemsProduct($materialRequest, $stockItems);
+            $materialRequestItems = $this->materialRequestService->mapStockItemsProduct($materialRequest);
             $materialRequest->setRelation('items', $materialRequestItems);
 
             return Helpers::sendResponse(200, $materialRequest, 'Material request transactions retreived successfully');
@@ -492,34 +493,45 @@ class StorekeeperController extends Controller
                 $stockTransfer->search($searchTerm);
             }
 
-            $stockTransfer = $stockTransfer->orderBy('created_at', 'desc');
+            $stockTransfer = $stockTransfer->orderBy('created_at', 'desc')->get();
+            $stockTransfer->map(function ($transfer) {
 
-            $stockTransfer = $stockTransfer->get()
-                ->map(function ($transfer) {
+                // Default to null
+                $transfer->engineer = null;
+                $transfer->purchaseRequests = null;
+                // If the transfer does not have a request_id, try to get the engineer from the related StockTransaction using dn_number
+                // if ($transfer->request_id == 0) {
+                //     $stockTransaction = StockTransaction::where('dn_number', $transfer->dn_number)->first();
+                //     if ($stockTransaction) {
+                //         $transfer->engineer = $stockTransaction->engineer;
+                //     }
+                // }
+                // Handle based on type and request_id
+                if ($transfer->request_type == "MR" && $transfer->request_id > 0 && $transfer->materialRequest) {
                     $transfer->engineer = $transfer->materialRequest->engineer;
+                }
 
-                    // if ($transfer->type == "MR") {
-                    //     $transfer->engineer = $transfer->materialRequest->engineer;
-                    // }
-                    // if ($transfer->type == "PR" && $transfer->materialRequest) {
-                    //     $materialRequest = $transfer->materialRequest;
-                    //     $transfer->engineer = $materialRequest->engineer;
-                    //     $transfer->purchaseRequests = $materialRequest->purchaseRequests;
-                    // }
-    
-                    $transfer->notes = $transfer->notes->map(function ($item) {
-                        $createBy = $item->createdBy;
-                        $store = $item->createdBy->store;
-                        unset($createBy->store);
-                        return [
-                            "id" => $item->id,
-                            "note" => $item->notes,
-                            "created_by" => array_merge($createBy->toArray(), ['created_type' => $item->created_type]),
-                            "store" => $store
-                        ];
-                    });
-                    return $transfer;
+                if ($transfer->request_type == "PR" && $transfer->request_id > 0 && $transfer->purchaseRequest) {
+                    $transfer->engineer = optional($transfer->purchaseRequest->materialRequest->engineer); // If purchaseRequest has engineer
+                    $transfer->purchaseRequests = $transfer->purchaseRequest->purchaseRequests;
+                }
+
+                // Notes Mapping
+                $transfer->notes = $transfer->notes->map(function ($item) {
+                    $createBy = $item->createdBy;
+                    $store = $createBy?->store;
+                    unset($createBy->store);
+
+                    return [
+                        "id" => $item->id,
+                        "note" => $item->notes,
+                        "created_by" => array_merge($createBy->toArray(), ['created_type' => $item->created_type]),
+                        "store" => $store,
+                    ];
                 });
+
+                return $transfer;
+            });
             return Helpers::sendResponse(200, $stockTransfer, 'Transactions retrieved successfully');
 
         } catch (\Throwable $th) {
@@ -531,6 +543,7 @@ class StorekeeperController extends Controller
     {
         try {
             $transaction = $this->transactionService->updateTransaction($request, $id);
+            $transaction->refresh();
             $transaction = $transaction->load([
                 'items.product',
                 'fromStore',
@@ -808,7 +821,7 @@ class StorekeeperController extends Controller
                     'id' => $store->id,
                     'name' => $store->name ?? '',
                     'is_central_store' => $store->is_central_store ?? '',
-                    'products' => $productsData,
+                    //'products' => $productsData,
                     'productsMap' => $productsMap,
                 ];
             }

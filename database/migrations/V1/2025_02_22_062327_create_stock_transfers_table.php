@@ -20,7 +20,7 @@ return new class extends Migration {
             $table->text('remarks')->nullable();
             $table->integer('request_id')->nullable();
             $table->enum('request_type', ['MR', 'PR', 'SS-RETURN', "ENGG-RETURN", 'DIRECT', 'DISPATCH'])->default("DIRECT")->nullable();
-            $table->enum('transaction_type', ['PR', 'CS-SS', 'SS-SS', 'ENGG-SS', 'SS-ENGG', 'DIRECT'])->default('DIRECT');
+            $table->enum('transaction_type', ['CS-SS', 'SS-CS', 'ENGG-SS', 'SS-ENGG', 'DIRECT'])->default('DIRECT');
 
             $table->integer('send_by')->nullable();
             $table->enum('sender_role', ['CENTRAL STORE', 'SITE STORE', 'ENGINEER'])->default('CENTRAL STORE');

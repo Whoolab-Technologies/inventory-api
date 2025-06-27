@@ -49,11 +49,12 @@ class StockTransferService
 
     public function createStockInTransit(StockInTransitData $data)
     {
+        \Log::info("StockInTransitData ", ['data' => $data]);
         $stockInTransit = new StockInTransit();
         $stockInTransit->stock_transfer_id = $data->stockTransferId;
         $stockInTransit->material_request_id = $data->materialRequestId;
         $stockInTransit->stock_transfer_item_id = $data->stockTransferItemId;
-        $stockInTransit->material_request_id = $data->materialRequestItemId;
+        $stockInTransit->material_request_item_id = $data->materialRequestItemId;
         $stockInTransit->product_id = $data->productId;
         $stockInTransit->issued_quantity = $data->issuedQuantity;
         $stockInTransit->save();
