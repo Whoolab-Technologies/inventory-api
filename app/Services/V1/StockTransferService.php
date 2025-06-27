@@ -5,12 +5,27 @@ namespace App\Services\V1;
 use App\Data\StockTransferData;
 use App\Models\V1\Stock;
 use App\Models\V1\StockTransferItem;
+use App\Models\V1\StockInTransit;
 use App\Models\V1\StockTransfer;
 use App\Models\V1\StockTransaction;
 use App\Enums\TransferPartyRole;
 use App\Data\StockTransactionData;
+use App\Data\StockInTransitData;
 class StockTransferService
 {
+    public function createStockInTransit(StockInTransitData $data)
+    {
+        $stockInTransit = new StockInTransit();
+        $stockInTransit->stock_transfer_id = $data->stockTransferId;
+        $stockInTransit->material_request_id = $data->materialRequestId;
+        $stockInTransit->stock_transfer_item_id = $data->stockTransferItemId;
+        $stockInTransit->product_id = $data->productId;
+        $stockInTransit->issued_quantity = $data->issuedQuantity;
+        $stockInTransit->save();
+
+        return $stockInTransit;
+    }
+
     public function createStockTransaction(StockTransactionData $data)
     {
         return StockTransaction::create([
