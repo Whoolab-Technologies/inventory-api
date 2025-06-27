@@ -1,5 +1,7 @@
 <?php
 namespace App\Services\V1;
+use App\Enums\StatusEnum;
+use App\Data\MaterialReturnData;
 use App\Models\V1\MaterialReturn;
 use App\Models\V1\MaterialReturnDetail;
 use App\Models\V1\MaterialReturnItem;
@@ -14,6 +16,38 @@ use Illuminate\Support\Facades\Auth;
 
 class MaterialReturnService
 {
+
+    public function createMaterialReturnWithItems(MaterialReturnData $data)
+    {
+        $materialReturn = new MaterialReturn();
+        $materialReturn->from_store_id = $data->fromStoreId;
+        $materialReturn->to_store_id = $data->toStoreId;
+        $materialReturn->dn_number = $data->dn_number ?? null;
+
+        $materialReturn->status_id = StatusEnum::COMPLETED;
+        $materialReturn->save();
+
+
+        // Loop through engineers and their products
+        foreach ($data->items as $engineerId => $products) {
+            $materialReturnDetail = new MaterialReturnDetail();
+            $materialReturnDetail->material_return_id = $materialReturn->id;
+            $materialReturnDetail->engineer_id = $engineerId;
+            $materialReturnDetail->save();
+
+            foreach ($products as $product) {
+                $materialReturnItem = new MaterialReturnItem();
+                $materialReturnItem->material_return_id = $materialReturn->id;
+                $materialReturnItem->material_return_detail_id = $materialReturnDetail->id;
+                $materialReturnItem->product_id = $product['product_id'];
+                $materialReturnItem->issued = $product['issued_qty'];
+                $materialReturnItem->save();
+            }
+        }
+        return $materialReturn;
+
+    }
+
     public function createMaterialReturns(Request $request)
     {
         try {

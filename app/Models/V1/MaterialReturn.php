@@ -12,9 +12,9 @@ class MaterialReturn extends BaseModel
 
 
     protected $hidden = ['created_by', 'created_type', 'updated_by', 'updated_type', 'created_at', 'updated_at'];
-    protected $attributes = [
-        'status' => 'IN TRANSIT',
-    ];
+    // protected $attributes = [
+    //     'status' => 'IN TRANSIT',
+    // ];
     protected static function booted()
     {
         static::creating(function ($model) {

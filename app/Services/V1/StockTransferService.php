@@ -8,11 +8,45 @@ use App\Models\V1\StockTransferItem;
 use App\Models\V1\StockInTransit;
 use App\Models\V1\StockTransfer;
 use App\Models\V1\StockTransaction;
+use App\Models\V1\MaterialReturn;
+use App\Models\V1\MaterialReturnDetail;
+use App\Models\V1\MaterialReturnItem;
 use App\Enums\TransferPartyRole;
 use App\Data\StockTransactionData;
 use App\Data\StockInTransitData;
+use App\Data\MaterialReturnData;
 class StockTransferService
 {
+
+    public function createMaterialReturn(MaterialReturnData $data)
+    {
+        $materialReturn = new MaterialReturn();
+        $materialReturn->from_store_id = $data->fromStoreId;
+        $materialReturn->to_store_id = $data->toStoreId;
+        $materialReturn->dn_number = $data->dnNumber ?? null;
+        $materialReturn->save();
+
+        foreach ($data->items as $item) {
+            foreach ($item['engineers'] as $engineer) {
+
+                $materialReturnDetail = new MaterialReturnDetail();
+                $materialReturnDetail->material_return_id = $materialReturn->id;
+                $materialReturnDetail->engineer_id = $engineer['engineer_id'];
+                $materialReturnDetail->save();
+
+                $materialReturnItem = new MaterialReturnItem();
+                $materialReturnItem->material_return_id = $materialReturn->id;
+                $materialReturnItem->material_return_detail_id = $materialReturnDetail->id;
+                $materialReturnItem->product_id = $item['product_id'];
+                $materialReturnItem->issued = $item['issued'];
+                $materialReturnItem->save();
+            }
+        }
+
+        return $materialReturn;
+    }
+
+
     public function createStockInTransit(StockInTransitData $data)
     {
         $stockInTransit = new StockInTransit();
@@ -33,7 +67,7 @@ class StockTransferService
             'product_id' => $data->productId,
             'engineer_id' => $data->engineerId,
             'quantity' => abs($data->quantityChange),
-            'stock_movement' => $data->movementType,
+            'stock_movement' => $data->movement,
             'type' => $data->type,
             'lpo' => $data->lpo,
             'dn_number' => $data->dnNumber,

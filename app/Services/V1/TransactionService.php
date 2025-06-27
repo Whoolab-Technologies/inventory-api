@@ -2,6 +2,7 @@
 
 namespace App\Services\V1;
 
+use App\Data\MaterialReturnData;
 use App\Data\StockTransactionData;
 use App\Data\StockTransferData;
 use App\Data\PurchaseRequestData;
@@ -33,13 +34,16 @@ class TransactionService
 
     protected $stockTransferService;
     protected $purchaseRequestService;
+    protected $materialReturnService;
 
     public function __construct(
         StockTransferService $stockTransferService,
         PurchaseRequestService $purchaseRequestService,
+        MaterialReturnService $materialReturnService,
     ) {
         $this->stockTransferService = $stockTransferService;
         $this->purchaseRequestService = $purchaseRequestService;
+        $this->materialReturnService = $materialReturnService;
     }
     public function createTransaction(Request $request)
     {
@@ -54,6 +58,7 @@ class TransactionService
             $totalRequested = 0;
             $totalIssued = 0;
             $missingItems = [];
+            $engineerReturns = [];
             $isSiteToSite = $fromStoreId != $centralStore->id && $toStoreId != $centralStore->id;
 
             foreach ($request->items as $item) {
@@ -80,18 +85,53 @@ class TransactionService
                         continue;
                     }
 
+
                     $this->decrementStockWithValidation($productId, $engineerId, $issuedQtyForEngineer);
 
                     if ($isSiteToSite) {
-                        // Step 1: Material Return from Engineer to Central Store
-                        $this->createStockTransaction($fromStoreId, $productId, $engineerId, $issuedQtyForEngineer, StockMovement::OUT, StockMovementType::SS_RETURN, $request->dn_number);
-                        $this->stockTransferService->updateStock($centralStore->id, $productId, $issuedQtyForEngineer, 0);
-                        $this->createStockTransaction($centralStore->id, $productId, $engineerId, $issuedQtyForEngineer, StockMovement::IN, StockMovementType::SS_RETURN, $request->dn_number);
 
-                        $this->createStockTransferAndItem($fromStoreId, $centralStore->id, $materialRequest->id, StockMovementType::SS_RETURN, TransactionType::SS_ENGG, $productId, $requestedQty, $issuedQtyForEngineer, $request->dn_number);
+                        // Step 1: Material Return from Engineer to Central Store
+                        $this->createStockTransaction(
+                            $fromStoreId,
+                            $productId,
+                            $engineerId,
+                            $issuedQtyForEngineer,
+                            StockMovement::OUT,
+                            StockMovementType::SS_RETURN,
+                            $request->dn_number
+                        );
+                        $this->stockTransferService->updateStock($centralStore->id, $productId, $issuedQtyForEngineer, 0);
+                        $this->createStockTransaction(
+                            $centralStore->id,
+                            $productId,
+                            $engineerId,
+                            $issuedQtyForEngineer,
+                            StockMovement::IN,
+                            StockMovementType::SS_RETURN,
+                            $request->dn_number
+                        );
+                        $this->createMaterialReturnWithStockTransfer(
+                            $fromStoreId,
+                            $centralStore->id,
+                            $productId,
+                            $engineerId,
+                            $requestedQty,
+                            $issuedQtyForEngineer,
+                            $request->dn_number
+                        );
+                        //for creating Material Return..
+
                     } else {
                         // Central Store to Receiving Store
-                        $this->createStockTransaction($centralStore->id, $productId, $materialRequest->engineer_id, $issuedQtyForEngineer, StockMovement::TRANSIT, StockMovementType::MR, $request->dn_number);
+                        $this->createStockTransaction(
+                            $centralStore->id,
+                            $productId,
+                            $materialRequest->engineer_id,
+                            $issuedQtyForEngineer,
+                            StockMovement::TRANSIT,
+                            StockMovementType::MR,
+                            $request->dn_number
+                        );
                         $this->createStockTransferAndItem($fromStoreId, $toStoreId, $materialRequest->id, StockMovementType::MR, TransactionType::CS_SS, $productId, $requestedQty, $issuedQtyForEngineer, $request->dn_number, true);
                     }
                 }
@@ -112,7 +152,6 @@ class TransactionService
                     $this->createStockTransferAndItem($centralStore->id, $toStoreId, $materialRequest->id, StockMovementType::MR, TransactionType::CS_SS, $productId, $requestedQty, $issuedQty, $request->dn_number, true);
                 }
             }
-
             $materialRequest->status_id = ($totalIssued == $totalRequested) ? StatusEnum::IN_TRANSIT : StatusEnum::PARTIALLY_RECEIVED;
             $materialRequest->save();
 
@@ -148,20 +187,45 @@ class TransactionService
         $stock->decrement('quantity', $quantity);
     }
 
-    private function createStockTransaction($fromStoreId, $productId, $engineerId, $quantity, $movement, $movementType, $dnNumber)
+    private function createStockTransaction($fromStoreId, $productId, $engineerId, $quantity, $movement, $ype, $dnNumber)
     {
+
         $data = new StockTransactionData(
             $fromStoreId,
             $productId,
             $engineerId,
             $quantity,
+            $ype,
             $movement,
-            $movementType,
             null,
             $dnNumber
         );
 
         $this->stockTransferService->createStockTransaction($data);
+    }
+    private function createMaterialReturnWithStockTransfer(
+        $fromStoreId,
+        $toStoreId,
+        $productId,
+        $engineerId,
+        $requestedQty,
+        $issuedQty,
+        $dnNumber,
+    ) {
+        $items = [];
+        $items[$engineerId][] = [
+            "product_id" => $productId,
+            "requested_qty" => $requestedQty,
+            "issued_qty" => $issuedQty,
+        ];
+        $data = new MaterialReturnData(
+            $fromStoreId,
+            $toStoreId,
+            $items,
+            $dnNumber
+        );
+        $materialReturn = $this->materialReturnService->createMaterialReturnWithItems($data);
+        $this->createStockTransferAndItem($fromStoreId, $toStoreId, $materialReturn->id, StockMovementType::SS_RETURN, TransactionType::SS_ENGG, $productId, $requestedQty, $issuedQty, $dnNumber);
     }
 
     private function createStockTransferAndItem($fromStoreId, $toStoreId, $requestId, $requestType, $transactionType, $productId, $requestedQty, $issuedQty, $dnNumber, $createStockInTransit = false)

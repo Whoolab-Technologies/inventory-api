@@ -10,8 +10,8 @@ class StockTransactionData
         public int $productId,
         public int $engineerId,
         public int $quantityChange,
-        public StockMovement $movementType,
         public StockMovementType $type,
+        public StockMovement $movement,
         public ?string $lpo = null,
         public ?string $dnNumber = null,
     ) {
