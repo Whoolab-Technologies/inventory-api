@@ -419,7 +419,7 @@ class StorekeeperController extends Controller
     {
         try {
             $materialRequest = $this->transactionService->createTransaction($request);
-            return Helpers::sendResponse(200, [], 'Transaction created successfully');
+            return Helpers::sendResponse(200, $materialRequest, 'Transaction created successfully');
 
         } catch (\Throwable $th) {
             \Log::info("error " . $th->getMessage());

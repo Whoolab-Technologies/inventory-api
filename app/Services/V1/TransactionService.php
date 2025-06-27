@@ -58,14 +58,17 @@ class TransactionService
             $totalRequested = 0;
             $totalIssued = 0;
             $missingItems = [];
-            $engineerReturns = [];
             $isSiteToSite = $fromStoreId != $centralStore->id && $toStoreId != $centralStore->id;
 
             foreach ($request->items as $item) {
                 $requestedQty = (int) $item['requested_quantity'];
                 $issuedQty = (int) $item['issued_quantity'];
                 $productId = (int) $item['product_id'];
-
+                if ($issuedQty > $requestedQty) {
+                    throw ValidationException::withMessages([
+                        "issued_quantity" => "Issued quantity ($issuedQty) cannot be greater than requested quantity ($requestedQty) for product ID $productId."
+                    ]);
+                }
                 $totalRequested += $requestedQty;
                 $totalIssued += $issuedQty;
 
@@ -76,13 +79,17 @@ class TransactionService
                         'missing_quantity' => $missingQty
                     ];
                 }
-
                 foreach ($item['engineers'] as $engineer) {
                     $engineerId = $engineer['id'];
                     $issuedQtyForEngineer = (int) $engineer['issued_qty'];
 
                     if ($issuedQtyForEngineer <= 0) {
                         continue;
+                    }
+                    if ($issuedQtyForEngineer > $requestedQty) {
+                        throw ValidationException::withMessages([
+                            "engineers" => "Issued quantity ({$issuedQtyForEngineer}) for engineer ID {$engineerId} cannot be greater than requested quantity ($requestedQty) for product ID $productId."
+                        ]);
                     }
 
 
