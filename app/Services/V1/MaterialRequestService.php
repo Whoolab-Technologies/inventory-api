@@ -59,106 +59,106 @@ class MaterialRequestService
             $materialRequest = MaterialRequest::findOrFail($id);
             $materialRequest->status_id = $request->status_id;
 
-            if (in_array($request->status_id, [5, 10])) {
+            // if (in_array($request->status_id, [5, 10])) {
 
-                if (empty($request->items)) {
-                    throw new \Exception('Invalid items data');
-                } else {
-                    $request->items = json_decode($request->items);
-                }
+            //     if (empty($request->items)) {
+            //         throw new \Exception('Invalid items data');
+            //     } else {
+            //         $request->items = json_decode($request->items);
+            //     }
 
 
-                foreach ($request->items as $item) {
-                    if (!isset($item->issued_quantity)) {
-                        throw new \Exception('Missing quantity');
-                    }
-                }
+            //     foreach ($request->items as $item) {
+            //         if (!isset($item->issued_quantity)) {
+            //             throw new \Exception('Missing quantity');
+            //         }
+            //     }
 
-                $isCentralStore = (Store::find($request->from_store_id))->is_central_store;
-                $stockTransfers = new StockTransfer();
-                $stockTransfers->transaction_number = 'TXN-' . str_pad(StockTransfer::max('id') + 1001, 6, '0', STR_PAD_LEFT);
-                $stockTransfers->to_store_id = $materialRequest->store_id;
-                $stockTransfers->from_store_id = $request->from_store_id;
-                $stockTransfers->request_id = $id;
-                $stockTransfers->remarks = $request->note;
-                $stockTransfers->send_by = $user->id;
-                $stockTransfers->request_type = "MR";
-                $stockTransfers->transaction_type = $isCentralStore ? "CS-SS" : "SS-SS";
-                $stockTransfers->dn_number = $request->dn_number;
-                $stockTransfers->save();
+            //     $isCentralStore = (Store::find($request->from_store_id))->is_central_store;
+            //     $stockTransfers = new StockTransfer();
+            //     $stockTransfers->transaction_number = 'TXN-' . str_pad(StockTransfer::max('id') + 1001, 6, '0', STR_PAD_LEFT);
+            //     $stockTransfers->to_store_id = $materialRequest->store_id;
+            //     $stockTransfers->from_store_id = $request->from_store_id;
+            //     $stockTransfers->request_id = $id;
+            //     $stockTransfers->remarks = $request->note;
+            //     $stockTransfers->send_by = $user->id;
+            //     $stockTransfers->request_type = "MR";
+            //     $stockTransfers->transaction_type = $isCentralStore ? "CS-SS" : "SS-SS";
+            //     $stockTransfers->dn_number = $request->dn_number;
+            //     $stockTransfers->save();
 
-                if (!empty($request->images) && is_array($request->images)) {
-                    foreach ($request->images as $image) {
-                        $stockTransferFile = new StockTransferFile();
-                        $mimeType = $image->getMimeType();
-                        $imagePath = Helpers::uploadFile($image, "files/stock-transfer/$stockTransfers->id");
-                        $stockTransferFile->file = $imagePath;
-                        $stockTransferFile->file_mime_type = $mimeType;
-                        $stockTransferFile->stock_transfer_id = $stockTransfers->id;
-                        $stockTransferFile->material_request_id = $materialRequest->id;
-                        $stockTransferFile->transaction_type = "transfer";
-                        $stockTransferFile->save();
-                    }
-                }
+            //     if (!empty($request->images) && is_array($request->images)) {
+            //         foreach ($request->images as $image) {
+            //             $stockTransferFile = new StockTransferFile();
+            //             $mimeType = $image->getMimeType();
+            //             $imagePath = Helpers::uploadFile($image, "files/stock-transfer/$stockTransfers->id");
+            //             $stockTransferFile->file = $imagePath;
+            //             $stockTransferFile->file_mime_type = $mimeType;
+            //             $stockTransferFile->stock_transfer_id = $stockTransfers->id;
+            //             $stockTransferFile->material_request_id = $materialRequest->id;
+            //             $stockTransferFile->transaction_type = "transfer";
+            //             $stockTransferFile->save();
+            //         }
+            //     }
 
-                if (!empty($request->note)) {
-                    $stockTransferNote = new StockTransferNote();
-                    $stockTransferNote->stock_transfer_id = $stockTransfers->id;
-                    $stockTransferNote->material_request_id = $materialRequest->id;
-                    $stockTransferNote->notes = $request->note;
-                    $stockTransferNote->save();
-                }
+            //     if (!empty($request->note)) {
+            //         $stockTransferNote = new StockTransferNote();
+            //         $stockTransferNote->stock_transfer_id = $stockTransfers->id;
+            //         $stockTransferNote->material_request_id = $materialRequest->id;
+            //         $stockTransferNote->notes = $request->note;
+            //         $stockTransferNote->save();
+            //     }
 
-                foreach ($request->items as $item) {
-                    $product = Product::findOrFail($item->product_id);
+            //     foreach ($request->items as $item) {
+            //         $product = Product::findOrFail($item->product_id);
 
-                    $transferItem = new StockTransferItem();
-                    $transferItem->stock_transfer_id = $stockTransfers->id;
-                    $transferItem->product_id = $item->product_id;
-                    $transferItem->requested_quantity = $item->requested_quantity;
-                    $transferItem->issued_quantity = $item->issued_quantity;
-                    $transferItem->save();
-                    $fromStockQuery = Stock::where('store_id', $request->from_store_id)
-                        ->where('product_id', $item->product_id);
-                    if (!$isCentralStore) {
-                        //get the from engineerid
-                        //$fromStockQuery->where('engineer_id', $engineerId);
-                    }
+            //         $transferItem = new StockTransferItem();
+            //         $transferItem->stock_transfer_id = $stockTransfers->id;
+            //         $transferItem->product_id = $item->product_id;
+            //         $transferItem->requested_quantity = $item->requested_quantity;
+            //         $transferItem->issued_quantity = $item->issued_quantity;
+            //         $transferItem->save();
+            //         $fromStockQuery = Stock::where('store_id', $request->from_store_id)
+            //             ->where('product_id', $item->product_id);
+            //         if (!$isCentralStore) {
+            //             //get the from engineerid
+            //             //$fromStockQuery->where('engineer_id', $engineerId);
+            //         }
 
-                    $fromStock = $fromStockQuery->first();
+            //         $fromStock = $fromStockQuery->first();
 
-                    if ($fromStock) {
-                        if ($fromStock->quantity < $item->issued_quantity) {
-                            throw new \Exception('Insufficient stock (' . $product->item . ')');
-                        }
+            //         if ($fromStock) {
+            //             if ($fromStock->quantity < $item->issued_quantity) {
+            //                 throw new \Exception('Insufficient stock (' . $product->item . ')');
+            //             }
 
-                        $fromStock->quantity -= $item->issued_quantity;
-                        $fromStock->save();
-                    } else {
-                        if ($item->issued_quantity > 0) {
-                            throw new \Exception('Insufficient stock (' . $product->item . ')');
-                        }
-                    }
+            //             $fromStock->quantity -= $item->issued_quantity;
+            //             $fromStock->save();
+            //         } else {
+            //             if ($item->issued_quantity > 0) {
+            //                 throw new \Exception('Insufficient stock (' . $product->item . ')');
+            //             }
+            //         }
 
-                    $stockInTransit = new StockInTransit();
-                    $stockInTransit->stock_transfer_id = $stockTransfers->id;
-                    $stockInTransit->material_request_id = $materialRequest->id;
-                    $stockInTransit->stock_transfer_item_id = $transferItem->id;
-                    $stockInTransit->product_id = $item->product_id;
-                    $stockInTransit->issued_quantity = $item->issued_quantity;
-                    $stockInTransit->save();
+            //         $stockInTransit = new StockInTransit();
+            //         $stockInTransit->stock_transfer_id = $stockTransfers->id;
+            //         $stockInTransit->material_request_id = $materialRequest->id;
+            //         $stockInTransit->stock_transfer_item_id = $transferItem->id;
+            //         $stockInTransit->product_id = $item->product_id;
+            //         $stockInTransit->issued_quantity = $item->issued_quantity;
+            //         $stockInTransit->save();
 
-                    StockTransaction::create([
-                        'store_id' => $request->from_store_id,
-                        'product_id' => $item->product_id,
-                        'engineer_id' => $materialRequest->engineer_id,
-                        'quantity' => $item->issued_quantity,
-                        'stock_movement' => 'TRANSIT',
-                        'type' => 'MR',
-                        'dn_number' => $request->dn_number,
-                    ]);
-                }
-            }
+            //         StockTransaction::create([
+            //             'store_id' => $request->from_store_id,
+            //             'product_id' => $item->product_id,
+            //             'engineer_id' => $materialRequest->engineer_id,
+            //             'quantity' => $item->issued_quantity,
+            //             'stock_movement' => 'TRANSIT',
+            //             'type' => 'MR',
+            //             'dn_number' => $request->dn_number,
+            //         ]);
+            //     }
+            // }
             $materialRequest->save();
             $materialRequest->load(['status', 'store', 'engineer', 'items.product', 'stockTransfers.items']);
 
@@ -170,26 +170,26 @@ class MaterialRequestService
             $materialRequestItems = $this->mapStockItemsProduct($materialRequest, $stockItems);
             $materialRequest->setRelation('items', $materialRequestItems);
 
-            if (in_array($request->status_id, [5, 9])) {
-                $pr = PurchaseRequest::create([
-                    'purchase_request_number' => 'PR' . str_pad(PurchaseRequest::max('id') + 1001, 6, '0', STR_PAD_LEFT),
-                    'material_request_id' => $materialRequest->id,
-                    'material_request_number' => $materialRequest->request_number,
-                ]);
+            // if (in_array($request->status_id, [5, 9])) {
+            //     $pr = PurchaseRequest::create([
+            //         'purchase_request_number' => 'PR' . str_pad(PurchaseRequest::max('id') + 1001, 6, '0', STR_PAD_LEFT),
+            //         'material_request_id' => $materialRequest->id,
+            //         'material_request_number' => $materialRequest->request_number,
+            //     ]);
 
-                foreach ($materialRequest->items as $item) {
-                    $requested = $item->requested_quantity ?? $item->quantity;
-                    $issued = $item->issued_quantity ?? 0;
-                    if ($issued < $requested) {
-                        PurchaseRequestItem::create([
-                            'purchase_request_id' => $pr->id,
-                            'material_request_item_id' => $item->id,
-                            'product_id' => $item->product_id,
-                            'quantity' => $requested - $issued,
-                        ]);
-                    }
-                }
-            }
+            //     foreach ($materialRequest->items as $item) {
+            //         $requested = $item->requested_quantity ?? $item->quantity;
+            //         $issued = $item->issued_quantity ?? 0;
+            //         if ($issued < $requested) {
+            //             PurchaseRequestItem::create([
+            //                 'purchase_request_id' => $pr->id,
+            //                 'material_request_item_id' => $item->id,
+            //                 'product_id' => $item->product_id,
+            //                 'quantity' => $requested - $issued,
+            //             ]);
+            //         }
+            //     }
+            // }
             \DB::commit();
             return $materialRequest;
         } catch (\Throwable $th) {

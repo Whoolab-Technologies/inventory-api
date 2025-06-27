@@ -35,7 +35,7 @@ class PurchaseRequest extends BaseModel
     public function transactions()
     {
         return $this->hasMany(StockTransfer::class, 'request_id', 'material_request_id')
-            ->where('type', 'PR');
+            ->where('request_type', 'PR');
     }
 
 }

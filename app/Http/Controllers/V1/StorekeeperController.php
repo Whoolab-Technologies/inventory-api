@@ -415,6 +415,17 @@ class StorekeeperController extends Controller
             return Helpers::sendResponse(500, [], $th->getMessage());
         }
     }
+    public function createTransaction(Request $request)
+    {
+        try {
+            $materialRequest = $this->transactionService->createTransaction($request);
+            return Helpers::sendResponse(200, [], 'Transaction created successfully');
+
+        } catch (\Throwable $th) {
+            \Log::info("error " . $th->getMessage());
+            return Helpers::sendResponse(500, [], $th->getMessage());
+        }
+    }
 
     public function getMaterialRequestTransactions(Request $request, $id)
     {
@@ -679,24 +690,131 @@ class StorekeeperController extends Controller
         $storeId = $request->input('store');
         $productIds = $request->input('products');
         try {
-            if (!$storeId || !is_array($productIds)) {
-                return Helpers::sendResponse(400, [], 'Invalid parameters');
+
+            // $stores = Store::with([
+            //     'engineers.stocks' => function ($query) use ($productIds) {
+            //         $query->whereIn('product_id', $productIds)
+            //             ->select('id', 'store_id', 'engineer_id', 'product_id', 'quantity');
+            //     },
+            //     'stocks' => function ($query) use ($productIds) {
+            //         $query->whereIn('product_id', $productIds)
+            //             ->where('engineer_id', 0) // Central stock only
+            //             ->select('id', 'store_id', 'engineer_id', 'product_id', 'quantity');
+            //     }
+            // ])->where('id', $storeId)
+            //     ->get();
+            // foreach ($stores as $store) {
+            //     $engineersData = [];
+
+            //     // Central stock (engineer_id = 0)
+            //     $centralProducts = [];
+            //     foreach ($productIds as $productId) {
+            //         $quantity = $store->stocks->firstWhere('product_id', $productId)->quantity ?? 0;
+            //         $centralProducts[] = [
+            //             'id' => $productId,
+            //             'quantity' => $quantity,
+            //         ];
+            //     }
+
+            //     $engineersData[] = [
+            //         'id' => 0,
+            //         'products' => $centralProducts,
+            //     ];
+
+            //     // Engineer-wise stock
+            //     foreach ($store->engineers as $engineer) {
+            //         $products = [];
+            //         foreach ($productIds as $productId) {
+            //             $quantity = $engineer->stocks->firstWhere('product_id', $productId)->quantity ?? 0;
+            //             $products[] = [
+            //                 'id' => $productId,
+            //                 'quantity' => $quantity,
+            //             ];
+            //         }
+
+            //         $engineersData[] = [
+            //             'id' => $engineer->id,
+            //             'products' => $products,
+            //         ];
+            //     }
+
+            //     $response[] = [
+            //         'id' => $store->id,
+            //         'name' => $store->name ?? '',
+            //         'engineers' => $engineersData,
+            //     ];
+            // }
+
+            // Load stores with engineers and relevant stocks
+            $stores = Store::with([
+                'engineers.stocks' => function ($q) use ($productIds) {
+                    $q->whereIn('product_id', $productIds)
+                        ->select('id', 'store_id', 'engineer_id', 'product_id', 'quantity');
+                },
+                'stocks' => function ($q) use ($productIds) {
+                    $q->whereIn('product_id', $productIds)
+                        ->where('engineer_id', 0) // central stock
+                        ->select('id', 'store_id', 'engineer_id', 'product_id', 'quantity');
+                }
+            ])->get();
+
+            $response = [];
+
+            foreach ($stores as $store) {
+                $productsData = [];
+                $productsMap = [];
+
+                foreach ($productIds as $productId) {
+
+                    $engineersList = [];
+
+                    // Check if this store is central store
+                    if ($store->is_central_store) {
+                        // Central stock for this product
+                        $centralStock = $store->stocks->firstWhere('product_id', $productId);
+                        $centralQuantity = $centralStock ? $centralStock->quantity : 0;
+
+                        $engineersList[] = [
+                            'id' => 0,
+                            'name' => 'Central',
+                            'quantity' => $centralQuantity,
+                        ];
+                    }
+
+                    // Loop through engineers for this store
+                    foreach ($store->engineers as $engineer) {
+                        $stock = $engineer->stocks->where('quantity', '>', 0)
+                            ->firstWhere('product_id', $productId);
+
+                        if ($stock)
+                            $engineersList[] = [
+                                'id' => $engineer->id,
+                                'name' => $engineer->name ?? '',
+                                'quantity' => $stock->quantity
+                            ];
+                    }
+
+                    // Total quantity = sum of all engineers' quantities (including central if applicable)
+                    $totalQuantity = array_sum(array_column($engineersList, 'quantity'));
+                    $product = [
+                        'id' => $productId,
+                        'total_quantity' => $totalQuantity,
+                        'engineers' => $engineersList,
+                    ];
+                    $productsData[] = $productsMap[$productId] = $product;
+                }
+
+                $response[] = [
+                    'id' => $store->id,
+                    'name' => $store->name ?? '',
+                    'is_central_store' => $store->is_central_store ?? '',
+                    'products' => $productsData,
+                    'productsMap' => $productsMap,
+                ];
             }
 
-            // Fetch quantities for given products in the store
-            $stocks = Stock::where('store_id', $storeId)
-                ->whereIn('product_id', $productIds)
-                ->select('product_id', 'quantity')
-                ->get()
-                ->groupBy('product_id')
-                ->map(fn($rows) => $rows->sum('quantity'));
+            return Helpers::sendResponse(200, $response);
 
-            $stockMap = [];
-            foreach ($productIds as $productId) {
-                $stockMap[$productId] = $stocks[$productId] ?? 0;
-            }
-
-            return Helpers::sendResponse(200, $stockMap);
         } catch (\Throwable $th) {
             return Helpers::sendResponse(500, [], $th->getMessage());
         }

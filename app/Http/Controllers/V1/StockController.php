@@ -11,6 +11,8 @@ use App\Models\V1\Store;
 use App\Models\V1\Engineer;
 use App\Models\V1\StockMeta;
 use App\Models\V1\StockTransaction;
+use App\Models\V1\StockTransfer;
+use App\Models\V1\StockTransferItem;
 class StockController extends Controller
 {
     public function index()
@@ -94,6 +96,29 @@ class StockController extends Controller
                 'lpo' => $request->lpo,
                 'dn_number' => $request->dn_number,
             ]);
+
+            $user = auth()->user();
+            $isCentralStore = (Store::find($request->store_id))->is_central_store;
+            $stockTransfers = new StockTransfer();
+            $stockTransfers->transaction_number = 'TXN-' . str_pad(StockTransfer::max('id') + 1001, 6, '0', STR_PAD_LEFT);
+            $stockTransfers->to_store_id = $request->store_id;
+            $stockTransfers->from_store_id = $request->from_store_id;
+            $stockTransfers->request_id = 0;
+            $stockTransfers->received_by = $user->id;
+            $stockTransfers->receiver_role = $isCentralStore ? "CENTRAL STORE" : "SITE STORE";
+            $stockTransfers->request_type = "DIRECT";
+            $stockTransfers->transaction_type = "DIRECT";
+            $stockTransfers->dn_number = $request->dn_number;
+            $stockTransfers->status_id = 7;
+            $stockTransfers->save();
+
+
+            $transferItem = new StockTransferItem();
+            $transferItem->stock_transfer_id = $stockTransfers->id;
+            $transferItem->product_id = $request->product_id;
+            $transferItem->requested_quantity = 0;
+            $transferItem->issued_received = $transferItem->issued_quantity = $quantityChange;
+            $transferItem->save();
 
             $stock = $this->createStockData($stock);
 
