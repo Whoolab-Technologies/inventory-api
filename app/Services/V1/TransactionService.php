@@ -19,6 +19,7 @@ use App\Models\V1\StockTransferNote;
 use App\Models\V1\Stock;
 use App\Models\V1\Store;
 use App\Models\V1\MaterialRequest;
+use App\Models\V1\MaterialRequestItem;
 use App\Models\V1\StockTransferFile;
 use App\Services\Helpers;
 use App\Models\V1\StockTransaction;
@@ -248,11 +249,19 @@ class TransactionService
         );
 
         $transfer = $this->stockTransferService->createStockTransfer($transferData);
-        $transferItem = $this->stockTransferService->createStockTransferItem($transfer->id, $productId, $requestedQty, $issuedQty);
+        $transferItem = $this->stockTransferService->createStockTransferItem(
+            $transfer->id,
+            $productId,
+            $requestedQty,
+            $issuedQty
+        );
         if ($createStockInTransit) {
+            $materialRequestItem = MaterialRequestItem::where('material_request_id', $requestId)
+                ->firstOrFail();
             $this->stockTransferService->createStockInTransit(new StockInTransitData(
                 stockTransferId: $transfer->id,
                 materialRequestId: $requestId,
+                materialRequestItemId: $materialRequestItem->id,
                 stockTransferItemId: $transferItem->id,
                 productId: $productId,
                 issuedQuantity: $issuedQty

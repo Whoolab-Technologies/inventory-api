@@ -6,7 +6,7 @@ class StockTransferItem extends BaseModel
 {
     use HasFactory;
 
-    protected $fillable = ['stock_transfer_id', 'product_id', 'quantity', 'received_quantity',];
+    protected $fillable = ['stock_transfer_id', 'product_id', 'quantity', 'requested_quantity', 'issued_quantity', 'received_quantity',];
 
     protected $hidden = ['created_by', 'created_type', 'updated_by', 'updated_type', 'created_at', 'updated_at'];
 
