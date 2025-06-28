@@ -563,8 +563,15 @@ class StorekeeperController extends Controller
                 'status',
                 'materialRequest',
             ]);
-            $transaction->engineer = $transaction->materialRequest->engineer;
-            return Helpers::sendResponse(200, $transaction, 'Transaction updated successfully');
+            $materialRequest = $transaction->materialRequest;
+            $materialRequest = $this->mapStockItemsProduct($materialRequest);
+            $transaction->engineer = $materialRequest->engineer;
+            $response = [
+                'material_request' => $materialRequest,
+                'transaction' => $transaction,
+            ];
+
+            return Helpers::sendResponse(200, $response, 'Transaction updated successfully');
         } catch (\Throwable $th) {
             \Log::info($th->getMessage());
             return Helpers::sendResponse(500, [], $th->getMessage());

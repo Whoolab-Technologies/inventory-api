@@ -141,7 +141,7 @@ class StockTransferService
     {
         $item = StockTransferItem::findOrFail($stockTransferItemId);
 
-        $item->issued_quantity = $receivedQuantity;
+        $item->received_quantity = $receivedQuantity;
         $item->save();
 
         return $item;

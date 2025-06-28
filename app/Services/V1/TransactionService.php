@@ -180,7 +180,7 @@ class TransactionService
                 );
             }
 
-            $materialRequest->status_id = ($totalIssued == $totalRequested) ? StatusEnum::IN_TRANSIT : StatusEnum::PARTIALLY_RECEIVED;
+            $materialRequest->status_id = ($totalIssued == $totalRequested) ? StatusEnum::IN_TRANSIT : StatusEnum::PROCESSING;
             $materialRequest->save();
 
             if (count($missingItems)) {
@@ -526,25 +526,19 @@ class TransactionService
     {
         \DB::beginTransaction();
         try {
-            \Log::info("Stock Transfer Update Request received", ['request' => $request->all(), 'stock_transfer_id' => $id]);
-
             if (empty($request->items)) {
-                \Log::error("Stock Transfer Update failed - Missing items", ['stock_transfer_id' => $id]);
                 throw new \Exception('Invalid items data');
             } else {
                 $request->items = json_decode($request->items);
-                \Log::info("Decoded items", ['items' => $request->items]);
             }
 
             foreach ($request->items as $item) {
                 if (!isset($item->received_quantity)) {
-                    \Log::error("Stock Transfer Update failed - Missing received_quantity in item", ['item' => $item]);
                     throw new \Exception('Missing quantity');
                 }
             }
 
             $stockTransfer = StockTransfer::findOrFail($id);
-            \Log::info("Stock Transfer found", ['stock_transfer' => $stockTransfer]);
             $user = auth()->user();
             $role = ($user->load('store'))->is_central_store ? TransferPartyRole::CENTRAL_STORE : TransferPartyRole::SITE_STORE;
             $stockTransfer = $this->stockTransferService->updateStockTransfer(
@@ -553,8 +547,6 @@ class TransactionService
                 $user->id,
                 $role
             );
-            \Log::info("Stock Transfer status updated", ['stock_transfer' => $stockTransfer]);
-
             if (!empty($request->note)) {
                 $stockTransferNote = new StockTransferNote();
                 $stockTransferNote->stock_transfer_id = $stockTransfer->id;
@@ -577,58 +569,70 @@ class TransactionService
                     $stockTransferFile->transaction_type = "receive";
                     $stockTransferFile->save();
 
-                    \Log::info("Stock Transfer Image uploaded", ['file_path' => $imagePath, 'mime_type' => $mimeType]);
                 }
             }
-
             $this->updateStock($request, $stockTransfer);
-            \Log::info("Stock updated successfully for Stock Transfer", ['stock_transfer_id' => $id]);
 
-            $isPartiallyReceived = false;
-            foreach ($stockTransfer->items as $item) {
-                \Log::info("Checking Stock Transfer Item", [
-                    'item_id' => $item->id,
-                    'product_id' => $item->product_id,
-                    'issued_quantity' => $item->issued_quantity,
-                    'received_quantity' => $item->received_quantity
-                ]);
+            // $isPartiallyReceived = false;
+            // foreach ($stockTransfer->items as $item) {
+            //     if ($item->received_quantity == 0 || $item->received_quantity < $item->issued_quantity) {
+            //         $isPartiallyReceived = true;
+            //         break;
+            //     }
+            // }
+            // $materialRequest = $stockTransfer->materialRequest;
+            // $materialRequest->status_id = $isPartiallyReceived ? StatusEnum::PARTIALLY_RECEIVED : StatusEnum::COMPLETED;
+            // $materialRequest->save();
+            $hasMissing = false;
+            $hasPartialReceived = false;
 
-                if ($item->received_quantity == 0 || $item->received_quantity < $item->issued_quantity) {
-                    \Log::warning("Partial Receive detected for item", [
-                        'item_id' => $item->id,
-                        'product_id' => $item->product_id,
-                        'issued_quantity' => $item->issued_quantity,
-                        'received_quantity' => $item->received_quantity
-                    ]);
-                    $isPartiallyReceived = true;
+            $stockTransferItems = $stockTransfer->items->keyBy('product_id');
+            $materialRequest = $stockTransfer->materialRequest;
+            foreach ($materialRequest->items as $item) {
+                $productId = $item->product_id;
+                $requestedQuantity = $item->quantity;
+
+                $stockTransferItem = $stockTransferItems[$productId] ?? null;
+
+                $issuedQuantity = $stockTransferItem?->issued_quantity ?? 0;
+                $receivedQuantity = $stockTransferItem?->received_quantity ?? 0;
+
+                // Product missing entirely or issued partially
+                if (!$stockTransferItem || $issuedQuantity < $requestedQuantity) {
+                    $hasMissing = true;
                     break;
                 }
+
+                // Product issued fully but received partially
+                if ($receivedQuantity < $issuedQuantity) {
+                    $hasPartialReceived = true;
+                }
             }
 
-            \Log::info("Partial Receive Status evaluated", ['is_partially_received' => $isPartiallyReceived]);
+            if ($hasMissing) {
+                $materialRequest->status_id = StatusEnum::AWAITING_PROC->value;
+            } elseif ($hasPartialReceived) {
+                $materialRequest->status_id = StatusEnum::PARTIALLY_RECEIVED->value;
+            } else {
+                $materialRequest->status_id = StatusEnum::COMPLETED->value;
+            }
 
-            $materialRequest = $stockTransfer->materialRequest;
-            $materialRequest->status_id = $isPartiallyReceived ? StatusEnum::PARTIALLY_RECEIVED : StatusEnum::COMPLETED;
             $materialRequest->save();
-            \Log::info("Material Request status updated", ['material_request_id' => $materialRequest->id, 'status_id' => $materialRequest->status_id]);
-
             $stockTransfer->save();
-            \Log::info("Final Stock Transfer saved successfully", ['stock_transfer_id' => $stockTransfer->id]);
 
             \DB::commit();
-            \Log::info("Stock Transfer update transaction committed", ['stock_transfer_id' => $stockTransfer->id]);
 
             return $stockTransfer;
 
         } catch (\Throwable $e) {
             \DB::rollBack();
-            \Log::error("Stock Transfer Update failed", ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             throw $e;
         }
     }
 
     private function updateStock(Request $request, StockTransfer $stockTransfer)
     {
+
         \DB::beginTransaction();
         try {
             $fromStoreId = $stockTransfer->from_store_id;
@@ -638,9 +642,9 @@ class TransactionService
             $materialRequest = $stockTransfer->materialRequest;
             $engineerId = $materialRequest->engineer_id;
 
+
             $productIds = collect($request->items)->pluck('product_id');
 
-            // Fetch related records once
             $stockInTransitRecords = StockInTransit::where('stock_transfer_id', $stockTransfer->id)
                 ->whereIn('product_id', $productIds)
                 ->get()
@@ -648,55 +652,61 @@ class TransactionService
 
             $toStoreQuery = Stock::where('store_id', $toStoreId)
                 ->whereIn('product_id', $productIds);
+
             $toStore = Store::find($toStoreId);
             if ($toStore && !$toStore->is_central_store) {
                 $toStoreQuery->where('engineer_id', $engineerId);
+            } else {
             }
-            $toStoreStocks = $toStoreQuery->get()
-                ->keyBy('product_id');
 
+            //    $toStoreStocks = $toStoreQuery->get()->keyBy('product_id');
 
             foreach ($request->items as $item) {
+                \Log::info("item => $item->product_id");
                 $productId = $item->product_id;
                 $newReceivedQuantity = $item->received_quantity;
 
                 $stockInTransit = $stockInTransitRecords[$productId] ?? null;
-                if (!$stockInTransit)
+                if (!$stockInTransit) {
                     continue;
+                }
 
-                // Skip if already received
-                if ($stockInTransit->received_quantity > 0)
+                if ($stockInTransit->received_quantity > 0) {
                     continue;
+                }
 
                 // Update stock in transit
                 $stockInTransit->received_quantity = $newReceivedQuantity;
-                $stockInTransit->status_id = $newReceivedQuantity < $stockInTransit->issued_quantity ? StatusEnum::PARTIALLY_RECEIVED : StatusEnum::REJECTED;
+                $stockInTransit->status_id = $newReceivedQuantity < $stockInTransit->issued_quantity
+                    ? StatusEnum::getIdByCode('PARTIALLY_RECEIVED')
+                    : StatusEnum::getIdByCode('RECEIVED');
                 $stockInTransit->save();
 
-                // Return remaining quantity to fromStore
+                // Return remaining quantity to fromStore if applicable
                 $remainingQuantity = max(0, $stockInTransit->issued_quantity - $newReceivedQuantity);
-                // Update stock quantities based on received and remaining quantities
                 if ($remainingQuantity > 0) {
-                    // Return remaining quantity to fromStore stock
                     $fromStock = $this->stockTransferService->updateStock($fromStoreId, $productId, $remainingQuantity);
+                    \Log::info("Returned {$remainingQuantity} units to fromStore ID: {$fromStoreId} for product ID: {$productId}");
                 }
 
-                // Add received quantity to toStore stock
+                // Add received quantity to toStore
                 $toStock = $this->stockTransferService->updateStock($toStoreId, $productId, $newReceivedQuantity);
 
-                $this->stockTransferService->updateStockTransferItem($$item->id, $newReceivedQuantity);
+                // Update stock transfer item
+                $this->stockTransferService->updateStockTransferItem($item->id, $newReceivedQuantity);
 
-                $this->handleStockMovement($fromStoreId, $toStoreId, $productId, $productId, $engineerId, $newReceivedQuantity, StockMovement::OUT, StockMovementType::MR, $dnNumber);
-
-
+                // Log stock movement
+                $this->handleStockMovement($fromStoreId, $toStoreId, $productId, $engineerId, $newReceivedQuantity, StockMovementType::MR, $dnNumber);
             }
 
             \DB::commit();
+
             return $stockTransfer;
         } catch (\Throwable $e) {
             \DB::rollBack();
             throw $e;
         }
+
     }
     protected function handleStockMovement($fromStoreId, $toStoreId, $productId, $engineerId, $quantity, $movementType, $dnNumber)
     {
