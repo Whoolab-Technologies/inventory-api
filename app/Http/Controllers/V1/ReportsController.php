@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers\V1;
 
+use App\Enums\StatusEnum;
+use App\Enums\StockMovementType;
 use App\Exports\GenericExcelExport;
 use App\Http\Controllers\Controller;
 use App\Models\V1\Engineer;
+use App\Models\V1\InventoryDispatch;
 use Illuminate\Http\Request;
 use App\Services\Helpers;
 use App\Models\V1\StockTransaction;
@@ -48,13 +51,23 @@ class ReportsController extends Controller
             $transactions = $transactions->orderByDesc('id')->get()
                 ->map(function ($tx, $index) {
                     $meta = 'N/A';
+                    $foreman = 'N/A';
 
-                    // Only try to get stock_meta if type is STOCK
-                    if (strtoupper($tx->type) === "STOCK") {
+                    // Only try to get stock_meta if type is D
+                    if ($tx->type === StockMovementType::DIRECT->value) {
                         $meta = StockMeta::where('dn_number', $tx->dn_number)
                             ->where('store_id', $tx->store_id)
                             ->where('product_id', $tx->product_id)
                             ->first();
+                    }
+                    if ($tx->type === StockMovementType::DISPATCH->value) {
+                        $dispatch = InventoryDispatch::where('dn_number', $tx->dn_number)
+                            ->where('store_id', $tx->store_id)
+                            ->where('engineer_id', $tx->engineer_id)
+                            ->first();
+                        if ($dispatch) {
+                            $foreman = $dispatch->self == true ? "SELF" : $dispatch->representaive;
+                        }
                     }
 
                     return [
@@ -67,7 +80,7 @@ class ReportsController extends Controller
                         "unit" => $tx->product->symbol,
                         'store' => $tx->store->name ?? 'N/A',
                         'quantity' => $tx->quantity,
-                        'consumption' => $tx->type === "CONSUMPTION",
+                        'consumption' => $tx->type === StockMovementType::DISPATCH->value,
                         'transaction_type' => strtoupper($tx->stock_movement),
                         'type' => strtoupper($tx->type),
                         'date_of_transaction' => $tx->created_at->format('Y-m-d'),
@@ -75,7 +88,8 @@ class ReportsController extends Controller
                         'lpo' => $tx->lpo ?? 'N/A',
                         'engineer' => $tx->engineer->name ?? 'N/A',
                         'engineerStore' => $tx->engineer->store->name ?? 'N/A',
-                        'meta' => $meta
+                        'meta' => $meta,
+                        'foreman' => $foreman
                     ];
                 });
 

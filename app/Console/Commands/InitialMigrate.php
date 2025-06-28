@@ -6,7 +6,7 @@ use Illuminate\Console\Command;
 use Database\Seeders\StatusesTableSeeder;
 class InitialMigrate extends Command
 {
-    protected $signature = 'migrate:inital';
+    protected $signature = 'migrate:initial';
     protected $description = 'Migrate all databases, including subdirectories';
 
     public function __construct()
@@ -17,9 +17,7 @@ class InitialMigrate extends Command
     public function handle()
     {
         // Migrate the default migrations (in case you want to migrate the main folder too)
-        $this->call('migrate', [
-            '--path' => 'database/migrations/2025_06_21_214912_create_statuses_table.php'
-        ]);
+        $this->call('migrate');
 
         // Seed the statuses table
         $this->call(StatusesTableSeeder::class);

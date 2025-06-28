@@ -117,7 +117,7 @@ class StockController extends Controller
             $transferItem->stock_transfer_id = $stockTransfers->id;
             $transferItem->product_id = $request->product_id;
             $transferItem->requested_quantity = 0;
-            $transferItem->issued_received = $transferItem->issued_quantity = $quantityChange;
+            $transferItem->received_quantity = $transferItem->issued_quantity = $quantityChange;
             $transferItem->save();
 
             $stock = $this->createStockData($stock);

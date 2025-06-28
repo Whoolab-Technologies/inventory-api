@@ -162,9 +162,6 @@ class MaterialRequestService
             $materialRequest->save();
 
 
-            $materialRequestItems = $this->mapStockItemsProduct($materialRequest);
-            $materialRequest->setRelation('items', $materialRequestItems);
-
             // if (in_array($request->status_id, [5, 9])) {
             //     $pr = PurchaseRequest::create([
             //         'purchase_request_number' => 'PR' . str_pad(PurchaseRequest::max('id') + 1001, 6, '0', STR_PAD_LEFT),
@@ -197,13 +194,12 @@ class MaterialRequestService
 
     public function mapStockItemsProduct($materialRequest)
     {
-        $materialRequest->load(['status', 'store', 'engineer', 'items.product', 'stockTransfers.items']);
 
         $stockItems = collect($materialRequest->stockTransfers ?? [])
             ->pluck('items')
             ->flatten(1)
             ->groupBy('product_id');
-        return collect($materialRequest->items)->map(function ($item) use ($stockItems) {
+        $materialRequestItems = collect($materialRequest->items)->map(function ($item) use ($stockItems) {
             $group = $stockItems->get($item->product_id);
 
             $item->requested_quantity = $group ? $group->first()->requested_quantity ?? $item->quantity : $item->quantity;
@@ -212,5 +208,7 @@ class MaterialRequestService
 
             return $item;
         });
+        $materialRequest = $materialRequest->setRelation('items', $materialRequestItems);
+        return $materialRequest;
     }
 }

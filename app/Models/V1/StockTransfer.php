@@ -14,7 +14,7 @@ class StockTransfer extends BaseModel
         'dn_number',
         'remarks',
         'request_id',
-        'type',
+        'request_type',
         'transaction_type',
         'send_by',
         'sender_role',

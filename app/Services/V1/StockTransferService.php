@@ -11,6 +11,7 @@ use App\Models\V1\StockTransaction;
 use App\Models\V1\MaterialReturn;
 use App\Models\V1\MaterialReturnDetail;
 use App\Models\V1\MaterialReturnItem;
+use App\Models\V1\Store;
 use App\Enums\TransferPartyRole;
 use App\Data\StockTransactionData;
 use App\Data\StockInTransitData;
@@ -78,6 +79,11 @@ class StockTransferService
 
     public function updateStock($storeId, $productId, $quantityChange, $engineerId = 0)
     {
+        $store = Store::findOrFail($storeId);
+
+        if ($store->is_central_store) {
+            $engineerId = 0;
+        }
         $stock = Stock::firstOrNew([
             'store_id' => $storeId,
             'product_id' => $productId,
@@ -153,6 +159,7 @@ class StockTransferService
     }
     public function createStockTransfer(StockTransferData $data)
     {
+        \Log::info('Check Request Type', ['request_type' => $data->requestType]);
         return StockTransfer::create([
             'transaction_number' => 'TXN-' . str_pad(StockTransfer::max('id') + 1001, 6, '0', STR_PAD_LEFT),
             'from_store_id' => $data->fromStoreId,

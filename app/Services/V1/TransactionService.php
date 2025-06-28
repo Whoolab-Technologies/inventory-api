@@ -10,6 +10,7 @@ use App\Data\StockInTransitData;
 use App\Enums\RequestType;
 use App\Enums\StockMovementType;
 use App\Enums\TransactionType;
+use App\Enums\TransferPartyRole;
 use App\Models\V1\InventoryDispatch;
 use App\Models\V1\InventoryDispatchFile;
 use App\Models\V1\InventoryDispatchItem;
@@ -544,10 +545,14 @@ class TransactionService
 
             $stockTransfer = StockTransfer::findOrFail($id);
             \Log::info("Stock Transfer found", ['stock_transfer' => $stockTransfer]);
-
-            $stockTransfer->status_id = StatusEnum::COMPLETED;
-            $stockTransfer->remarks = $request->note;
-            $stockTransfer->save();
+            $user = auth()->user();
+            $role = ($user->load('store'))->is_central_store ? TransferPartyRole::CENTRAL_STORE : TransferPartyRole::SITE_STORE;
+            $stockTransfer = $this->stockTransferService->updateStockTransfer(
+                $id,
+                StatusEnum::COMPLETED,
+                $user->id,
+                $role
+            );
             \Log::info("Stock Transfer status updated", ['stock_transfer' => $stockTransfer]);
 
             if (!empty($request->note)) {
@@ -651,13 +656,6 @@ class TransactionService
                 ->keyBy('product_id');
 
 
-
-            // $engineerStocks = EngineerStock::where('engineer_id', $engineerId)
-            //     ->where('store_id', $toStoreId)
-            //     ->whereIn('product_id', $productIds)
-            //     ->get()
-            //     ->keyBy('product_id');
-
             foreach ($request->items as $item) {
                 $productId = $item->product_id;
                 $newReceivedQuantity = $item->received_quantity;
@@ -672,79 +670,24 @@ class TransactionService
 
                 // Update stock in transit
                 $stockInTransit->received_quantity = $newReceivedQuantity;
-                $stockInTransit->status_id = $newReceivedQuantity < $stockInTransit->issued_quantity ? 8 : 11;
+                $stockInTransit->status_id = $newReceivedQuantity < $stockInTransit->issued_quantity ? StatusEnum::PARTIALLY_RECEIVED : StatusEnum::REJECTED;
                 $stockInTransit->save();
 
                 // Return remaining quantity to fromStore
                 $remainingQuantity = max(0, $stockInTransit->issued_quantity - $newReceivedQuantity);
+                // Update stock quantities based on received and remaining quantities
                 if ($remainingQuantity > 0) {
-
-                    $fromStock = $fromStoreStocks[$productId] ?? new Stock([
-                        'store_id' => $fromStoreId,
-                        'product_id' => $productId,
-                        'quantity' => 0
-                    ]);
-                    $fromStock->quantity += $remainingQuantity;
-                    $fromStock->save();
+                    // Return remaining quantity to fromStore stock
+                    $fromStock = $this->stockTransferService->updateStock($fromStoreId, $productId, $remainingQuantity);
                 }
-                $attributes = [
-                    'store_id' => $toStoreId,
-                    'product_id' => $productId,
-                    'quantity' => 0
-                ];
 
-                $isCentralStore = (Store::find(id: $toStoreId))->is_central_store;
-                $attributes = $this->appendEngineerId($attributes, $toStoreId, $engineerId);
-                // Update toStore stock
-                $toStock = $toStoreStocks[$productId] ?? new Stock($attributes);
-                $toStock->quantity += $newReceivedQuantity;
-                if (!$isCentralStore) {
-                    $toStock->engineer_id = $engineerId;
-                }
-                $toStock->save();
+                // Add received quantity to toStore stock
+                $toStock = $this->stockTransferService->updateStock($toStoreId, $productId, $newReceivedQuantity);
 
-                // Update engineer stock
-                // $engineerStock = $engineerStocks[$productId] ?? new EngineerStock([
-                //     'engineer_id' => $engineerId,
-                //     'store_id' => $toStoreId,
-                //     'product_id' => $productId,
-                //     'quantity' => 0
-                // ]);
-                // $engineerStock->quantity += $newReceivedQuantity;
-                // $engineerStock->save();
+                $this->stockTransferService->updateStockTransferItem($$item->id, $newReceivedQuantity);
 
-                // Update transfer item
-                StockTransferItem::where('id', $item->id)->update([
-                    'received_quantity' => $newReceivedQuantity
-                ]);
+                $this->handleStockMovement($fromStoreId, $toStoreId, $productId, $productId, $engineerId, $newReceivedQuantity, StockMovement::OUT, StockMovementType::MR, $dnNumber);
 
-
-                StockTransaction::where('store_id', $fromStoreId)
-                    ->where('product_id', $productId)
-                    ->where('engineer_id', $engineerId)
-                    ->where('stock_movement', 'TRANSIT')
-                    ->where('type', 'MR')
-                    ->delete();
-
-                StockTransaction::create([
-                    'store_id' => $fromStoreId,
-                    'product_id' => $productId,
-                    'engineer_id' => $engineerId,
-                    'quantity' => $newReceivedQuantity,
-                    'stock_movement' => 'OUT',
-                    'type' => 'MR',
-                    'dn_number' => $dnNumber,
-                ]);
-
-                StockTransaction::create([
-                    'store_id' => $toStoreId,
-                    'product_id' => $productId,
-                    'engineer_id' => $engineerId,
-                    'quantity' => $newReceivedQuantity,
-                    'stock_movement' => 'IN',
-                    'type' => 'MR',
-                    'dn_number' => $dnNumber,
-                ]);
 
             }
 
@@ -755,176 +698,37 @@ class TransactionService
             throw $e;
         }
     }
-
-
-    protected function appendEngineerId($attribute, $storeId, $engineerId)
+    protected function handleStockMovement($fromStoreId, $toStoreId, $productId, $engineerId, $quantity, $movementType, $dnNumber)
     {
-        if (optional(Store::find($storeId))->is_central_store === false) {
-            $attribute['engineer_id'] = $engineerId;
-        }
-        return $attribute;
+        StockTransaction::where('store_id', $fromStoreId)
+            ->where('product_id', $productId)
+            ->where('engineer_id', $engineerId)
+            ->where('stock_movement', StockMovement::TRANSIT)
+            ->where('type', $movementType, )
+            ->delete();
+        // From Store - OUT movement
+        $this->createStockTransaction(
+            $fromStoreId,
+            $productId,
+            $engineerId,
+            $quantity,
+            StockMovement::OUT,
+            $movementType,
+            $dnNumber
+        );
+
+        // To Store - IN movement
+        $this->createStockTransaction(
+            $toStoreId,
+            $productId,
+            $engineerId,
+            $quantity,
+            StockMovement::IN,
+            $movementType,
+            $dnNumber
+        );
     }
 
-    // private function updateStock(Request $request, StockTransfer $stockTransfer)
-    // {
-    //     \DB::beginTransaction();
-    //     try {
-    //         $fromStoreId = $stockTransfer->from_store_id;
-    //         $toStoreId = $stockTransfer->to_store_id;
-    //         $dnNumber = $stockTransfer->dn_number;
-
-    //         $materialRequest = $stockTransfer->materialRequestStockTransfer->materialRequest;
-    //         $engineerId = $materialRequest->engineer_id;
-
-    //         // Fetch all stock in transit records at once
-    //         $stockInTransitRecords = StockInTransit::where('stock_transfer_id', $stockTransfer->id)
-    //             ->whereIn('product_id', collect($request->items)->pluck('product_id'))
-    //             ->get()
-    //             ->keyBy('product_id');
-
-    //         // Fetch all existing stock data for From Store, To Store, and Engineer
-    //         $fromStoreStocks = Stock::where('store_id', $fromStoreId)
-    //             ->whereIn('product_id', collect($request->items)->pluck('product_id'))
-    //             ->get()
-    //             ->keyBy('product_id');
-
-    //         $toStoreStocks = Stock::where('store_id', $toStoreId)
-    //             ->whereIn('product_id', collect($request->items)->pluck('product_id'))
-    //             ->get()
-    //             ->keyBy('product_id');
-
-    //         $engineerStocks = EngineerStock::where('engineer_id', $engineerId)
-    //             ->where('store_id', $toStoreId)
-    //             ->whereIn('product_id', collect($request->items)->pluck('product_id'))
-    //             ->get()
-    //             ->keyBy('product_id');
-
-    //         foreach ($request->items as $item) {
-    //             $productId = $item->product_id;
-    //             $newReceivedQuantity = $item->received_quantity;
-
-    //             // Get the stock in transit record
-    //             $stockInTransit = $stockInTransitRecords[$productId] ?? null;
-    //             if (!$stockInTransit) {
-    //                 continue; // Skip if stock in transit not found
-    //             }
-
-    //             // Get the previously received quantity
-    //             $previousReceivedQuantity = $stockInTransit->received_quantity;
-    //             $previousRemainingQuantity = max(0, $stockInTransit->issued_quantity - $previousReceivedQuantity);
-    //             // Restore previous stock values
-    //             if ($previousReceivedQuantity > 0) {
-    //                 if (isset($toStoreStocks[$productId])) {
-    //                     $toStoreStocks[$productId]->decrement('quantity', $previousReceivedQuantity);
-    //                 }
-
-    //                 if (isset($engineerStocks[$productId])) {
-    //                     $engineerStocks[$productId]->decrement('quantity', $previousReceivedQuantity);
-    //                 }
-    //             }
-
-    //             if ($previousRemainingQuantity > 0 && $previousReceivedQuantity > 0) {
-    //                 if (isset($fromStoreStocks[$productId])) {
-    //                     $fromStoreStocks[$productId]->decrement('quantity', $previousRemainingQuantity);
-    //                 }
-    //             }
-    //             // Compute new remaining quantity
-    //             $newRemainingQuantity = max(0, $stockInTransit->issued_quantity - $newReceivedQuantity);
-
-    //             // Update stock in transit
-    //             $stockInTransit->received_quantity = $newReceivedQuantity;
-    //             $stockInTransit->status = $newRemainingQuantity > 0 ? "partial_received" : "received";
-    //             $stockInTransit->save();
-
-    //             // Update from store stock if needed
-    //             if ($newRemainingQuantity > 0) {
-    //                 if (isset($fromStoreStocks[$productId])) {
-    //                     $fromStoreStocks[$productId]->increment('quantity', $newRemainingQuantity);
-    //                 }
-    //             }
-
-    //             // Update to store stock
-    //             $toStock = $toStoreStocks[$productId] ?? new Stock([
-    //                 'store_id' => $toStoreId,
-    //                 'product_id' => $productId,
-    //                 'quantity' => 0
-    //             ]);
-    //             $toStock->quantity += $newReceivedQuantity;
-    //             $toStock->save();
-
-    //             // Update engineer stock
-    //             $engineerStock = $engineerStocks[$productId] ?? new EngineerStock([
-    //                 'engineer_id' => $engineerId,
-    //                 'store_id' => $toStoreId,
-    //                 'product_id' => $productId,
-    //                 'quantity' => 0
-    //             ]);
-    //             $engineerStock->quantity += $newReceivedQuantity;
-    //             $engineerStock->save();
-
-    //             // Update transfer item details
-    //             StockTransferItem::where('id', $item->id)->update([
-    //                 'product_id' => $productId,
-    //                 'requested_quantity' => $item->requested_quantity,
-    //                 'issued_quantity' => $item->issued_quantity,
-    //                 'received_quantity' => $newReceivedQuantity
-    //             ]);
-
-    //             // Revert previous stock transactions
-    //             StockTransaction::where('store_id', $fromStoreId)
-    //                 ->where('product_id', $productId)
-    //                 ->where('engineer_id', $engineerId)
-    //                 ->where('stock_movement', 'TRANSIT')
-    //                 ->where('type', 'TRANSFER')
-    //                 ->delete();
-
-    //             StockTransaction::where('store_id', $fromStoreId)
-    //                 ->where('product_id', $productId)
-    //                 ->where('engineer_id', $engineerId)
-    //                 ->where('quantity', $previousReceivedQuantity)
-    //                 ->where('stock_movement', 'OUT')
-    //                 ->where('type', 'TRANSFER')
-    //                 ->delete();
-
-    //             StockTransaction::where('store_id', $toStoreId)
-    //                 ->where('product_id', $productId)
-    //                 ->where('engineer_id', $engineerId)
-    //                 ->where('quantity', $previousReceivedQuantity)
-    //                 ->where('stock_movement', 'IN')
-    //                 ->where('type', 'TRANSFER')
-    //                 ->delete();
-
-    //             // Log the new transactions
-    //             if ($newReceivedQuantity > 0) {
-    //                 StockTransaction::create([
-    //                     'store_id' => $fromStoreId,
-    //                     'product_id' => $productId,
-    //                     'engineer_id' => $engineerId,
-    //                     'quantity' => $newReceivedQuantity,
-    //                     'stock_movement' => 'OUT',
-    //                     'type' => 'TRANSFER',
-    //                     'dn_number' => $dnNumber,
-    //                 ]);
-
-    //                 StockTransaction::create([
-    //                     'store_id' => $toStoreId,
-    //                     'product_id' => $productId,
-    //                     'engineer_id' => $engineerId,
-    //                     'quantity' => $newReceivedQuantity,
-    //                     'stock_movement' => 'IN',
-    //                     'type' => 'TRANSFER',
-    //                     'dn_number' => $dnNumber,
-    //                 ]);
-    //             }
-    //         }
-
-    //         \DB::commit();
-    //         return $stockTransfer;
-    //     } catch (\Throwable $e) {
-    //         \DB::rollBack();
-    //         throw $e;
-    //     }
-    // }
 
     public function createInventoryDispatch(Request $request, $storekeeper)
     {
