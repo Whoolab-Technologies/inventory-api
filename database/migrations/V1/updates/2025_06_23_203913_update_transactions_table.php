@@ -14,7 +14,7 @@ return new class extends Migration {
     {
         // \DB::statement('ALTER TABLE `stock_transactions` DROP `type`');
         Schema::table('stock_transactions', function (Blueprint $table) {
-            $table->enum('type', ['DIRECT', 'MR', 'PR', 'SS-RETURN', 'ENGG-RETURN'])->default(value: 'DIRECT')->after('quantity');
+            $table->enum('type', ['DIRECT', 'MR', 'PR', 'SS-RETURN', 'ENGG-RETURN', 'DISPATCH'])->default(value: 'DIRECT')->after('quantity');
         });
     }
 

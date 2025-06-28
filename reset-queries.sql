@@ -125,3 +125,6 @@ INSERT INTO `categories` (`id`, `category_id`, `name`, `description`, `created_b
 (1, 'LEM-CT-1', 'PVC PIPES AND FITTINGS', NULL, 3, 'admin', 1, 'admin', '2025-06-12 16:16:10', '2025-06-14 09:21:42'),
 (2, 'LEM-CT-2', 'INDUSTRIAL PLUGS AND SOCKETS', NULL, 3, 'admin', 3, 'admin', '2025-06-14 11:32:44', '2025-06-14 12:00:44'),
 (3, 'LEM-CT-3', 'ISOLATORS', NULL, 3, 'admin', 3, 'admin', '2025-06-15 10:44:29', '2025-06-15 10:44:29');
+
+
+ALTER TABLE `stock_transactions` CHANGE `type` `type` ENUM('DIRECT','MR','PR','SS-RETURN','ENGG-RETURN','DISPATCH') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'DIRECT';

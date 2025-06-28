@@ -13,6 +13,7 @@ use App\Models\V1\MaterialReturnDetail;
 use App\Models\V1\MaterialReturnItem;
 use App\Models\V1\Store;
 use App\Enums\TransferPartyRole;
+use App\Enums\StatusEnum;
 use App\Data\StockTransactionData;
 use App\Data\StockInTransitData;
 use App\Data\MaterialReturnData;
@@ -57,6 +58,8 @@ class StockTransferService
         $stockInTransit->stock_transfer_item_id = $data->stockTransferItemId;
         $stockInTransit->material_request_item_id = $data->materialRequestItemId;
         $stockInTransit->product_id = $data->productId;
+        $stockInTransit->material_return_id = $data->materialReturnId;
+        $stockInTransit->material_return_item_id = $data->materialReturnItemId;
         $stockInTransit->issued_quantity = $data->issuedQuantity;
         $stockInTransit->save();
 
@@ -79,9 +82,17 @@ class StockTransferService
 
     public function updateStock($storeId, $productId, $quantityChange, $engineerId = 0)
     {
+        \Log::info(' store stock update', [
+
+            'store_id' => $storeId,
+            'product_id' => $productId,
+            'quantity_change' => $quantityChange,
+            'engineer_id' => $engineerId,
+        ]);
         $store = Store::findOrFail($storeId);
 
         if ($store->is_central_store) {
+
             $engineerId = 0;
         }
         $stock = Stock::firstOrNew([
@@ -177,4 +188,38 @@ class StockTransferService
             'note' => $data->note,
         ]);
     }
+
+
+
+    public function createMaterialReturnWithItems(MaterialReturnData $data)
+    {
+        $materialReturn = new MaterialReturn();
+        $materialReturn->from_store_id = $data->fromStoreId;
+        $materialReturn->to_store_id = $data->toStoreId;
+        $materialReturn->dn_number = $data->dn_number ?? null;
+
+        $materialReturn->status_id = StatusEnum::COMPLETED;
+        $materialReturn->save();
+
+
+        // Loop through engineers and their products
+        foreach ($data->items as $engineerId => $products) {
+            $materialReturnDetail = new MaterialReturnDetail();
+            $materialReturnDetail->material_return_id = $materialReturn->id;
+            $materialReturnDetail->engineer_id = $engineerId;
+            $materialReturnDetail->save();
+
+            foreach ($products as $product) {
+                $materialReturnItem = new MaterialReturnItem();
+                $materialReturnItem->material_return_id = $materialReturn->id;
+                $materialReturnItem->material_return_detail_id = $materialReturnDetail->id;
+                $materialReturnItem->product_id = $product['product_id'];
+                $materialReturnItem->issued = $product['issued_qty'];
+                $materialReturnItem->save();
+            }
+        }
+        return $materialReturn;
+
+    }
+
 }

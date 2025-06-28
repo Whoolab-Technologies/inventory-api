@@ -37,16 +37,12 @@ class TransactionService
 
     protected $stockTransferService;
     protected $purchaseRequestService;
-    protected $materialReturnService;
-
     public function __construct(
         StockTransferService $stockTransferService,
         PurchaseRequestService $purchaseRequestService,
-        MaterialReturnService $materialReturnService,
     ) {
         $this->stockTransferService = $stockTransferService;
         $this->purchaseRequestService = $purchaseRequestService;
-        $this->materialReturnService = $materialReturnService;
     }
 
     public function createTransaction(Request $request)
@@ -147,7 +143,7 @@ class TransactionService
 
             // Handle Material Return Transfer
             if ($isSiteToSite && count($materialReturnItems)) {
-                $materialReturn = $this->materialReturnService->createMaterialReturnWithItems(new MaterialReturnData(
+                $materialReturn = $this->stockTransferService->createMaterialReturnWithItems(new MaterialReturnData(
                     $fromStoreId,
                     $centralStore->id,
                     $this->groupItemsByEngineer($materialReturnItems),
@@ -268,11 +264,13 @@ class TransactionService
 
                 $this->stockTransferService->createStockInTransit(new StockInTransitData(
                     stockTransferId: $transfer->id,
-                    materialRequestId: $requestId,
-                    materialRequestItemId: $materialRequestItem->id,
                     stockTransferItemId: $transferItem->id,
                     productId: $item['product_id'],
-                    issuedQuantity: $item['issued_qty']
+                    issuedQuantity: $item['issued_qty'],
+                    materialRequestId: $requestId,
+                    materialRequestItemId: $materialRequestItem->id,
+                    materialReturnId: null,
+                    materialReturnItemId: null
                 ));
             }
         }
@@ -662,7 +660,6 @@ class TransactionService
             //    $toStoreStocks = $toStoreQuery->get()->keyBy('product_id');
 
             foreach ($request->items as $item) {
-                \Log::info("item => $item->product_id");
                 $productId = $item->product_id;
                 $newReceivedQuantity = $item->received_quantity;
 
@@ -762,11 +759,7 @@ class TransactionService
             $productIds = array_column($items, 'product_id');
             \Log::info("productIds " . json_encode($productIds));
 
-            // $stockLevels = EngineerStock::where('engineer_id', $request->engineer_id)
-            //     ->where('store_id', $storekeeper->store_id)
-            //     ->whereIn('product_id', $productIds)
-            //     ->get()
-            //     ->keyBy('product_id');
+
             $storeStockLevels = Stock::where('store_id', $storekeeper->store_id)
                 ->whereIn('product_id', $productIds)
                 ->where('engineer_id', $request->engineer_id)
@@ -795,22 +788,24 @@ class TransactionService
             $user = Auth::user();
             $tokenName = optional($user?->currentAccessToken())->name;
 
-            $stockTransfer = new StockTransfer();
-            $stockTransfer->transaction_number = 'TXN-' . str_pad(StockTransfer::max('id') + 1001, 6, '0', STR_PAD_LEFT);
-            $stockTransfer->to_store_id = $storekeeper->store_id;
-            $stockTransfer->from_store_id = $storekeeper->store_id;
-            $stockTransfer->request_id = $inventoryDispatch->id;
-            $stockTransfer->remarks = $request->note;
-            $stockTransfer->send_by = $user->id;
-            $stockTransfer->request_type = "DISPATCH";
-            $stockTransfer->transaction_type = "SS-ENGG";
-            $stockTransfer->dn_number = $request->dn_number;
-            $stockTransfer->send_by = $storekeeper->id;
-            $stockTransfer->sender_role = "SITE STORE";
-            $stockTransfer->receiver_role = "ENGINEER";
-            $stockTransfer->received_by = $request->engineer_id;
-            $stockTransfer->dn_number = $request->dnNumber;
-            $stockTransfer->save();
+            $transferData = new StockTransferData(
+                $storekeeper->store_id,
+                $storekeeper->store_id,
+                StatusEnum::COMPLETED,
+                $request->dnNumber,
+                $request->note,
+                $inventoryDispatch->id,
+                RequestType::DISPATCH,
+                TransactionType::SS_ENGG,
+                $storekeeper->id,
+                TransferPartyRole::SITE_STORE,
+                $request->engineer_id,
+                TransferPartyRole::ENGINEER->value,
+                $request->note
+            );
+
+            $transfer = $this->stockTransferService->createStockTransfer($transferData);
+
 
             foreach ($items as $item) {
                 $dispatchItems[] = [
@@ -820,10 +815,10 @@ class TransactionService
                     'created_at' => now(),
                     'updated_at' => now(),
                 ];
+                $this->stockTransferService->updateStock($storekeeper->store_id, $item->product_id, -abs($item->quantity), $request->engineer_id);
 
-                $storeStockLevels[$item->product_id]->decrement('quantity', $item->quantity);
                 $stockTransferItems[] = [
-                    'stock_transfer_id' => $stockTransfer->id,
+                    'stock_transfer_id' => $transfer->id,
                     'product_id' => $item->product_id,
                     'requested_quantity' => abs($item->quantity),
                     'issued_quantity' => abs($item->quantity),
@@ -840,9 +835,8 @@ class TransactionService
                     'product_id' => $item->product_id,
                     'engineer_id' => $request->engineer_id,
                     'quantity' => abs($item->quantity),
-
-                    'stock_movement' => "OUT",
-                    'type' => "DISPATCH",
+                    'stock_movement' => StockMovement::OUT,
+                    'type' => StockMovementType::DISPATCH,
                     'dn_number' => $request->dnNumber,
                     'created_by' => $user->id ?? null,
                     "created_type" => $tokenName,

@@ -1,7 +1,13 @@
 <?php
 namespace App\Services\V1;
+
+use App\Data\StockTransactionData;
+use App\Enums\RequestType;
 use App\Enums\StatusEnum;
-use App\Data\MaterialReturnData;
+use App\Enums\StockMovement;
+use App\Enums\StockMovementType;
+use App\Enums\TransactionType;
+use App\Enums\TransferPartyRole;
 use App\Models\V1\MaterialReturn;
 use App\Models\V1\MaterialReturnDetail;
 use App\Models\V1\MaterialReturnItem;
@@ -9,126 +15,87 @@ use App\Models\V1\StockInTransit;
 use App\Models\V1\Stock;
 use App\Models\V1\StockTransaction;
 use App\Models\V1\StockTransfer;
-use App\Models\V1\StockTransferItem;
 use App\Models\V1\Store;
+use App\Data\StockTransferData;
+use App\Data\StockInTransitData;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 
 class MaterialReturnService
 {
+    protected $stockTransferService;
+    public function __construct(
+        StockTransferService $stockTransferService,
+    ) {
+        $this->stockTransferService = $stockTransferService;
+    }
 
-    public function createMaterialReturnWithItems(MaterialReturnData $data)
+    public function createMaterialReturns(Request $request)
     {
-        $materialReturn = new MaterialReturn();
-        $materialReturn->from_store_id = $data->fromStoreId;
-        $materialReturn->to_store_id = $data->toStoreId;
-        $materialReturn->dn_number = $data->dn_number ?? null;
+        try {
 
-        $materialReturn->status_id = StatusEnum::COMPLETED;
-        $materialReturn->save();
+            $engineerId = $request->engineer_id ?? null;
+            $dnNumber = $request->dn_number ?? null;
+            $products = $request->products ?? [];
+            if (empty($engineerId)) {
+                throw ValidationException::withMessages([
+                    "engineer_id" => "Engineer ID is required."
+                ]);
+            }
+            if (empty($dnNumber)) {
+                throw ValidationException::withMessages([
+                    "dn_number" => "DN Number is required."
+                ]);
+            }
+            if (empty($products) || !is_array($products)) {
+                throw ValidationException::withMessages([
+                    "products" => "Products are required and must be an array."
+                ]);
+            }
+            foreach ($products as $index => $product) {
+                if (
+                    !isset($product['product_id']) ||
+                    !isset($product['issued']) ||
+                    !is_numeric($product['issued']) ||
+                    $product['issued'] <= 0
+                ) {
+                    throw ValidationException::withMessages([
+                        "products.$index" => "Each product must have a valid product_id and issued quantity greater than 0."
+                    ]);
+                }
+            }
+
+            \DB::beginTransaction();
+            $materialReturn = new MaterialReturn();
+            $materialReturn->from_store_id = $request->from_store_id;
+            $materialReturn->to_store_id = $request->to_store_id;
+            $materialReturn->dn_number = $dnNumber;
+            $materialReturn->save();
 
 
-        // Loop through engineers and their products
-        foreach ($data->items as $engineerId => $products) {
             $materialReturnDetail = new MaterialReturnDetail();
             $materialReturnDetail->material_return_id = $materialReturn->id;
             $materialReturnDetail->engineer_id = $engineerId;
             $materialReturnDetail->save();
+
 
             foreach ($products as $product) {
                 $materialReturnItem = new MaterialReturnItem();
                 $materialReturnItem->material_return_id = $materialReturn->id;
                 $materialReturnItem->material_return_detail_id = $materialReturnDetail->id;
                 $materialReturnItem->product_id = $product['product_id'];
-                $materialReturnItem->issued = $product['issued_qty'];
+                $materialReturnItem->issued = $product['issued'];
                 $materialReturnItem->save();
             }
-        }
-        return $materialReturn;
-
-    }
-
-    public function createMaterialReturns(Request $request)
-    {
-        try {
-            if (empty($request->engineers) || !is_array($request->engineers)) {
-                throw new \InvalidArgumentException('The engineers field is required and must be an array.');
-            }
-
-            \DB::beginTransaction();
-            $user = Auth::user();
-            $materialReturn = new MaterialReturn();
-            $materialReturn->from_store_id = $request->from_store_id;
-            $materialReturn->to_store_id = $request->to_store_id;
-            $materialReturn->dn_number = $request->dn_number ?? null;
-            $materialReturn->save();
-
-            foreach ($request->engineers as $engineer) {
-                $materialReturnDetail = new MaterialReturnDetail();
-                $materialReturnDetail->material_return_id = $materialReturn->id;
-                $materialReturnDetail->engineer_id = $engineer['engineer_id'];
-                $materialReturnDetail->save();
-
-                $stockTransfer = new StockTransfer();
-                $stockTransfer->request_id = $materialReturnDetail->id;
-                $stockTransfer->transaction_number = 'TXN-' . str_pad(StockTransfer::max('id') + 1001, 6, '0', STR_PAD_LEFT);
-                $stockTransfer->type = "SS-RETURN";
-                $stockTransfer->transaction_type = "SS-CS";
-                $stockTransfer->from_store_id = $request->from_store_id;
-                $stockTransfer->to_store_id = $request->to_store_id;
-                $stockTransfer->dn_number = $request->dn_number ?? null;
-                $stockTransfer->status_id = 10;
-                $stockTransfer->send_by = $user->id;
-                $stockTransfer->sender_role = "SITE STORE";
-                $stockTransfer->save();
-
-                foreach ($engineer['products'] as $product) {
-                    $materialReturnItem = new MaterialReturnItem();
-                    $materialReturnItem->material_return_id = $materialReturn->id;
-                    $materialReturnItem->material_return_detail_id = $materialReturnDetail->id;
-                    $materialReturnItem->product_id = $product['product_id'];
-                    $materialReturnItem->issued = $product['issued'];
-                    $materialReturnItem->save();
-
-                    $stockTransferItem = StockTransferItem::create([
-                        'stock_transfer_id' => $stockTransfer->id,
-                        'product_id' => $product['product_id'],
-                        'requested_quantity' => $product['issued']
-                    ]);
-
-                    $stockInTransit = new StockInTransit();
-                    $stockInTransit->stock_transfer_id = $stockTransfer->id;
-                    $stockInTransit->stock_transfer_item_id = $stockTransferItem->id;
-                    $stockInTransit->material_return_id = $materialReturn->id;
-                    $stockInTransit->material_return_item_id = $materialReturnItem->id;
-                    $stockInTransit->product_id = $product['product_id'];
-                    $stockInTransit->issued_quantity = $product['issued'];
-                    $stockInTransit->save();
-                    $attribute = [
-                        'store_id' => $request->from_store_id,
-                        'product_id' => $product['product_id'],
-                    ];
-
-                    $attribute = $this->appendEngineerId($attribute, $request->from_store_id, $engineer['engineer_id']);
-
-                    // 🔻 Decrease From Store Stock
-                    $fromStock = Stock::firstOrNew($attribute);
-                    $fromStock->quantity = max(0, ($fromStock->quantity ?? 0) - $product['issued']);
-                    $fromStock->save();
-
-
-                    // 📦 Log Stock Transaction
-                    $stockTransaction = new StockTransaction();
-                    $stockTransaction->store_id = $request->from_store_id;
-                    $stockTransaction->product_id = $product['product_id'];
-                    $stockTransaction->engineer_id = $engineer['engineer_id'];
-                    $stockTransaction->quantity = abs($product['issued']);
-                    $stockTransaction->stock_movement = "TRANSIT";
-                    $stockTransaction->type = "SS-RETURN";
-                    $stockTransaction->dn_number = $request->dn_number ?? null;
-                    $stockTransaction->save();
-                }
-            }
+            $this->createStockTransferWithItems(
+                $request->from_store_id,
+                $request->to_store_id,
+                $materialReturn->id,
+                $products,
+                $dnNumber,
+                $engineerId
+            );
 
             \DB::commit();
             return $materialReturn->load([
@@ -142,6 +109,74 @@ class MaterialReturnService
         } catch (\Throwable $th) {
             \DB::rollBack();
             throw $th;
+        }
+    }
+
+
+    private function createStockTransferWithItems(
+        $fromStoreId,
+        $toStoreId,
+        $requestId,
+        array $items,
+        $dnNumber,
+        $engneerId
+    ) {
+        $stockTransferData = new StockTransferData(
+            $fromStoreId,
+            $toStoreId,
+            StatusEnum::IN_TRANSIT,
+            $dnNumber,
+            null,
+            $requestId,
+            RequestType::SS_RETURN,
+            TransactionType::SS_CS,
+            auth()->user()->id,
+            TransferPartyRole::SITE_STORE,
+
+        );
+        $transfer = $this->stockTransferService->createStockTransfer($stockTransferData);
+
+        foreach ($items as $item) {
+            $productId = $item['product_id'];
+            $issued = $item['issued'];
+            $transferItem = $this->stockTransferService->createStockTransferItem(
+                $transfer->id,
+                $productId,
+                $issued,
+                $issued
+            );
+            $this->stockTransferService->updateStock($fromStoreId, $productId, -abs($issued), $engneerId);
+
+            $materialReturnItem = MaterialReturnItem::where('material_return_id', $requestId)
+                ->where('product_id', $productId)
+                ->firstOrFail();
+            $stockInTransitData = new StockInTransitData(
+                stockTransferId: $transfer->id,
+                stockTransferItemId: $transferItem->id,
+                productId: $productId,
+                issuedQuantity: $issued,
+                materialRequestId: null,
+                materialRequestItemId: null,
+                materialReturnId: $requestId,
+                materialReturnItemId: $materialReturnItem->id,
+
+            );
+            \Log::info("StockInTransitData", ['data' => $stockInTransitData]);
+            $this->stockTransferService->createStockInTransit($stockInTransitData);
+
+
+            $stockTransactionData = new StockTransactionData(
+                $fromStoreId,
+                $productId,
+                $engneerId,
+                $issued,
+                StockMovementType::SS_RETURN,
+                StockMovement::TRANSIT,
+                null,
+                $dnNumber,
+            );
+            $this->stockTransferService->createStockTransaction($stockTransactionData);
+
         }
     }
 
