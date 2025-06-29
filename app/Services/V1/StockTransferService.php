@@ -138,13 +138,14 @@ class StockTransferService
     }
 
 
-    public function createStockTransferItem($stockTransferId, $productId, $requestedQuantity, $issuedQuantity)
+    public function createStockTransferItem($stockTransferId, $productId, $requestedQuantity, $issuedQuantity, $receivedQuantity = 0)
     {
         return StockTransferItem::create([
             'stock_transfer_id' => $stockTransferId,
             'product_id' => $productId,
             'requested_quantity' => $requestedQuantity,
             'issued_quantity' => $issuedQuantity,
+            'received_quantity' => $$receivedQuantity,
         ]);
     }
 

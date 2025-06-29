@@ -22,8 +22,6 @@ Route::prefix('engineer')->group(function () {
         Route::get('transactions', [EngineerController::class, 'getTransactions']);
 
         Route::get('material-returns', [EngineerController::class, 'getMaterialReturns']);
-        Route::post('material-returns', [EngineerController::class, 'createMaterialReturns']);
-        Route::get('material-returns/products', [EngineerController::class, 'getReturnableProducts']);
 
         Route::get('stores_engineers', [EngineerController::class, 'getEngineersAndStores']);
 

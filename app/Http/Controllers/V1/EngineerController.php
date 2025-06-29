@@ -14,28 +14,10 @@ use App\Models\V1\Product;
 use App\Models\V1\Store;
 use App\Models\V1\StockTransfer;
 use App\Models\V1\MaterialReturn;
-use App\Models\V1\MaterialReturnDetail;
-use App\Data\StockTransferData;
-use App\Data\StockTransactionData;
-use App\Enums\RequestType;
-use App\Enums\TransactionType;
-use App\Enums\TransferPartyRole;
-use App\Enums\StatusEnum;
-use App\Services\V1\StockTransferService;
-use App\Models\V1\MaterialReturnItem;
-use App\Models\V1\StockTransaction;
-use App\Models\V1\InventoryDispatch;
+
 use Illuminate\Support\Facades\Hash;
-use SimpleSoftwareIO\QrCode\Facades\QrCode;
 class EngineerController extends Controller
 {
-    protected $stockTransferService;
-    public function __construct(
-        StockTransferService $stockTransferService,
-    ) {
-        $this->stockTransferService = $stockTransferService;
-    }
-
 
     public function index()
     {
@@ -557,148 +539,6 @@ class EngineerController extends Controller
         }
     }
 
-    public function createMaterialReturns(Request $request)
-    {
-        try {
-            $user = auth()->user();
 
-            // Validate incoming request
-            $validated = $request->validate([
-                'engineer_id' => 'required',
-                'dn_number' => 'nullable|string|max:255',
-                'products' => 'required|array|min:1',
-                'products.*.product_id' => 'required|integer|exists:products,id',
-                'products.*.issued' => 'required|numeric|min:1',
-            ]);
 
-            $request->merge([
-                'from_store_id' => $user->store->id,
-                'to_store_id' => $user->store->id,
-            ]);
-
-            \DB::beginTransaction();
-
-            // Create Material Return
-            $materialReturn = MaterialReturn::create([
-                'from_store_id' => $request->from_store_id,
-                'to_store_id' => $request->to_store_id,
-                'dn_number' => $request->dn_number,
-            ]);
-
-            // Create Material Return Detail
-            $materialReturnDetail = MaterialReturnDetail::create([
-                'material_return_id' => $materialReturn->id,
-                'engineer_id' => $request->engineer_id,
-            ]);
-            \Log::info("materialReturnDetail " . $materialReturnDetail->id);
-            foreach ($validated['products'] as $product) {
-                // Create Material Return Item
-                $materialReturnItem = MaterialReturnItem::create([
-                    'material_return_id' => $materialReturn->id,
-                    'material_return_detail_id' => $materialReturnDetail->id,
-                    'product_id' => $product['product_id'],
-                    'issued' => $product['issued'],
-                ]);
-            }
-
-            $this->createStockTransferWithItems($request, $materialReturn, $user, $validated['products']);
-            \DB::commit();
-
-            // Load relations
-            $materialReturn->load([
-                'status',
-                'fromStore',
-                'toStore',
-                'details.engineer',
-                'details.items.product',
-            ]);
-
-            return Helpers::sendResponse(200, $materialReturn, 'Material return created successfully');
-
-        } catch (\Throwable $th) {
-            \DB::rollBack();
-            \Log::error('Material return creation failed: ' . $th->getMessage());
-            return Helpers::sendResponse(500, [], $th->getMessage());
-        }
-
-    }
-
-    private function createStockTransferWithItems(
-        Request $request,
-        MaterialReturn $materialReturn,
-        $user,
-        array $items,
-
-    ) {
-        $stockTransferData = new StockTransferData(
-            $request->from_store_id,
-            $request->toStore,
-            StatusEnum::IN_TRANSIT,
-            $request->dn_number,
-            null,
-            $$materialReturn->id,
-            RequestType::ENGG_RETURN,
-            TransactionType::ENGG_SS,
-            $request->engineer_id,
-            TransferPartyRole::ENGINEER,
-            $user->id,
-            TransferPartyRole::ENGINEER->value,
-        );
-        $transfer = $this->stockTransferService->createStockTransfer($stockTransferData);
-        $engineerId = $request->engineer_id;
-        foreach ($items as $item) {
-            $productId = $item['product_id'];
-            $issued = $item['issued'];
-            $transferItem = $this->stockTransferService->createStockTransferItem(
-                $transfer->id,
-                $productId,
-                $issued,
-                $issued
-            );
-
-            $this->stockTransferService->updateStock($user->store->id, $productId, $issued, $engineerId, );
-
-            $stockTransactionData = new StockTransactionData(
-                $request->from_store_id,
-                $productId,
-                $engineerId,
-                $issued,
-                StockMovementType::ENGG_RETURN,
-                StockMovement::IN,
-                null,
-                $request->dn_number,
-            );
-            $this->stockTransferService->createStockTransaction($stockTransactionData);
-        }
-
-    }
-
-    public function getReturnableProducts(Request $request)
-    {
-        try {
-            $user = auth()->user();
-
-            $dispatches = InventoryDispatch::where('engineer_id', $user->id)
-                ->with(['items', 'items.product'])
-                ->get();
-
-            $products = $dispatches->flatMap(function ($dispatch) {
-                return $dispatch->items->pluck('product');
-            });
-
-            $uniqueProducts = $products->unique('id')->values();
-
-            return Helpers::sendResponse(
-                status: 200,
-                data: $uniqueProducts,
-                messages: "",
-            );
-        } catch (\Exception $th) {
-            return Helpers::sendResponse(
-                status: 400,
-                data: [],
-                messages: $th->getMessage(),
-            );
-        }
-    }
 }

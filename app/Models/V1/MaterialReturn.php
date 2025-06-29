@@ -47,4 +47,42 @@ class MaterialReturn extends BaseModel
         return $this->belongsTo(Store::class, 'to_store_id', 'id');
     }
 
+    public function scopeSearch($query, $term)
+    {
+        $term = "%{$term}%";
+
+        return $query->where('dn_number', 'LIKE', $term)
+            ->orWhereHas(
+                'toStore',
+                fn($q) =>
+                $q->where('name', 'LIKE', $term)
+            )
+            ->orWhereHas(
+                'fromStore',
+                fn($q) =>
+                $q->where('name', 'LIKE', $term)
+            )
+            ->orWhereHas(
+                'details.engineer',
+                fn($q) =>
+                $q->where('first_name', 'LIKE', $term)
+                    ->orWhere('last_name', 'LIKE', $term)
+            )
+            ->orWhereHas('items.product', function ($q) use ($term) {
+                $q->where('item', 'LIKE', $term)
+                    ->orWhere('cat_id', 'LIKE', $term)
+                    ->orWhereHas(
+                        'category',
+                        fn($q2) =>
+                        $q2->where('name', 'LIKE', $term)
+                    )
+                    ->orWhereHas(
+                        'brand',
+                        fn($q2) =>
+                        $q2->where('name', 'LIKE', $term)
+                    );
+            });
+    }
+
+
 }
