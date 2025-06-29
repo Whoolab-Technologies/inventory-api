@@ -204,167 +204,119 @@ class MaterialReturnService
     {
         \DB::beginTransaction();
         try {
+
             $fromStoreId = $materialReturn->from_store_id;
             $toStoreId = $materialReturn->to_store_id;
             $isPartiallyReceived = false;
 
-            foreach ($request->details as $details) {
-                $engineerId = $details['engineer_id'];
-                $productIds = collect($details['items'])->pluck('product_id')->unique();
+            $engineerId = $request->engineer_id;
+            $products = $request->items;
+            $productIds = collect($products)->pluck('product_id')->unique();
+            $stockTransfer = StockTransfer::where('request_id', $materialReturn->id)
+                ->where('request_type', RequestType::SS_RETURN->value)->firstOrFail();
+            $stockInTransitRecords = StockInTransit::whereIn('product_id', $productIds)
+                ->whereIn('material_return_item_id', collect($products)->pluck('id'))
+                ->get()
+                ->keyBy('product_id');
 
-                $stockTransfer = StockTransfer::where('request_id', $details['id'])
-                    ->where('type', 'SS-RETURN')->firstOrFail();
+            $user = Auth::user();
+            $tokenName = optional($user?->currentAccessToken())->name;
+            foreach ($products as $item) {
+                $productId = $item['product_id'];
+                $receivedQuantity = $item['received'];
 
-                $stockInTransitRecords = StockInTransit::whereIn('product_id', $productIds)
-                    ->whereIn('material_return_item_id', collect($details['items'])->pluck('id'))
-                    ->get()
-                    ->keyBy('product_id');
-
-                // $toStoreStocks = Stock::where('store_id', $toStoreId)
-                //     ->whereIn('product_id', $productIds)
-                //     ->get()
-                //     ->keyBy('product_id');
-
-                $toStoreQuery = Stock::where('store_id', $toStoreId)
-                    ->whereIn('product_id', $productIds);
-                $toStore = Store::find($toStoreId);
-                if ($toStore && !$toStore->is_central_store) {
-                    $toStoreQuery->where('engineer_id', $engineerId);
+                foreach ($stockTransfer->items as $transferItem) {
+                    if ($transferItem->product_id == $productId) {
+                        $transferItem->received_quantity = $receivedQuantity;
+                        $transferItem->save();
+                        break;
+                    }
                 }
-                $toStoreStocks = $toStoreQuery->get()->keyBy('product_id');
-                ////neeed to add another.. logic
+                $stockInTransit = $stockInTransitRecords[$productId] ?? null;
+                if (!$stockInTransit) {
+                    continue;
+                }
+                $remaining = max(0, $stockInTransit->issued_quantity - $receivedQuantity);
+                // Update stock in transit
+                $stockInTransit->update([
+                    'received_quantity' => $receivedQuantity,
+                    'status_id' => $remaining > 0 ? StatusEnum::PARTIALLY_RECEIVED->value : StatusEnum::RECEIVED->value,
+                ]);
+                // Update material return item
+                MaterialReturnItem::where('id', $item['id'])->update([
+                    'product_id' => $productId,
+                    'received' => $receivedQuantity,
+                ]);
+                // Update to store stock
+                $this->stockTransferService->updateStock($toStoreId, $productId, $receivedQuantity);
+                // Restore remaining quantity to engineer stock
+                if ($remaining > 0) {
+                    $isPartiallyReceived = true;
+                    $this->stockTransferService->updateStock($fromStoreId, $productId, $remaining, $engineerId);
+                }
 
-                $fromStoreStocks = Stock::where('store_id', $fromStoreId)
-                    ->whereIn('product_id', $productIds)
-                    ->get()
-                    ->keyBy('product_id');
-
-                // $engineerStocks = EngineerStock::where('engineer_id', $engineerId)
-                //     ->where('store_id', $fromStoreId)
-                //     ->whereIn('product_id', $productIds)
-                //     ->get()
-                //     ->keyBy('product_id');
-                $user = Auth::user();
-                $tokenName = optional($user?->currentAccessToken())->name;
-                foreach ($details['items'] as $item) {
-                    $productId = $item['product_id'];
-                    $receivedQuantity = $item['received'];
-                    collect($stockTransfer->items)->map(function ($stockTransfer) use ($item) {
-                        $stockTransferItem = $stockTransfer->firstWhere('product_id', $item['product_id']);
-                        $stockTransferItem->received_quantity = $item['received'];
-                        $stockTransferItem->save();
-                    });
-
-                    $stockInTransit = $stockInTransitRecords[$productId] ?? null;
-                    if (!$stockInTransit)
-                        continue;
-
-                    $remaining = max(0, $stockInTransit->issued_quantity - $receivedQuantity);
-
-                    // Update stock in transit
-                    $stockInTransit->update([
-                        'received_quantity' => $receivedQuantity,
-                        'status' => $remaining > 0 ? 8 : 7,
-                    ]);
-
-                    // Update material return item
-                    MaterialReturnItem::where('id', $item['id'])->update([
-                        'product_id' => $productId,
-                        'received' => $receivedQuantity,
-                    ]);
-
-                    // Update to store stock
-                    $toStock = $toStoreStocks[$productId] ?? new Stock([
-                        'store_id' => $toStoreId,
-                        'product_id' => $productId,
-                        'quantity' => 0,
-                    ]);
-                    $toStock->quantity += $receivedQuantity;
-                    $toStock->save();
-
-                    // Restore remaining quantity to engineer stock
-                    if ($remaining > 0) {
-                        $isPartiallyReceived = true;
-                        // $engineerStock = $engineerStocks[$productId] ?? new EngineerStock([
-                        //     'engineer_id' => $engineerId,
-                        //     'store_id' => $fromStoreId,
-                        //     'product_id' => $productId,
-                        //     'quantity' => 0,
-                        // ]);
-                        // $engineerStock->quantity += $remaining;
-                        // $engineerStock->save();
-                        $attributes = [
+                // Delete previous transit transactions
+                StockTransaction::where('store_id', $fromStoreId)
+                    ->where('product_id', $productId)
+                    ->where('engineer_id', $engineerId)
+                    ->where('stock_movement', StockMovement::TRANSIT)
+                    ->where('type', StockMovementType::SS_RETURN)
+                    ->delete();
+                // Log new stock transactions
+                if ($receivedQuantity > 0) {
+                    StockTransaction::insert([
+                        [
                             'store_id' => $fromStoreId,
                             'product_id' => $productId,
-                            'quantity' => 0,
-                        ];
-                        $attribute = $this->appendEngineerId($attribute, $fromStoreId, $engineerId);
-                        // Also restore remaining to from store stock
-                        $fromStoreStock = $fromStoreStocks[$productId] ?? new Stock($attributes);
-                        $fromStoreStock->quantity += $remaining;
-                        $fromStoreStock->save();
-                    }
-                    StockTransaction::where('store_id', $fromStoreId)
-                        ->where('product_id', $productId)
-                        ->where('engineer_id', $engineerId)
-                        ->where('stock_movement', 'TRANSIT')
-                        ->where('type', 'SS-RETURN')
-                        ->delete();
-
-                    // Log stock transactions
-                    if ($receivedQuantity > 0) {
-                        StockTransaction::insert([
-                            [
-                                'store_id' => $fromStoreId,
-                                'product_id' => $productId,
-                                'engineer_id' => $engineerId,
-                                'quantity' => $receivedQuantity,
-                                'stock_movement' => 'OUT',
-                                'type' => 'SS-RETURN',
-                                'dn_number' => $materialReturn->dn_number ?? null,
-                                'created_by' => $user->id ?? null,
-                                "created_type" => $tokenName,
-                                "updated_by" => $user->id ?? null,
-                                'updated_type' => $tokenName,
-                                'created_at' => now(),
-                                'updated_at' => now()
-                            ],
-                            [
-                                'store_id' => $toStoreId,
-                                'product_id' => $productId,
-                                'engineer_id' => $engineerId,
-                                'quantity' => $receivedQuantity,
-                                'stock_movement' => 'IN',
-                                'type' => 'SS-RETURN',
-                                'dn_number' => $materialReturn->dn_number ?? null,
-                                'created_by' => $user->id ?? null,
-                                "created_type" => $tokenName,
-                                "updated_by" => $user->id ?? null,
-                                'updated_type' => $tokenName,
-                                'created_at' => now(),
-                                'updated_at' => now()
-                            ]
-                        ]);
-                    }
+                            'engineer_id' => $engineerId,
+                            'quantity' => $receivedQuantity,
+                            'stock_movement' => StockMovement::OUT,
+                            'type' => StockMovementType::SS_RETURN,
+                            'dn_number' => $materialReturn->dn_number ?? null,
+                            'created_by' => $user->id ?? null,
+                            "created_type" => $tokenName,
+                            "updated_by" => $user->id ?? null,
+                            'updated_type' => $tokenName,
+                            'created_at' => now(),
+                            'updated_at' => now()
+                        ],
+                        [
+                            'store_id' => $toStoreId,
+                            'product_id' => $productId,
+                            'engineer_id' => $engineerId,
+                            'quantity' => $receivedQuantity,
+                            'stock_movement' => StockMovement::IN,
+                            'type' => StockMovementType::SS_RETURN,
+                            'dn_number' => $materialReturn->dn_number ?? null,
+                            'created_by' => $user->id ?? null,
+                            "created_type" => $tokenName,
+                            "updated_by" => $user->id ?? null,
+                            'updated_type' => $tokenName,
+                            'created_at' => now(),
+                            'updated_at' => now()
+                        ]
+                    ]);
                 }
-                $stockTransfer->status_id = 7;
-                $stockTransfer->save();
-            }
-            $materialReturn->status_id = 11;
-            if ($isPartiallyReceived) {
-                $materialReturn->status_id = 9;
             }
 
+            $stockTransfer->status_id = StatusEnum::COMPLETED->value;
+            $stockTransfer->received_by = $user->id;
+            $stockTransfer->receiver_role = TransferPartyRole::CENTRAL_STORE;
+            $stockTransfer->save();
+
+            $materialReturn->status_id = $isPartiallyReceived
+                ? StatusEnum::PARTIALLY_RECEIVED->value
+                : StatusEnum::RECEIVED->value;
             $materialReturn->save();
             \DB::commit();
             return $materialReturn;
 
         } catch (\Throwable $e) {
             \DB::rollBack();
-            \Log::error("Stock update failed", ['error' => $e->getMessage()]);
             throw $e;
         }
     }
+
 
     protected function appendEngineerId($attribute, $storeId, $engineerId)
     {
