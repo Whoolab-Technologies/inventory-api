@@ -68,6 +68,7 @@ class MaterialReturnService
 
             \DB::beginTransaction();
             $materialReturn = new MaterialReturn();
+            $materialReturn->return_number = 'IR-' . str_pad(MaterialReturn::max('id') + 1001, 6, '0', STR_PAD_LEFT);
             $materialReturn->from_store_id = $request->from_store_id;
             $materialReturn->to_store_id = $request->to_store_id;
             $materialReturn->dn_number = $dnNumber;

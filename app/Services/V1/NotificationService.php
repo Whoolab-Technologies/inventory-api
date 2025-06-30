@@ -42,6 +42,7 @@ class NotificationService
      */
     public function sendToTokens(array $tokens, string $title, string $body, array $data = []): bool
     {
+        \Log::error('Start sending..');
         $accessToken = $this->getAccessToken();
         $url = "https://fcm.googleapis.com/v1/projects/{$this->projectId}/messages:send";
         foreach ($tokens as $token) {
@@ -216,14 +217,62 @@ class NotificationService
             \Log::warning("No tokens found for central storekeepers");
         }
     }
+    public function sendNotificationOnMaterialPickup($pickup)
+    {
+
+        $engineer = $pickup->engineer;
+        $storeName = $pickup->store->name;
+        $foremanName = $pickup->representative;
+
+        $engineerToken = $this->getEngineerToken($engineer->id);
+        \Log::info('Engineer token fetched', [
+            'engineer_id' => $engineer->id,
+            'has_token' => $engineerToken ? true : false,
+        ]);
+
+        $title = "Material Picked Up by Foreman";
+        $message = "Materials for your request {$pickup->dispatch_number} at {$storeName} have been picked up by foreman {$foremanName}.";
+
+        if ($engineerToken) {
+            $this->notifyUsers([$engineerToken], $title, $message, [
+                'dispatch_number' => (string) $pickup->dispatch_number,
+                'pickup_id' => (string) $pickup->id,
+            ]);
+        } else {
+            \Log::warning("No FCM token found for engineer ID {$engineer->id}");
+        }
+    }
 
 
+    public function sendNotificationOnMaterialReturnFromEngineer($materialReturn, $engineerId)
+    {
+
+        $storeName = $materialReturn->toStore->name;
+        $returnNumber = $materialReturn->return_number ?? 'N/A';
+
+        $engineerToken = $this->getEngineerToken($engineerId);
+        \Log::info('Engineer token fetched for material return', [
+            'engineer_id' => $engineerId,
+            'has_token' => $engineerToken ? true : false,
+        ]);
+
+        $title = "Material Returned to Site Store";
+        $message = "You have successfully returned materials (Return #: {$returnNumber}) to the site store {$storeName}.";
+
+        if ($engineerToken) {
+            $this->notifyUsers([$engineerToken], $title, $message, [
+                'material_return_id' => (string) $materialReturn->id,
+            ]);
+        } else {
+            \Log::warning("No FCM token found for engineer ID {$engineerId}");
+        }
+    }
 
     protected function notifyUsers(array $tokens, string $title, string $message, array $data = []): void
     {
         if (!empty($tokens)) {
             $data = collect($data)->map(fn($value) => (string) $value)->toArray();
-            PushNotificationJob::dispatch($tokens, $title, $message, $data);
+            PushNotificationJob::dispatch($tokens, $title, $message, $data)->afterCommit();
 
         } else {
             \Log::warning("No tokens found to notify");

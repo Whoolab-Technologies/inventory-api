@@ -599,8 +599,11 @@ class StorekeeperController extends Controller
     {
         try {
             $storekeeper = auth()->user();
-            $inventoryDispatch = $this->transactionService->createInventoryDispatch($request, $storekeeper);
-            return Helpers::sendResponse(200, $inventoryDispatch, 'Diapatch created successfully');
+            $pickup = $this->transactionService->createInventoryDispatch($request, $storekeeper);
+            if ($pickup->self ?? false) {
+                $this->notificationService->sendNotificationOnMaterialPickup($pickup);
+            }
+            return Helpers::sendResponse(200, $pickup, 'Dispatch created successfully');
         } catch (\Throwable $th) {
             return Helpers::sendResponse(500, [], $th->getMessage());
         }
@@ -935,6 +938,7 @@ class StorekeeperController extends Controller
 
     public function createEngineerMaterialReturns(Request $request)
     {
+        \DB::beginTransaction();
         try {
             $user = auth()->user();
 
@@ -952,13 +956,15 @@ class StorekeeperController extends Controller
                 'to_store_id' => $user->store->id,
             ]);
 
-            \DB::beginTransaction();
+
 
             // Create Material Return
             $materialReturn = MaterialReturn::create([
+                'return_number' => 'IR-' . str_pad(MaterialReturn::max('id') + 1001, 6, '0', STR_PAD_LEFT),
                 'from_store_id' => $request->from_store_id,
                 'to_store_id' => $request->to_store_id,
                 'dn_number' => $request->dn_number,
+                'status_id' => StatusEnum::COMPLETED->value
             ]);
 
             // Create Material Return Detail
@@ -978,6 +984,7 @@ class StorekeeperController extends Controller
             }
 
             $this->createStockTransferWithItems($request, $materialReturn, $user, $validated['products']);
+
             \DB::commit();
 
             // Load relations
@@ -989,7 +996,7 @@ class StorekeeperController extends Controller
                 'details.engineer',
                 'details.items.product',
             ]);
-
+            $this->notificationService->sendNotificationOnMaterialReturnFromEngineer($materialReturn, $request->engineer_id);
             return Helpers::sendResponse(200, $materialReturn, 'Material return created successfully');
 
         } catch (\Throwable $th) {
@@ -1019,7 +1026,7 @@ class StorekeeperController extends Controller
             $request->engineer_id,
             TransferPartyRole::ENGINEER,
             $user->id,
-            TransferPartyRole::ENGINEER->value,
+            TransferPartyRole::SITE_STORE->value,
         );
         \Log::info("before createStockTransfer ");
 

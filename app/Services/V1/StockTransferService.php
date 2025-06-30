@@ -171,7 +171,7 @@ class StockTransferService
     }
     public function createStockTransfer(StockTransferData $data)
     {
-        \Log::info('Check Request Type', ['request_type' => $data->requestType]);
+        \Log::info('Check statusId', ['statusId' => $data->statusId]);
         return StockTransfer::create([
             'transaction_number' => 'TXN-' . str_pad(StockTransfer::max('id') + 1001, 6, '0', STR_PAD_LEFT),
             'from_store_id' => $data->fromStoreId,

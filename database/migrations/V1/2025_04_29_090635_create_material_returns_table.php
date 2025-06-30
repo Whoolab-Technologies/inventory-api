@@ -14,6 +14,7 @@ return new class extends Migration {
     {
         Schema::create('material_returns', function (Blueprint $table) {
             $table->id();
+            $table->string('return_number');
             $table->unsignedBigInteger("from_store_id");
             $table->unsignedBigInteger(column: "to_store_id");
             $table->foreignId('status_id')->nullable()->default(1)->constrained('statuses')->nullOnDelete();

@@ -66,7 +66,7 @@ php artisan make:migration update_status_to_material_requests_table --table=mate
 ALTER TABLE `stock_transactions`
   DROP `type`;
 
-php artisan make:migration update_transactions_table --table=transactions --path=database/migrations/V1/updates
+php artisan make:migration add_return_number_to_material_returns_table --table=material_returns --path=database/migrations/V1/updates
 
 
 
