@@ -33,6 +33,7 @@ class MaterialReturnService
 
     public function createMaterialReturns(Request $request)
     {
+        \DB::beginTransaction();
         try {
 
             $engineerId = $request->engineer_id ?? null;
@@ -66,7 +67,7 @@ class MaterialReturnService
                 }
             }
 
-            \DB::beginTransaction();
+
             $materialReturn = new MaterialReturn();
             $materialReturn->return_number = 'IR-' . str_pad(MaterialReturn::max('id') + 1001, 6, '0', STR_PAD_LEFT);
             $materialReturn->from_store_id = $request->from_store_id;
@@ -99,6 +100,7 @@ class MaterialReturnService
             );
 
             \DB::commit();
+
             return $materialReturn->load([
                 'status',
                 'fromStore',

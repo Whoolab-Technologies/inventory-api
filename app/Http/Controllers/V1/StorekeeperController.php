@@ -718,6 +718,7 @@ class StorekeeperController extends Controller
                 'to_store_id' => $centralStore->id
             ]);
             $materialReturn = $this->materialReturnService->createMaterialReturns($request);
+            $this->notificationService->sendNotificationOnMaterialReturnToCentralStore($materialReturn, $request->engineer_id);
             return Helpers::sendResponse(200, $materialReturn, 'Material return created successfully');
 
         } catch (\Throwable $th) {

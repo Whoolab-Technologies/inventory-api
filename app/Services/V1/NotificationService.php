@@ -268,6 +268,40 @@ class NotificationService
         }
     }
 
+    public function sendNotificationOnMaterialReturnToCentralStore($materialReturn, $engineerId)
+    {
+        $fromStoreName = $materialReturn->fromStore->name ?? 'Site Store';
+        $returnNumber = $materialReturn->return_number ?? 'N/A';
+
+        // ----------------- Engineer Notification -----------------
+        $engineerToken = $this->getEngineerToken($engineerId);
+        \Log::info('Engineer token fetched for material return initiated', [
+            'engineer_id' => $engineerId,
+            'has_token' => $engineerToken ? true : false,
+        ]);
+
+        $titleEngineer = "Material Return Initiated by Site Storekeeper";
+        $messageEngineer = "The site storekeeper has initiated a material return (Return #: {$returnNumber}) from {$fromStoreName} under your project.";
+
+        if ($engineerToken) {
+            $this->notifyUsers([$engineerToken], $titleEngineer, $messageEngineer, [
+                'material_return_id' => (string) $materialReturn->id,
+            ]);
+        } else {
+            \Log::warning("No FCM token found for engineer ID {$engineerId}");
+        }
+
+        // ----------------- Central Storekeeper Notification -----------------
+        $centralStoreTokens = $this->getCentralStorekeeperTokens();
+        $titleCentral = "Material Return Initiated from Site Store";
+        $messageCentral = "A material return (Return #: {$returnNumber}) has been initiated from {$fromStoreName} to the central store.";
+
+        $this->notifyUsers($centralStoreTokens, $titleCentral, $messageCentral, [
+            'material_return_id' => (string) $materialReturn->id,
+        ]);
+    }
+
+
     protected function notifyUsers(array $tokens, string $title, string $message, array $data = []): void
     {
         if (!empty($tokens)) {
