@@ -145,7 +145,7 @@ class StockTransferService
             'product_id' => $productId,
             'requested_quantity' => $requestedQuantity,
             'issued_quantity' => $issuedQuantity,
-            'received_quantity' => $$receivedQuantity,
+            'received_quantity' => $receivedQuantity,
         ]);
     }
 

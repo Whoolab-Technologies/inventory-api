@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\V1\UserToken;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -46,6 +47,10 @@ class StorekeeperAuthController extends Controller
     public function logout(Request $request)
     {
         $request->user()->tokens()->delete();
+        $userId = $request->user()->id;
+        UserToken::where('user_id', $userId)
+            ->where('user_role', 'storekeeper')
+            ->delete();
         return Helpers::sendResponse(200, [], "Logged out successfully");
     }
 }

@@ -58,4 +58,10 @@ class Engineer extends BaseModel implements AuthenticatableContract
         return $this->belongsTo(Department::class);
     }
 
+    public function token()
+    {
+        return $this->hasOne(UserToken::class, 'user_id', 'id')
+            ->where('user_role', 'engineer');
+    }
+
 }

@@ -7,10 +7,12 @@ use App\Http\Controllers\V1\StorekeeperAuthController;
 use App\Http\Controllers\V1\StorekeeperController;
 use App\Http\Controllers\V1\UnitController;
 use App\Http\Controllers\V1\ProductController;
+use App\Http\Controllers\V1\CommonController;
 use App\Http\Controllers\V1\LocationController;
 
 Route::prefix('storekeeper')->group(function () {
     Route::post('login', [StorekeeperAuthController::class, 'login']);
+    Route::delete('fcm', [CommonController::class, 'removeFcmToken']);
 
     Route::middleware('auth:storekeeper')->group(function () {
         Route::post('logout', [StorekeeperAuthController::class, 'logout']);
@@ -58,6 +60,6 @@ Route::prefix('storekeeper')->group(function () {
         Route::get('locations/{id?}', [LocationController::class, 'show']);
         Route::put('locations/{id}', [LocationController::class, 'update']);
         Route::delete('locations/{id}', [LocationController::class, 'destroy']);
-
+        Route::post('fcm', [CommonController::class, 'saveFcmToken']);
     });
 });

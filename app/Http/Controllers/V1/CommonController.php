@@ -4,21 +4,32 @@ namespace App\Http\Controllers\V1;
 
 use App\Http\Controllers\Controller;
 
+use App\Services\V1\NotificationService;
 use Illuminate\Http\Request;
 use App\Services\Helpers;
 use App\Models\V1\Admin;
 use App\Models\V1\Engineer;
 use App\Models\V1\Storekeeper;
 use App\Models\V1\MaterialRequest;
+use \App\Models\V1\UserToken;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\PasswordResetLink;
 use Illuminate\Support\Facades\Crypt;
-
+use App\Jobs\PushNotificationJob;
+use Illuminate\Support\Facades\Log;
 class CommonController extends Controller
 {
+
+    protected $notificationService;
+
+    public function __construct(
+        NotificationService $notificationService,
+    ) {
+        $this->notificationService = $notificationService;
+    }
     public function sendResetLinkEmail(Request $request)
     {
         try {
@@ -133,4 +144,92 @@ class CommonController extends Controller
         }
 
     }
+
+    public function saveFcmToken(Request $request)
+    {
+        $user = auth()->user();
+
+        $role = $user->tokenCan('engineer') ? 'engineer' :
+            ($user->tokenCan('storekeeper') ? 'storekeeper' :
+                ($user->tokenCan('admin') ? 'admin' : 'unknown'));
+
+        $request->merge([
+            'user_role' => $role,
+            'user_id' => $user->id,
+        ]);
+        $request->validate([
+            'user_id' => 'required|integer',
+            'user_role' => 'required|string|in:admin,engineer,storekeeper',
+            'fcm_token' => 'required|string',
+            'device_model' => 'nullable|string',
+            'device_brand' => 'nullable|string',
+            'os_version' => 'nullable|string',
+            'platform' => 'nullable|string',
+            'device_id' => 'nullable|string',
+            'sdk' => 'nullable|string',
+        ]);
+
+        try {
+            $data = [
+                'user_id' => $request->user_id,
+                'user_role' => $request->user_role,
+                'fcm_token' => $request->fcm_token,
+                'device_model' => $request->device_model,
+                'device_brand' => $request->device_brand,
+                'os_version' => $request->os_version,
+                'platform' => $request->platform,
+                'device_id' => $request->device_id,
+                'sdk' => $request->sdk,
+            ];
+
+            // Assuming UserToken is the model for the user_tokens table
+            UserToken::updateOrCreate(
+                [
+                    'user_id' => $request->user_id,
+                    'user_role' => $request->user_role,
+                    'device_id' => $request->device_id,
+                ],
+                $data
+            );
+
+            return Helpers::sendResponse(200, [], 'FCM token saved successfully.');
+        } catch (\Throwable $th) {
+            return Helpers::sendResponse(400, [], $th->getMessage());
+        }
+    }
+
+    public function removeFcmToken(Request $request)
+    {
+        $request->validate([
+            'token' => 'required|string',
+        ]);
+
+        try {
+            $deleted = UserToken::where('fcm_token', $request->token)->delete();
+
+            if ($deleted) {
+                return Helpers::sendResponse(200, [], 'FCM token removed successfully.');
+            } else {
+                return Helpers::sendResponse(404, [], 'FCM token not found.');
+            }
+        } catch (\Throwable $th) {
+            return Helpers::sendResponse(400, [], $th->getMessage());
+        }
+    }
+
+
+    public function testNotification(Request $request)
+    {
+        $materialRequest = MaterialRequest::first();
+        try {
+            $this->notificationService->sendNotificationOnMaterialRequestCreate($materialRequest);
+            return Helpers::sendResponse(200, [], 'Notification dispatched');
+        } catch (\Throwable $th) {
+            Log::error('Error in testNotification', ['error' => $th->getMessage()]);
+            return Helpers::sendResponse(400, [], $th->getMessage());
+        }
+    }
+
+
+
 }

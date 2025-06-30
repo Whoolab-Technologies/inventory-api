@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Http\Controllers\V1;
+use App\Services\V1\NotificationService;
 use Illuminate\Http\Request;
 
 use App\Http\Controllers\Controller;
@@ -38,17 +39,20 @@ class StorekeeperController extends Controller
     protected $materialReturnService;
     protected $transactionService;
     protected $stockTransferService;
+    protected $notificationService;
 
     public function __construct(
         MaterialRequestService $materialRequestService,
         MaterialReturnService $materialReturnService,
         TransactionService $transactionService,
-        StockTransferService $stockTransferService
+        StockTransferService $stockTransferService,
+        NotificationService $notificationService
     ) {
         $this->materialRequestService = $materialRequestService;
         $this->materialReturnService = $materialReturnService;
         $this->transactionService = $transactionService;
         $this->stockTransferService = $stockTransferService;
+        $this->notificationService = $notificationService;
     }
 
     public function index()
@@ -426,6 +430,7 @@ class StorekeeperController extends Controller
     {
         try {
             $materialRequest = $this->materialRequestService->updateMaterialRequest($request, $id);
+            $this->notificationService->sendNotificationOnMaterialRequestUpdate($materialRequest);
             $materialRequest = $this->mapStockItemsProduct($materialRequest);
             return Helpers::sendResponse(200, $materialRequest, 'Material requests updated successfully');
 
@@ -445,6 +450,7 @@ class StorekeeperController extends Controller
     {
         try {
             $materialRequest = $this->transactionService->createTransaction($request);
+            $this->notificationService->sendNotificationOnMaterialIssued($materialRequest);
             $materialRequest = $this->mapStockItemsProduct($materialRequest);
             return Helpers::sendResponse(200, $materialRequest, 'Transaction created successfully');
 
@@ -575,6 +581,7 @@ class StorekeeperController extends Controller
             ]);
             $materialRequest = $transaction->materialRequest;
             $materialRequest = $this->mapStockItemsProduct($materialRequest);
+            $this->notificationService->sendNotificationOnMaterialReceived($transaction);
             $transaction->engineer = $materialRequest->engineer;
             $response = [
                 'material_request' => $materialRequest,
@@ -1000,12 +1007,10 @@ class StorekeeperController extends Controller
         array $items,
 
     ) {
-        \Log::info("before createStockTransfer " . $request->from_store_id);
-        \Log::info("before createStockTransfer " . $request->to_store_id);
         $stockTransferData = new StockTransferData(
             $request->from_store_id,
             $request->to_store_id,
-            StatusEnum::IN_TRANSIT,
+            StatusEnum::COMPLETED,
             $request->dn_number,
             null,
             $materialReturn->id,

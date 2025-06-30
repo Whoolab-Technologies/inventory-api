@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\V1\CommonController;
 use App\Http\Controllers\V1\EngineerAuthController;
 use App\Http\Controllers\V1\EngineerController;
 use Illuminate\Support\Facades\Route;
@@ -7,6 +8,8 @@ use App\Http\Controllers\V1\ProductController;
 
 Route::prefix('engineer')->group(function () {
     Route::post('login', [EngineerAuthController::class, 'login']);
+    Route::delete('fcm', [CommonController::class, 'removeFcmToken']);
+    Route::get('notification', [CommonController::class, 'testNotification']);
 
     Route::middleware('auth:engineer')->group(function () {
         Route::post('logout', [EngineerAuthController::class, 'logout']);
@@ -24,7 +27,6 @@ Route::prefix('engineer')->group(function () {
         Route::get('material-returns', [EngineerController::class, 'getMaterialReturns']);
 
         Route::get('stores_engineers', [EngineerController::class, 'getEngineersAndStores']);
-
-
+        Route::post('fcm', [CommonController::class, 'saveFcmToken']);
     });
 });

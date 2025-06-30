@@ -19,4 +19,10 @@ class Storekeeper extends BaseModel implements AuthenticatableContract
     {
         return $this->belongsTo(Store::class);
     }
+
+    public function token()
+    {
+        return $this->hasOne(UserToken::class, 'user_id', 'id')
+            ->where('user_role', 'storekeeper')->latest('created_at');
+    }
 }

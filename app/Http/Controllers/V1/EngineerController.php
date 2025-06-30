@@ -2,8 +2,6 @@
 
 namespace App\Http\Controllers\V1;
 
-use App\Enums\StockMovement;
-use App\Enums\StockMovementType;
 use App\Http\Controllers\Controller;
 use App\Models\V1\MaterialRequest;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -14,10 +12,19 @@ use App\Models\V1\Product;
 use App\Models\V1\Store;
 use App\Models\V1\StockTransfer;
 use App\Models\V1\MaterialReturn;
+use App\Services\V1\NotificationService;
 
 use Illuminate\Support\Facades\Hash;
 class EngineerController extends Controller
 {
+
+    protected $notificationService;
+
+    public function __construct(
+        NotificationService $notificationService,
+    ) {
+        $this->notificationService = $notificationService;
+    }
 
     public function index()
     {
@@ -282,7 +289,8 @@ class EngineerController extends Controller
 
             $materialRequest->items()->createMany($items);
             $materialRequest = $materialRequest->load(["status", "items.product"]);
-            \Log::info($materialRequest->status);
+
+            $this->notificationService->sendNotificationOnMaterialRequestCreate($materialRequest);
             $materialRequest = [
                 'id' => $materialRequest->id,
                 'store_id' => $materialRequest->store_id,
@@ -307,7 +315,6 @@ class EngineerController extends Controller
                     ];
                 }),
             ];
-
             \DB::commit();
             return Helpers::sendResponse(
                 status: 200,
