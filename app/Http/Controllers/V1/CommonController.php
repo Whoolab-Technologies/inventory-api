@@ -220,9 +220,12 @@ class CommonController extends Controller
 
     public function testNotification(Request $request)
     {
-        $materialRequest = MaterialRequest::first();
         try {
-            $this->notificationService->sendNotificationOnMaterialRequestCreate($materialRequest);
+            $tokens = $request->tokens;
+            $title = $request->title;
+            $body = $request->body;
+            $data = $request->data;
+            $this->notificationService->sendToTokens($tokens, $title, $body, $data);
             return Helpers::sendResponse(200, [], 'Notification dispatched');
         } catch (\Throwable $th) {
             Log::error('Error in testNotification', ['error' => $th->getMessage()]);
