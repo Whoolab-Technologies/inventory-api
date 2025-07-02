@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\V1\PurchaseRequestController;
 use App\Http\Controllers\V1\ReportsController;
+use App\Http\Controllers\V1\SupplierController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\V1\StorekeeperAuthController;
 use App\Http\Controllers\V1\StorekeeperController;
@@ -34,6 +35,7 @@ Route::prefix('storekeeper')->group(function () {
         Route::get('material_requests', [StorekeeperController::class, 'getMaterialRequests']);
         Route::post('material_requests/{id}', [StorekeeperController::class, 'updateMaterialrequest']);
         Route::get('material_requests/{id}/transactions', [StorekeeperController::class, 'getMaterialRequestTransactions']);
+        Route::get('material_requests/{id}/prs/{prId}', [StorekeeperController::class, 'getPrDetails']);
 
 
         Route::get('transactions', [StorekeeperController::class, 'getTransactions']);
@@ -65,6 +67,7 @@ Route::prefix('storekeeper')->group(function () {
         Route::put('locations/{id}', [LocationController::class, 'update']);
         Route::delete('locations/{id}', [LocationController::class, 'destroy']);
         Route::post('fcm', [CommonController::class, 'saveFcmToken']);
+        Route::post('suppliers', [SupplierController::class, 'index']);
 
 
     });

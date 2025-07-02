@@ -108,11 +108,17 @@ class PurchaseRequestController extends Controller
     public function index(Request $request)
     {
         try {
-            $purchaseRequests = PurchaseRequest::with($this->prRelations())
+            $purchaseRequests = PurchaseRequest::with([
+                'status',
+                'prItems.product',
+            ])
                 ->orderByDesc('id')
                 ->get();
+            foreach ($purchaseRequests as $request) {
+                $request->items = $request->prItems;
+            }
 
-            $purchaseRequests = $purchaseRequests->map(fn($pr) => $this->formatPurchaseRequest($pr));
+            // $purchaseRequests = $purchaseRequests->map(fn($pr) => $this->formatPurchaseRequest($pr));
 
             return Helpers::sendResponse(200, $purchaseRequests, 'Purchase requests retrieved successfully');
         } catch (\Exception $e) {
@@ -124,9 +130,7 @@ class PurchaseRequestController extends Controller
     {
         try {
             $pr = PurchaseRequest::with($this->prRelations())->findOrFail($id);
-
             $response = $this->formatPurchaseRequest($pr);
-
             return Helpers::sendResponse(200, $response, 'Purchase request retrieved successfully');
         } catch (\Exception $e) {
             return Helpers::sendResponse(500, null, $e->getMessage());
@@ -137,24 +141,35 @@ class PurchaseRequestController extends Controller
     public function createLpo(Request $request, $id)
     {
         try {
+            $data = $request->validate([
+                'lpo_number' => 'required|string',
+                'pr_id' => 'required|integer|exists:purchase_requests,id',
+                'supplier_id' => 'required|integer|exists:suppliers,id',
+                'date' => 'required|date',
+                'items' => 'required|array|min:1',
+                'items.*.product_id' => 'required|integer|exists:products,id',
+                'items.*.requested_quantity' => 'required|numeric|min:1',
+            ]);
+
             $lpo = $this->purchaseRequestService->createLpoWithItems($request);
-            return Helpers::sendResponse(200, $lpo, 'Lpo created successfully');
+            $pr = PurchaseRequest::with($this->prRelations())->findOrFail($id);
+            $response = $this->formatPurchaseRequest($pr);
+            return Helpers::sendResponse(200, $response, 'Lpo created successfully');
         } catch (\Exception $e) {
             return Helpers::sendResponse(500, null, $e->getMessage());
         }
     }
-
 
     private function prRelations(): array
     {
         return [
             'status',
             'materialRequest.status',
-            'materialRequest.items.product',
+            // 'materialRequest.items.product',
             'prItems.product',
             'prItems.lpoItems.lpo',
-            'transactions.items.product',
-            'transactions.status',
+            // 'transactions.items.product',
+            // 'transactions.status',
             'lpos.supplier',
             'lpos.status',
             'lpos.items.product'
@@ -165,6 +180,7 @@ class PurchaseRequestController extends Controller
     {
         $items = $pr->prItems->map(function ($prItem) {
             $totalReceived = $prItem->lpoItems->sum('received_quantity');
+            $totalRequested = $prItem->lpoItems->sum('requested_quantity');
 
             $lpoBreakdown = $prItem->lpoItems->map(function ($lpoItem) {
                 return [
@@ -181,11 +197,13 @@ class PurchaseRequestController extends Controller
                 'product' => $prItem->product,
                 'quantity' => $prItem->quantity,
                 'total_received' => $totalReceived,
+                'total_requested' => $totalRequested,
                 'lpos' => $lpoBreakdown
             ];
         });
+        $materialRequest = $pr->materialRequest;
         $stockTransfers =
-            $pr->materialRequest->stockTransfers;
+            $materialRequest->stockTransfers;
 
         $allStockItems = $stockTransfers
             ->pluck('items')
@@ -194,21 +212,22 @@ class PurchaseRequestController extends Controller
 
         // Map each item and sum issued/received quantities
         $formattedMaterialRequest = [
-            'id' => $pr->materialRequest->id,
-            'material_request_number' => $pr->materialRequest->material_request_number,
-            'status' => $pr->materialRequest->status,
-            'items' => collect($pr->materialRequest->items)->map(function ($item) use ($allStockItems) {
-                $stockGroup = $allStockItems->get($item->product_id);
+            'id' => $materialRequest->id,
+            'request_number' => $materialRequest->request_number,
+            'created_at' => $materialRequest->created_at,
+            'status' => $materialRequest->status,
+            // 'items' => collect($materialRequest->items)->map(function ($item) use ($allStockItems) {
+            //     $stockGroup = $allStockItems->get($item->product_id);
 
-                return [
-                    'id' => $item->id,
-                    'product' => $item->product,
-                    'quantity' => $item->quantity,
-                    'requested_quantity' => $stockGroup ? $stockGroup->first()->requested_quantity ?? $item->quantity : $item->quantity,
-                    'issued_quantity' => $stockGroup ? $stockGroup->sum('issued_quantity') : 0,
-                    'received_quantity' => $stockGroup ? $stockGroup->sum('received_quantity') : 0,
-                ];
-            })->values()
+            //     return [
+            //         'id' => $item->id,
+            //         'product' => $item->product,
+            //         'quantity' => $item->quantity,
+            //         'requested_quantity' => $stockGroup ? $stockGroup->first()->requested_quantity ?? $item->quantity : $item->quantity,
+            //         'issued_quantity' => $stockGroup ? $stockGroup->sum('issued_quantity') : 0,
+            //         'received_quantity' => $stockGroup ? $stockGroup->sum('received_quantity') : 0,
+            //     ];
+            // })->values()
         ];
 
 
@@ -219,7 +238,7 @@ class PurchaseRequestController extends Controller
             'material_request_number' => $pr->material_request_number,
             'status' => $pr->status,
             'material_request' => $formattedMaterialRequest,
-            'transactions' => $pr->transactions,
+            // 'transactions' => $pr->transactions,
             'items' => $items,
             'lpos' => $pr->lpos
         ];

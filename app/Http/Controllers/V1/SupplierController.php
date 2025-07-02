@@ -13,7 +13,7 @@ class SupplierController extends Controller
     public function index()
     {
         try {
-            $suppliers = Supplier::all();
+            $suppliers = Supplier::orderBy('id', 'desc')->get();
             return Helpers::sendResponse(200, $suppliers, 'Suppliers fetched successfully.');
         } catch (\Throwable $th) {
             return Helpers::sendResponse(500, [], $th->getMessage());

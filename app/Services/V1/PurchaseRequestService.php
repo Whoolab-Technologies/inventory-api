@@ -51,14 +51,20 @@ class PurchaseRequestService
     public function createLpoWithItems(Request $request)
     {
         try {
+
             return \DB::transaction(function () use ($request) {
+
                 $lpo = Lpo::create([
                     'lpo_number' => $request->lpo_number,
                     'pr_id' => $request->pr_id,
                     'supplier_id' => $request->supplier_id,
                     'date' => \Carbon\Carbon::parse($request->date ?? now())->format('Y-m-d'),
-                    'status_id' => StatusEnum::APPROVED
+                    'status_id' => StatusEnum::PENDING
                 ]);
+
+                PurchaseRequest::where('id', $request->pr_id)
+                    ->update(['status_id' => StatusEnum::PROCESSING]);
+
                 $itemsRelation = $lpo->items();
                 collect($request->items)
                     ->filter(fn($item) => $item['requested_quantity'] > 0)
@@ -66,7 +72,8 @@ class PurchaseRequestService
                         $itemsRelation->create([
                             'lpo_id' => $lpo->id,
                             'pr_id' => $request->pr_id,
-                            'pr_item_id' => $item['pr_item_id'],
+                            'pr_item_id' => $item['item_id'],
+                            'product_id' => $item['product_id'],
                             'requested_quantity' => $item['requested_quantity'],
                         ]);
                     });
@@ -74,7 +81,6 @@ class PurchaseRequestService
                 return $lpo;
             });
         } catch (\Exception $e) {
-            \Log::error('Failed to create LPO: ' . $e->getMessage());
             throw $e;
         }
     }

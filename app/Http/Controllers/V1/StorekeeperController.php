@@ -15,6 +15,7 @@ use App\Models\V1\Storekeeper;
 use App\Models\V1\Product;
 use App\Models\V1\MaterialRequest;
 use App\Models\V1\StockTransfer;
+use App\Models\V1\PurchaseRequest;
 use App\Data\StockTransferData;
 use App\Data\StockTransactionData;
 use App\Enums\StatusEnum;
@@ -1061,5 +1062,27 @@ class StorekeeperController extends Controller
             $this->stockTransferService->createStockTransaction($stockTransactionData);
         }
 
+    }
+
+    public function getPrDetails(Request $request, $id, $prId)
+    {
+        try {
+            // Fetch Material Request (Optional, if you want to validate existence)
+            $materialRequest = MaterialRequest::findOrFail($id);
+
+            // Fetch Purchase Request with items and status
+            $purchaseRequest = PurchaseRequest::with([
+                'status',
+                'materialRequest.status',
+                'items.product'
+            ])->where('material_request_id', $materialRequest->id)
+                ->where('id', $prId)
+                ->firstOrFail();
+
+
+            return Helpers::sendResponse(200, $purchaseRequest, 'Material return created successfully');
+        } catch (\Throwable $th) {
+            return Helpers::sendResponse(500, $th->getMessage());
+        }
     }
 }

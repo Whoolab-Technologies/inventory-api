@@ -31,6 +31,10 @@ class PurchaseRequest extends BaseModel
     {
         return $this->hasMany(PurchaseRequestItem::class, 'purchase_request_id');
     }
+    public function items()
+    {
+        return $this->hasMany(PurchaseRequestItem::class, 'purchase_request_id');
+    }
     public function lpos()
     {
         return $this->hasMany(Lpo::class, 'pr_id');
