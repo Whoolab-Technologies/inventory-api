@@ -14,6 +14,13 @@ Route::prefix('storekeeper')->group(function () {
     Route::post('login', [StorekeeperAuthController::class, 'login']);
     Route::delete('fcm', [CommonController::class, 'removeFcmToken']);
 
+    Route::prefix('prs')->group(function () {
+        Route::get('/', [PurchaseRequestController::class, 'index']);
+        Route::get('/{id}', [PurchaseRequestController::class, 'show']);
+        Route::post('/{id}/lpos', [PurchaseRequestController::class, 'createLpo']);
+        // Route::put('prs/{id}', [PurchaseRequestController::class, 'update']);
+
+    });
     Route::middleware('auth:storekeeper')->group(function () {
         Route::post('logout', [StorekeeperAuthController::class, 'logout']);
         Route::get('stores', [StorekeeperController::class, 'getStores']);
@@ -51,9 +58,6 @@ Route::prefix('storekeeper')->group(function () {
         Route::post('summary/export', [ReportsController::class, 'exportReport']);
         Route::post('stocks', [StorekeeperController::class, 'getAvailableStock']);
 
-        Route::get('prs', [PurchaseRequestController::class, 'index']);
-        Route::get('prs/{id}', [PurchaseRequestController::class, 'show']);
-        Route::put('prs/{id}', [PurchaseRequestController::class, 'update']);
 
         Route::get('locations', [LocationController::class, 'index']);
         Route::post('locations', [LocationController::class, 'store']);
@@ -61,5 +65,7 @@ Route::prefix('storekeeper')->group(function () {
         Route::put('locations/{id}', [LocationController::class, 'update']);
         Route::delete('locations/{id}', [LocationController::class, 'destroy']);
         Route::post('fcm', [CommonController::class, 'saveFcmToken']);
+
+
     });
 });

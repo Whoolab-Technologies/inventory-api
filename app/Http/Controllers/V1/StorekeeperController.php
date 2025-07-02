@@ -961,7 +961,7 @@ class StorekeeperController extends Controller
 
             // Create Material Return
             $materialReturn = MaterialReturn::create([
-                'return_number' => 'IR-' . str_pad(MaterialReturn::max('id') + 1001, 6, '0', STR_PAD_LEFT),
+                'return_number' => 'IR-' . date('Y') . '-' . str_pad(MaterialReturn::max('id') + 1, 3, '0', STR_PAD_LEFT),
                 'from_store_id' => $request->from_store_id,
                 'to_store_id' => $request->to_store_id,
                 'dn_number' => $request->dn_number,

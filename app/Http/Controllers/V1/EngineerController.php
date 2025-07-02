@@ -273,7 +273,7 @@ class EngineerController extends Controller
 
             // Generate request number
             $materialRequest = MaterialRequest::create([
-                'request_number' => 'MR-' . str_pad(MaterialRequest::max('id') + 1001, 6, '0', STR_PAD_LEFT),
+                'request_number' => 'MR-' . date('Y') . '-' . str_pad(MaterialRequest::max('id') + 1, 3, '0', STR_PAD_LEFT),
                 'engineer_id' => $user->id,
                 'store_id' => $user->store->id,
                 'status' => 'pending',

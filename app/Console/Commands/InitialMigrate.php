@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use Database\Seeders\StatusesTableSeeder;
+use Database\Seeders\SuppliersTableSeeder;
 class InitialMigrate extends Command
 {
     protected $signature = 'migrate:initial';
@@ -17,14 +17,21 @@ class InitialMigrate extends Command
     public function handle()
     {
         // Migrate the default migrations (in case you want to migrate the main folder too)
-        $this->call('migrate');
+        // $this->call('migrate');
 
         // Seed the statuses table
-        $this->call(StatusesTableSeeder::class);
+        //  $this->call(SuppliersTableSeeder::class);
+        // $this->call(
+        //     PurchaseRequestSeeder::class,
+        // );
+        // $this->call(PurchaseRequestItemSeeder::class);
+        // $this->call(LpoSeeder::class, );
+        $this->call(SuppliersTableSeeder::class);
+
 
         // Then run the rest of the migrations in V1 folder
-        $this->call('migrate', [
-            '--path' => 'database/migrations/V1'
-        ]);
+        // $this->call('migrate', [
+        //     '--path' => 'database/migrations/V1'
+        // ]);
     }
 }

@@ -27,9 +27,13 @@ class PurchaseRequest extends BaseModel
         return $this->belongsTo(MaterialRequest::class, 'material_request_id');
     }
 
-    public function items()
+    public function prItems()
     {
         return $this->hasMany(PurchaseRequestItem::class, 'purchase_request_id');
+    }
+    public function lpos()
+    {
+        return $this->hasMany(Lpo::class, 'pr_id');
     }
 
     public function transactions()

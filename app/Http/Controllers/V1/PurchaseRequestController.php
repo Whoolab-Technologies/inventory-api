@@ -11,11 +11,18 @@ use App\Models\V1\StockInTransit;
 use App\Models\V1\StockTransaction;
 use App\Models\V1\Stock;
 use App\Services\Helpers;
+use App\Services\V1\PurchaseRequestService;
 use Illuminate\Http\Request;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 class PurchaseRequestController extends Controller
 {
+    protected $purchaseRequestService;
+
+    public function __construct(PurchaseRequestService $purchaseRequestService)
+    {
+        $this->purchaseRequestService = $purchaseRequestService;
+    }
     public function update(Request $request, $id)
     {
         \DB::beginTransaction();
@@ -101,19 +108,11 @@ class PurchaseRequestController extends Controller
     public function index(Request $request)
     {
         try {
-            $purchaseRequests = PurchaseRequest::with([
-                'status',
-                'materialRequest',
-                'materialRequest.status',
-                'items',
-                'items.product',
-                'transactions.items',
-                'transactions.items.product'
-            ])->orderBy('created_at', 'desc')->get();
+            $purchaseRequests = PurchaseRequest::with($this->prRelations())
+                ->orderByDesc('id')
+                ->get();
 
-            // $purchaseRequests = $purchaseRequests->map(function ($request) {
-            //     return $this->processPurchaseRequestItems($request);
-            // });
+            $purchaseRequests = $purchaseRequests->map(fn($pr) => $this->formatPurchaseRequest($pr));
 
             return Helpers::sendResponse(200, $purchaseRequests, 'Purchase requests retrieved successfully');
         } catch (\Exception $e) {
@@ -124,121 +123,106 @@ class PurchaseRequestController extends Controller
     public function show(Request $request, $id)
     {
         try {
-            $purchaseRequest = PurchaseRequest::with([
-                'status',
-                'materialRequest',
-                'materialRequest.status',
-                'items',
-                'items.product',
-                'transactions.items',
-                'transactions.items.product',
-                'transactions.status'
-            ])->findOrFail($id);
+            $pr = PurchaseRequest::with($this->prRelations())->findOrFail($id);
 
-            //  $purchaseRequest = $this->processPurchaseRequestItems($purchaseRequest, false);
+            $response = $this->formatPurchaseRequest($pr);
 
-            return Helpers::sendResponse(200, $purchaseRequest, 'Purchase request retrieved successfully');
+            return Helpers::sendResponse(200, $response, 'Purchase request retrieved successfully');
         } catch (\Exception $e) {
             return Helpers::sendResponse(500, null, $e->getMessage());
         }
     }
 
-    private function processPurchaseRequestItems($purchaseRequest, $unset = true)
-    {
-        $transactions = $purchaseRequest->transactions;
 
-        $allTransactionItems = $transactions
+    public function createLpo(Request $request, $id)
+    {
+        try {
+            $lpo = $this->purchaseRequestService->createLpoWithItems($request);
+            return Helpers::sendResponse(200, $lpo, 'Lpo created successfully');
+        } catch (\Exception $e) {
+            return Helpers::sendResponse(500, null, $e->getMessage());
+        }
+    }
+
+
+    private function prRelations(): array
+    {
+        return [
+            'status',
+            'materialRequest.status',
+            'materialRequest.items.product',
+            'prItems.product',
+            'prItems.lpoItems.lpo',
+            'transactions.items.product',
+            'transactions.status',
+            'lpos.supplier',
+            'lpos.status',
+            'lpos.items.product'
+        ];
+    }
+
+    private function formatPurchaseRequest($pr): array
+    {
+        $items = $pr->prItems->map(function ($prItem) {
+            $totalReceived = $prItem->lpoItems->sum('received_quantity');
+
+            $lpoBreakdown = $prItem->lpoItems->map(function ($lpoItem) {
+                return [
+                    'id' => $lpoItem->lpo_id,
+                    'supplier_id' => $lpoItem->lpo->supplier_id ?? null,
+                    'supplier' => $lpoItem->lpo->supplier ?? null,
+                    'received_quantity' => $lpoItem->received_quantity,
+                    'requested_quantity' => $lpoItem->requested_quantity
+                ];
+            });
+
+            return [
+                'id' => $prItem->id,
+                'product' => $prItem->product,
+                'quantity' => $prItem->quantity,
+                'total_received' => $totalReceived,
+                'lpos' => $lpoBreakdown
+            ];
+        });
+        $stockTransfers =
+            $pr->materialRequest->stockTransfers;
+
+        $allStockItems = $stockTransfers
             ->pluck('items')
             ->flatten(1)
             ->groupBy('product_id');
 
-        $processedItems = collect($purchaseRequest->items)->map(function ($item) use ($allTransactionItems) {
-            $stockGroup = $allTransactionItems->get($item->product_id);
-            $item->received_quantity = $stockGroup ? $stockGroup->sum('received_quantity') : 0;
+        // Map each item and sum issued/received quantities
+        $formattedMaterialRequest = [
+            'id' => $pr->materialRequest->id,
+            'material_request_number' => $pr->materialRequest->material_request_number,
+            'status' => $pr->materialRequest->status,
+            'items' => collect($pr->materialRequest->items)->map(function ($item) use ($allStockItems) {
+                $stockGroup = $allStockItems->get($item->product_id);
 
-            return $item;
-        });
+                return [
+                    'id' => $item->id,
+                    'product' => $item->product,
+                    'quantity' => $item->quantity,
+                    'requested_quantity' => $stockGroup ? $stockGroup->first()->requested_quantity ?? $item->quantity : $item->quantity,
+                    'issued_quantity' => $stockGroup ? $stockGroup->sum('issued_quantity') : 0,
+                    'received_quantity' => $stockGroup ? $stockGroup->sum('received_quantity') : 0,
+                ];
+            })->values()
+        ];
 
-        $purchaseRequest->setRelation('items', $processedItems);
-        if ($unset)
-            unset($purchaseRequest->transactions);
 
-        return $purchaseRequest;
-    }
-
-    protected function processStockMovement($purchaseRequest, $items)
-    {
-        $user = auth()->user();
-        $centralStoreId = $user->store->id;
-        $siteStoreId = $purchaseRequest->materialRequest->store_id;
-
-        // Stock IN to Central Store
-        $inTransfer = StockTransfer::create([
-            'transaction_number' => 'TXN-' . str_pad(StockTransfer::max('id') + 1001, 6, '0', STR_PAD_LEFT),
-            'to_store_id' => $centralStoreId,
-            'request_id' => $purchaseRequest->material_request_id,
-            'send_by' => $user->id,
-            'type' => 'PR',
-            'transaction_type' => 'PR',
-            'dn_number' => $purchaseRequest->do,
-        ]);
-
-        $this->handleStockItems($items, $purchaseRequest, $inTransfer, $centralStoreId, 'IN', true);
-
-        // Stock OUT from Central Store to Site
-        $outTransfer = StockTransfer::create([
-            'transaction_number' => 'TXN-' . str_pad(StockTransfer::max('id') + 1001, 6, '0', STR_PAD_LEFT),
-            'to_store_id' => $siteStoreId,
-            'from_store_id' => $centralStoreId,
-            'request_id' => $purchaseRequest->material_request_id,
-            'send_by' => $user->id,
-            'type' => 'PR',
-            'dn_number' => $purchaseRequest->do,
-        ]);
-
-        $this->handleStockItems($items, $purchaseRequest, $outTransfer, $centralStoreId, 'TRANSIT', false);
-
-    }
-
-    protected function handleStockItems($items, $purchaseRequest, $stockTransfer, $storeId, $movement, $isStockIn)
-    {
-        foreach ($items as $item) {
-            $existingItem = $purchaseRequest->items->firstWhere('id', $item['id']);
-            $receivedQuantity = $item['received_quantity'];
-            $productId = $existingItem->product_id;
-
-            $stockTransferItem = StockTransferItem::create([
-                'stock_transfer_id' => $stockTransfer->id,
-                'product_id' => $productId,
-                'requested_quantity' => $existingItem->quantity,
-                'issued_quantity' => $receivedQuantity,
-            ]);
-
-            StockTransaction::create([
-                'store_id' => $storeId,
-                'product_id' => $productId,
-                'engineer_id' => $purchaseRequest->materialRequest->engineer_id,
-                'quantity' => abs($receivedQuantity),
-                'stock_movement' => $movement,
-                'type' => 'PR',
-                'dn_number' => $purchaseRequest->do ?? null,
-                'lpo' => $purchaseRequest->lpo ?? null,
-            ]);
-            if (!$isStockIn) {
-                $stockInTransit = new StockInTransit();
-                $stockInTransit->stock_transfer_id = $stockTransfer->id;
-                $stockInTransit->stock_transfer_item_id = $stockTransferItem->id;
-                $stockInTransit->material_request_id = $purchaseRequest->material_request_id;
-                $stockInTransit->material_request_item_id = $existingItem->material_request_item_id;
-                $stockInTransit->product_id = $productId;
-                $stockInTransit->issued_quantity = $receivedQuantity;
-                $stockInTransit->save();
-            }
-
-            $stock = Stock::firstOrNew(['store_id' => $storeId, 'product_id' => $productId]);
-            $stock->quantity += $isStockIn ? $receivedQuantity : -$receivedQuantity;
-            $stock->save();
-        }
+        return [
+            'id' => $pr->id,
+            'purchase_request_number' => $pr->purchase_request_number,
+            'material_request_id' => $pr->material_request_id,
+            'material_request_number' => $pr->material_request_number,
+            'status' => $pr->status,
+            'material_request' => $formattedMaterialRequest,
+            'transactions' => $pr->transactions,
+            'items' => $items,
+            'lpos' => $pr->lpos
+        ];
     }
 
 

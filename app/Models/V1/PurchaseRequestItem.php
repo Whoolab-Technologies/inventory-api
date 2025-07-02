@@ -25,4 +25,9 @@ class PurchaseRequestItem extends BaseModel
     {
         return $this->belongsTo(Product::class, 'product_id');
     }
+
+    public function lpoItems()
+    {
+        return $this->hasMany(LpoItem::class, 'pr_item_id');
+    }
 }
