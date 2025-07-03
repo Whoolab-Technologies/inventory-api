@@ -287,239 +287,6 @@ class TransactionService
         }
         return $grouped;
     }
-
-
-    // private function createStockTransferAndItem($fromStoreId, $toStoreId, $requestId, $requestType, $transactionType, $productId, $requestedQty, $issuedQty, $dnNumber, $createStockInTransit = false)
-    // {
-    //     $transferData = new StockTransferData(
-    //         fromStoreId: $fromStoreId,
-    //         toStoreId: $toStoreId,
-    //         requestId: $requestId,
-    //         requestType: $requestType,
-    //         transactionType: $transactionType,
-    //         sendBy: auth()->user()->id,
-    //         dnNumber: $dnNumber
-    //     );
-
-    //     $transfer = $this->stockTransferService->createStockTransfer($transferData);
-    //     $transferItem = $this->stockTransferService->createStockTransferItem(
-    //         $transfer->id,
-    //         $productId,
-    //         $requestedQty,
-    //         $issuedQty
-    //     );
-    //     if ($createStockInTransit) {
-    //         $materialRequestItem = MaterialRequestItem::where('material_request_id', $requestId)
-    //             ->firstOrFail();
-    //         $this->stockTransferService->createStockInTransit(new StockInTransitData(
-    //             stockTransferId: $transfer->id,
-    //             materialRequestId: $requestId,
-    //             materialRequestItemId: $materialRequestItem->id,
-    //             stockTransferItemId: $transferItem->id,
-    //             productId: $productId,
-    //             issuedQuantity: $issuedQty
-    //         ));
-    //     }
-    // }
-
-
-    // public function createTransaction(Request $request)
-    // {
-    //     \DB::beginTransaction();
-    //     try {
-    //         // Fetch Central Store details
-    //         $centralStore = Store::where('type', 'central')->firstOrFail();
-
-    //         // Find the material request
-    //         $materialRequest = MaterialRequest::findOrFail($request->id);
-
-    //         $fromStoreId = $request->store_id;
-    //         $toStoreId = $materialRequest->store_id;
-
-    //         $totalRequested = 0;
-    //         $totalIssued = 0;
-    //         $missingItems = [];
-    //         $isSiteToSite = $fromStoreId != $centralStore->id && $toStoreId != $centralStore->id;
-
-    //         foreach ($request->items as $item) {
-    //             $requestedQty = (int) $item['requested_quantity'];
-    //             $issuedQty = (int) $item['issued_quantity'];
-    //             $productId = (int) $item['product_id'];
-    //             \Log::info("********************");
-    //             \Log::info("     productId =>    $productId  ");
-    //             $totalRequested += $requestedQty;
-    //             $totalIssued += $issuedQty;
-    //             $missingQty = $requestedQty - $issuedQty;
-    //             if ($missingQty > 0) {
-    //                 $missingItems[] = [
-    //                     'product_id' => $productId,
-    //                     'missing_quantity' => $missingQty
-    //                 ];
-    //             }
-    //             // Step 1: Handle engineer-level stock
-    //             foreach ($item['engineers'] as $engineer) {
-    //                 $engineerId = $engineer['id'];
-    //                 \Log::info("    engineerId =>    $engineerId  ");
-    //                 $issuedQtyForEngineer = (int) $engineer['issued_qty'];
-
-    //                 if ($issuedQtyForEngineer <= 0) {
-    //                     continue;
-    //                 }
-
-    //                 // Get stock for engineer
-    //                 $stock = $this->stockTransferService->getStock($productId, $engineerId);
-    //                 $availableStock = $stock?->quantity ?? 0;
-
-    //                 if ($issuedQtyForEngineer > $availableStock) {
-    //                     throw ValidationException::withMessages([
-    //                         "engineers" => " 1. Issued quantity {$issuedQtyForEngineer} exceeds available stock ({$availableStock}) for engineer ID {$engineerId}."
-    //                     ]);
-    //                 }
-
-    //                 if ($isSiteToSite) {
-    //                     // Step 1.1: Material Return from Engineer to Central Store
-    //                     \Log::info(" Material Return from Engineer to Central Store  Start");
-
-    //                     $stock->decrement('quantity', $issuedQtyForEngineer);
-
-    //                     $this->stockTransferService->createStockTransaction(new StockTransactionData(
-    //                         $fromStoreId,
-    //                         $productId,
-    //                         $engineerId,
-    //                         $issuedQtyForEngineer,
-    //                         StockMovement::OUT,
-    //                         StockMovementType::SS_RETURN,
-    //                         null,
-    //                         $request->dn_number
-    //                     ));
-
-    //                     // Increment stock in Central Store
-    //                     $centralStock = $this->stockTransferService->updateStock($centralStore->id, $productId, $issuedQtyForEngineer, 0);
-
-    //                     $this->stockTransferService->createStockTransaction(new StockTransactionData(
-    //                         $centralStore->id,
-    //                         $productId,
-    //                         $engineerId,
-    //                         $issuedQtyForEngineer,
-    //                         StockMovement::IN,
-    //                         StockMovementType::SS_RETURN,
-    //                         null,
-    //                         $request->dn_number
-    //                     ));
-
-    //                     // Optional: Stock Transfer record for traceability
-    //                     $transferData = new StockTransferData(
-    //                         fromStoreId: $fromStoreId,
-    //                         toStoreId: $centralStore->id,
-    //                         requestId: $materialRequest->id,
-    //                         requestType: StockMovementType::SS_RETURN,
-    //                         transactionType: TransactionType::SS_ENGG,
-    //                         sendBy: auth()->user()->id,
-    //                         dnNumber: $request->dn_number
-    //                     );
-    //                     $transfer = $this->stockTransferService->createStockTransfer($transferData);
-    //                     $this->stockTransferService->createStockTransferItem($transfer->id, $productId, $requestedQty, $issuedQtyForEngineer);
-    //                     \Log::info(" Material Return from Engineer to Central Store End ");
-    //                 } else {
-    //                     \Log::info("Central Store to Receiving Store (Standard case) start");
-
-    //                     // Central Store to Receiving Store (Standard case)
-    //                     $stock->decrement('quantity', $issuedQtyForEngineer);
-
-    //                     $this->stockTransferService->createStockTransaction(new StockTransactionData(
-    //                         $centralStore->id,
-    //                         $productId,
-    //                         $materialRequest->engineer_id,
-    //                         $issuedQtyForEngineer,
-    //                         StockMovement::TRANSIT,
-    //                         StockMovementType::MR,
-    //                         null,
-    //                         $request->dn_number
-    //                     ));
-    //                     \Log::info(" TransactionType::CS_SS " . TransactionType::CS_SS->value);
-    //                     // Stock Transfer record
-    //                     $transferData = new StockTransferData(
-    //                         fromStoreId: $fromStoreId,
-    //                         toStoreId: $toStoreId,
-    //                         requestId: $materialRequest->id,
-    //                         requestType: StockMovementType::MR,
-    //                         transactionType: TransactionType::CS_SS,
-    //                         sendBy: auth()->user()->id,
-    //                         dnNumber: $request->dn_number
-    //                     );
-    //                     $transfer = $this->stockTransferService->createStockTransfer($transferData);
-    //                     $this->stockTransferService->createStockTransferItem($transfer->id, $productId, $requestedQty, $issuedQtyForEngineer);
-    //                     \Log::info("Central Store to Receiving Store (Standard case). End");
-    //                 }
-    //             }
-
-    //             if ($isSiteToSite) {
-    //                 //  Transfer from Central Store to Receiving Site
-    //                 \Log::info("Transfer from Central Store to Receiving Site  after Material Return start");
-
-    //                 // Get updated Central Stock
-    //                 $centralStock = $this->stockTransferService->getOrCreateStock($centralStore->id, $productId, 0);
-
-    //                 if ($issuedQty > $centralStock->quantity) {
-    //                     throw ValidationException::withMessages([
-    //                         "central_stock" => "2. Issued quantity {$issuedQty} exceeds available stock ({$centralStock->quantity}) in central store."
-    //                     ]);
-    //                 }
-
-    //                 $centralStock->decrement('quantity', $issuedQty);
-
-    //                 $this->stockTransferService->createStockTransaction(new StockTransactionData(
-    //                     $centralStore->id,
-    //                     $productId,
-    //                     $materialRequest->engineer_id,
-    //                     $issuedQty,
-    //                     StockMovement::TRANSIT,
-    //                     StockMovementType::MR,
-    //                     null,
-    //                     $request->dn_number
-    //                 ));
-
-    //                 $transferData = new StockTransferData(
-    //                     fromStoreId: $centralStore->id,
-    //                     toStoreId: $toStoreId,
-    //                     requestId: $materialRequest->id,
-    //                     requestType: StockMovementType::MR,
-    //                     transactionType: TransactionType::CS_SS,
-    //                     sendBy: auth()->user()->id,
-    //                     dnNumber: $request->dn_number
-    //                 );
-    //                 $transfer = $this->stockTransferService->createStockTransfer($transferData);
-    //                 $this->stockTransferService->createStockTransferItem($transfer->id, $productId, $requestedQty, $issuedQtyForEngineer);
-    //                 \Log::info("Transfer from Central Store to Receiving Site  after Material Return End");
-    //             }
-    //         }
-
-    //         // Material Request Status Update
-    //         $materialRequest->status_id = ($totalIssued == $totalRequested)
-    //             ? StatusEnum::IN_TRANSIT
-    //             : StatusEnum::PARTIALLY_RECEIVED;
-    //         $materialRequest->save();
-    //         \Log::info("missingItems =< " . sizeof($missingItems));
-
-    //         if (sizeof($missingItems)) {
-    //             $purchaseRequestData = new PurchaseRequestData(
-    //                 $materialRequest->id,
-    //                 $materialRequest->request_number,
-    //                 items: $missingItems
-    //             );
-    //             $purchaseRequest = $this->purchaseRequestService->createPurchaseRequest($purchaseRequestData);
-    //             \Log::info(json_encode($purchaseRequest));
-    //         }
-
-    //         \DB::commit();
-    //         return $materialRequest;
-
-    //     } catch (\Throwable $e) {
-    //         \DB::rollBack();
-    //         throw $e;
-    //     }
-    // }
-
     public function updateTransaction(Request $request, int $id)
     {
         \DB::beginTransaction();
@@ -551,7 +318,6 @@ class TransactionService
                 $stockTransferNote->material_request_id = $stockTransfer->request_id;
                 $stockTransferNote->notes = $request->note;
                 $stockTransferNote->save();
-                \Log::info("Stock Transfer Note added", ['note' => $request->note]);
             }
 
             if (!empty($request->images) && is_array($request->images)) {
@@ -683,7 +449,6 @@ class TransactionService
                 $remainingQuantity = max(0, $stockInTransit->issued_quantity - $newReceivedQuantity);
                 if ($remainingQuantity > 0) {
                     $fromStock = $this->stockTransferService->updateStock($fromStoreId, $productId, $remainingQuantity);
-                    \Log::info("Returned {$remainingQuantity} units to fromStore ID: {$fromStoreId} for product ID: {$productId}");
                 }
 
                 // Add received quantity to toStore
@@ -749,7 +514,6 @@ class TransactionService
                 $request->items = json_decode($request->items);
             }
             $items = $request->items;
-            \Log::info("items " . json_encode($items));
             // Validate items structure
             foreach ($items as $item) {
                 if (!isset($item->product_id, $item->quantity)) {
@@ -757,8 +521,6 @@ class TransactionService
                 }
             }
             $productIds = array_column($items, 'product_id');
-            \Log::info("productIds " . json_encode($productIds));
-
 
             $storeStockLevels = Stock::where('store_id', $storekeeper->store_id)
                 ->whereIn('product_id', $productIds)
@@ -865,7 +627,6 @@ class TransactionService
             \DB::commit();
             return $inventoryDispatch->load(['items.product', 'store', 'engineer', 'files']);
         } catch (\Throwable $e) {
-            \Log::info($e->getmessage());
             \DB::rollBack();
             throw $e;
         }

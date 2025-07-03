@@ -51,7 +51,6 @@ class StockTransferService
 
     public function createStockInTransit(StockInTransitData $data)
     {
-        \Log::info("StockInTransitData ", ['data' => $data]);
         $stockInTransit = new StockInTransit();
         $stockInTransit->stock_transfer_id = $data->stockTransferId;
         $stockInTransit->material_request_id = $data->materialRequestId;
@@ -82,13 +81,6 @@ class StockTransferService
 
     public function updateStock($storeId, $productId, $quantityChange, $engineerId = 0)
     {
-        \Log::info(' store stock update', [
-
-            'store_id' => $storeId,
-            'product_id' => $productId,
-            'quantity_change' => $quantityChange,
-            'engineer_id' => $engineerId,
-        ]);
         $store = Store::findOrFail($storeId);
 
         if ($store->is_central_store) {
@@ -171,7 +163,6 @@ class StockTransferService
     }
     public function createStockTransfer(StockTransferData $data)
     {
-        \Log::info('Check statusId', ['statusId' => $data->statusId]);
         return StockTransfer::create([
             'transaction_number' => 'TXN-' . str_pad(StockTransfer::max('id') + 1001, 6, '0', STR_PAD_LEFT),
             'from_store_id' => $data->fromStoreId,

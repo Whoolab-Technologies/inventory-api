@@ -47,7 +47,6 @@ class CategoriesController extends Controller
 
             return Helpers::sendResponse(200, $category);
         } catch (\Exception $e) {
-            \Log::info($e->getMessage());
             return Helpers::sendResponse(500, [], "Failed to store the category");
         }
     }

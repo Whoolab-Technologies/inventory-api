@@ -42,4 +42,8 @@ class Lpo extends BaseModel
     {
         return $this->hasMany(LpoItem::class, 'lpo_id');
     }
+    public function shipments()
+    {
+        return $this->hasMany(LpoShipment::class, 'lpo_id');
+    }
 }

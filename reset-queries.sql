@@ -57,6 +57,11 @@ TRUNCATE TABLE storekeepers;
 TRUNCATE TABLE stores;
 TRUNCATE TABLE units;
 TRUNCATE TABLE users;
+TRUNCATE TABLE purchase_requests;
+TRUNCATE TABLE purchase_request_items;
+TRUNCATE TABLE lpos;
+TRUNCATE TABLE lpo_shipments;
+TRUNCATE TABLE lpo_shipment_items
 
 SET FOREIGN_KEY_CHECKS = 1;
 
@@ -128,9 +133,9 @@ INSERT INTO `categories` (`id`, `category_id`, `name`, `description`, `created_b
 
 
 ALTER TABLE `stock_transactions` CHANGE `type` `type` ENUM('DIRECT','MR','PR','SS-RETURN','ENGG-RETURN','DISPATCH') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'DIRECT';
-php artisan make:migration create_lpo_items_table --create=lpo_items --path=database/migrations/V1/pr
+php artisan make:migration create_lpo_shipments_table --create=lpo_shipments --path=database/migrations/V1/pr
 
 php artisan make:model V1/LpoItems
 php artisan make:controller V1/SupplierController
 
-php artisan make:migration drop_fields_from_purchase_requests_table --table=purchase_requests --path=database/migrations/V1/pr
+php artisan make:migration add_fields_table --table=purchase_requests --path=database/migrations/V1/pr

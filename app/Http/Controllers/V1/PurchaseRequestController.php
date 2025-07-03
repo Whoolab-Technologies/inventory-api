@@ -2,14 +2,11 @@
 
 namespace App\Http\Controllers\V1;
 
+use App\Enums\StatusEnum;
 use App\Http\Controllers\Controller;
 use App\Models\V1\PurchaseRequest;
 use App\Models\V1\PurchaseRequestItem;
-use App\Models\V1\StockTransfer;
-use App\Models\V1\StockTransferItem;
-use App\Models\V1\StockInTransit;
-use App\Models\V1\StockTransaction;
-use App\Models\V1\Stock;
+use App\Models\V1\Lpo;
 use App\Services\Helpers;
 use App\Services\V1\PurchaseRequestService;
 use Illuminate\Http\Request;
@@ -100,7 +97,6 @@ class PurchaseRequestController extends Controller
             return Helpers::sendResponse(404, [], 'Purchase request not found');
         } catch (\Throwable $e) {
             \DB::rollBack();
-            \Log::info($e->getMessage());
             return Helpers::sendResponse(500, null, 'Error updating purchase request: ' . $e->getMessage());
         }
     }
@@ -242,6 +238,80 @@ class PurchaseRequestController extends Controller
             'items' => $items,
             'lpos' => $pr->lpos
         ];
+    }
+
+
+    public function getLpo(Request $request, $id)
+    {
+        try {
+            $lpo = Lpo::with(['items.product', 'supplier', 'status', 'shipments.status'])
+                ->findOrFail($id);
+
+            $response['lpo'] = $this->formatLpo($lpo);
+
+            return Helpers::sendResponse(200, $response, 'LPO details retrieved successfully');
+        } catch (\Exception $e) {
+            return Helpers::sendResponse(500, null, 'Error retrieving LPO: ' . $e->getMessage());
+        }
+    }
+
+    protected function formatLpo($lpo)
+    {
+
+        $lpoItems = $lpo->items->map(function ($item) {
+            return [
+                'id' => $item->id,
+                'product' => $item->product,
+                'requested_quantity' => $item->requested_quantity,
+                'received_quantity' => $item->received_quantity,
+            ];
+        });
+
+        return [
+            'id' => $lpo->id,
+            'lpo_number' => $lpo->lpo_number,
+            'supplier' => $lpo->supplier,
+            'status' => $lpo->status,
+            'date' => $lpo->date,
+            'shipments' => $lpo->shipments,
+            'items' => $lpoItems,
+        ];
+    }
+    public function storeLpoShipment(Request $request, $id)
+    {
+        $this->validateShipmentRequest($request);
+
+        \DB::beginTransaction();
+
+        try {
+            $shipment = $this->createLpoShipment($request);
+
+            $this->createShipmentItems($shipment->id, $request->items);
+
+            $this->updateLpoStatusIfAllItemsReceived($request->lpo_id);
+
+            if ($shipment->status_id == StatusEnum::IN_TRANSIT) {
+                $this->purchaseRequestService->createShipmentTransaction($shipment);
+                $shipment->status_id = StatusEnum::COMPLETED;
+                $shipment->save();
+            }
+
+            \DB::commit();
+
+            $lpo = Lpo::with(['items.product', 'supplier', 'status', 'shipments'])
+                ->findOrFail($id);
+
+            $response = [
+                'purchaseRequest' => $this->formatPurchaseRequest($lpo->purchaseRequest),
+                'lpo' => $this->formatLpo($lpo)
+            ];
+
+            return Helpers::sendResponse(200, $response, 'Shipment created successfully');
+
+        } catch (\Throwable $e) {
+            \DB::rollBack();
+            return Helpers::sendResponse(500, $e->getMessage());
+        }
     }
 
 

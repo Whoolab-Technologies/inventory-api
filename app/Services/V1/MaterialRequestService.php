@@ -55,7 +55,6 @@ class MaterialRequestService
         \DB::beginTransaction();
         try {
             $user = auth()->user();
-            \Log::info($request->status_id);
             $materialRequest = MaterialRequest::findOrFail($id);
             $materialRequest->status_id = $request->status_id;
 

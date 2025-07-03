@@ -114,11 +114,6 @@ class NotificationService
 
         // ----------------- Engineer Notification -----------------
         $engineerToken = $this->getEngineerToken($engineer->id);
-        \Log::info('Engineer token fetched', [
-            'engineer_id' => $engineer->id,
-            'has_token' => $engineerToken ? true : false,
-
-        ]);
         $engineerTitle = "Material Issued from Central Store";
         $engineerMessage = "Materials for your request {$materialRequest->request_number}  have been issued. Transaction: {$transactionNumber}, DN: {$dnNumber}.";
 
@@ -135,9 +130,7 @@ class NotificationService
         $siteTokens = $this->getSiteStorekeeperTokens($materialRequest->store_id);
         $siteTitle = "Material Issued from Central Store";
         $siteMessage = "Materials for request {$materialRequest->request_number} raised by {$engineer->name} have been issued. Transaction: {$transactionNumber}, DN: {$dnNumber}.";
-        \Log::info('Site token fetched', [
-            'siteTokens' => count($siteTokens)
-        ]);
+
         $this->notifyUsers($siteTokens, $siteTitle, $siteMessage, [
             'material_request_id' => (string) $materialRequest->id,
             'transaction_id' => (string) $transaction->id,
@@ -183,10 +176,7 @@ class NotificationService
 
         // ----------------- Engineer Notification -----------------
         $engineerToken = $this->getEngineerToken($engineer->id);
-        \Log::info('Engineer token fetched', [
-            'engineer_id' => $engineer->id,
-            'has_token' => $engineerToken ? true : false,
-        ]);
+
         $engineerTitle = "Material Request Status Updated";
         $engineerMessage = "Your material request {$materialRequest->request_number} has been marked as '{$statusName}'. Transaction: {$transactionNumber}, DN: {$dnNumber}.";
 
@@ -203,11 +193,6 @@ class NotificationService
         $centralTokens = $this->getCentralStorekeeperTokens(); // Assuming you have this method
         $centralTitle = "Material Received at Site";
         $centralMessage = "Materials for request {$materialRequest->request_number} raised by {$engineer->name} have been received at site '{$materialRequest->store->name}'. Transaction: {$transactionNumber}, DN: {$dnNumber}. Status: '{$statusName}'.";
-
-        \Log::info('Central storekeeper tokens fetched', [
-            'count' => count($centralTokens),
-        ]);
-
         if (!empty($centralTokens)) {
             $this->notifyUsers($centralTokens, $centralTitle, $centralMessage, [
                 'material_request_id' => (string) $materialRequest->id,
@@ -225,11 +210,6 @@ class NotificationService
         $foremanName = $pickup->representative;
 
         $engineerToken = $this->getEngineerToken($engineer->id);
-        \Log::info('Engineer token fetched', [
-            'engineer_id' => $engineer->id,
-            'has_token' => $engineerToken ? true : false,
-        ]);
-
         $title = "Material Picked Up by Foreman";
         $message = "Materials for your request {$pickup->dispatch_number} at {$storeName} have been picked up by foreman {$foremanName}.";
 
@@ -251,10 +231,6 @@ class NotificationService
         $returnNumber = $materialReturn->return_number ?? 'N/A';
 
         $engineerToken = $this->getEngineerToken($engineerId);
-        \Log::info('Engineer token fetched for material return', [
-            'engineer_id' => $engineerId,
-            'has_token' => $engineerToken ? true : false,
-        ]);
 
         $title = "Material Returned to Site Store";
         $message = "You have successfully returned materials (Return #: {$returnNumber}) to the site store {$storeName}.";
@@ -275,10 +251,6 @@ class NotificationService
 
         // ----------------- Engineer Notification -----------------
         $engineerToken = $this->getEngineerToken($engineerId);
-        \Log::info('Engineer token fetched for material return initiated', [
-            'engineer_id' => $engineerId,
-            'has_token' => $engineerToken ? true : false,
-        ]);
 
         $titleEngineer = "Material Return Initiated by Site Storekeeper";
         $messageEngineer = "The site storekeeper has initiated a material return (Return #: {$returnNumber}) from {$fromStoreName} under your project.";

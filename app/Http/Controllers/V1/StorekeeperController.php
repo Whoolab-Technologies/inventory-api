@@ -259,10 +259,8 @@ class StorekeeperController extends Controller
                             $query->where('store_id', $user->store_id);
                         } else {
                             if ($storeId) {
-                                \Log::info("for other stores wirh storeId $storeId");
                                 $query->where('store_id', $storeId);
                             } else {
-                                \Log::info("for other stores wthout storeId");
                                 $query->where('store_id', '!=', $user->store_id);
                             }
                         }
@@ -436,7 +434,6 @@ class StorekeeperController extends Controller
             return Helpers::sendResponse(200, $materialRequest, 'Material requests updated successfully');
 
         } catch (\Throwable $th) {
-            \Log::info("error " . $th->getMessage());
             return Helpers::sendResponse(500, [], $th->getMessage());
         }
     }
@@ -456,7 +453,6 @@ class StorekeeperController extends Controller
             return Helpers::sendResponse(200, $materialRequest, 'Transaction created successfully');
 
         } catch (\Throwable $th) {
-            \Log::info("error " . $th->getMessage());
             return Helpers::sendResponse(500, [], $th->getMessage());
         }
     }
@@ -486,7 +482,6 @@ class StorekeeperController extends Controller
 
             return Helpers::sendResponse(200, $materialRequest, 'Material request transactions retreived successfully');
         } catch (\Throwable $th) {
-            \Log::info("error " . $th->getMessage());
             return Helpers::sendResponse(500, [], $th->getMessage());
         }
     }
@@ -591,7 +586,6 @@ class StorekeeperController extends Controller
 
             return Helpers::sendResponse(200, $response, 'Transaction updated successfully');
         } catch (\Throwable $th) {
-            \Log::info($th->getMessage());
             return Helpers::sendResponse(500, [], $th->getMessage());
         }
     }
@@ -723,7 +717,6 @@ class StorekeeperController extends Controller
             return Helpers::sendResponse(200, $materialReturn, 'Material return created successfully');
 
         } catch (\Throwable $th) {
-            \Log::info($th->getMessage());
             return Helpers::sendResponse(500, [], $th->getMessage());
         }
     }
@@ -974,7 +967,6 @@ class StorekeeperController extends Controller
                 'material_return_id' => $materialReturn->id,
                 'engineer_id' => $request->engineer_id,
             ]);
-            \Log::info("materialReturnDetail " . $materialReturnDetail->id);
             foreach ($validated['products'] as $product) {
                 // Create Material Return Item
                 $materialReturnItem = MaterialReturnItem::create([
@@ -1030,11 +1022,7 @@ class StorekeeperController extends Controller
             $user->id,
             TransferPartyRole::SITE_STORE->value,
         );
-        \Log::info("before createStockTransfer ");
-
         $transfer = $this->stockTransferService->createStockTransfer($stockTransferData);
-        \Log::info("after createStockTransfer $transfer");
-
         $engineerId = $request->engineer_id;
         foreach ($items as $item) {
             $productId = $item['product_id'];

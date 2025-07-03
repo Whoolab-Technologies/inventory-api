@@ -5,17 +5,19 @@ namespace App\Models\V1;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class LpoItem extends BaseModel
+class LpoShipment extends Model
 {
     use HasFactory;
-    protected $table = "lpo_items";
+    protected $table = "lpo_shipments";
+
     protected $fillable = [
         'lpo_id',
-        'pr_item_id',
-        'product_id',
-        'requested_quantity',
-        'received_quantity',
+        'dn_number',
+        'date',
+        'status_id',
+        'remarks',
     ];
+
     protected $hidden = ['created_by', 'created_type', 'updated_by', 'updated_type', 'created_at', 'updated_at'];
 
     public function lpo()
@@ -23,14 +25,12 @@ class LpoItem extends BaseModel
         return $this->belongsTo(Lpo::class, 'lpo_id');
     }
 
-
-    public function product()
+    public function status()
     {
-        return $this->belongsTo(Product::class, 'product_id');
+        return $this->belongsTo(Status::class, 'status_id');
     }
-
-    public function prItem()
+    public function items()
     {
-        return $this->belongsTo(PurchaseRequestItem::class, 'pr_item_id');
+        return $this->hasMany(LpoShipmentItem::class, 'lpo_shipment_id');
     }
 }
