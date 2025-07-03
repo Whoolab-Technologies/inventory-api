@@ -544,16 +544,9 @@ class StorekeeperController extends Controller
                 }
 
                 if ($transfer->request_type == "PR" && $transfer->request_id > 0 && $transfer->purchaseRequest) {
-                    \Log::info('PR transfer found', [
-                        'transfer_id' => $transfer->id,
-                        'request_id' => $transfer->request_id,
-                        'purchase_request_id' => $transfer->purchaseRequest->id ?? null,
-                        'engg' => $transfer->purchaseRequest->materialRequest->engineer,
-                    ]);
                     $transfer->engineer = $transfer->purchaseRequest->materialRequest->engineer;
                     $transfer->purchaseRequests = $transfer->purchaseRequest->purchaseRequests;
                 }
-                \Log::info('PR transfer Engineer', ['engineer' => $transfer->engineer]);
                 // Notes Mapping
                 $transfer->notes = $transfer->notes->map(function ($item) {
                     $createBy = $item->createdBy;
@@ -1076,8 +1069,11 @@ class StorekeeperController extends Controller
             $purchaseRequest = PurchaseRequest::with([
                 'status',
                 'materialRequest.status',
+                'transactions.status',
                 'items.product'
-            ])->where('material_request_id', $materialRequest->id)
+
+            ])
+                ->where('material_request_id', $materialRequest->id)
                 ->where('id', $prId)
                 ->firstOrFail();
 

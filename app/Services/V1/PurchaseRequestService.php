@@ -221,7 +221,7 @@ class PurchaseRequestService
             'dn_number' => $request->dn_number,
             'remarks' => $request->remarks,
             'date' => $request->date,
-            'status_id' => $request->initial_immediate_transfer ? StatusEnum::IN_TRANSIT : StatusEnum::PENDING,
+            'status_id' => $request->initial_immediate_transfer ? StatusEnum::IN_TRANSIT : StatusEnum::ON_HOLD,
         ]);
     }
 

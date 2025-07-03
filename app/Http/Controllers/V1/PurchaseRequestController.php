@@ -16,8 +16,9 @@ class PurchaseRequestController extends Controller
 {
     protected $purchaseRequestService;
 
-    public function __construct(PurchaseRequestService $purchaseRequestService)
-    {
+    public function __construct(
+        PurchaseRequestService $purchaseRequestService,
+    ) {
         $this->purchaseRequestService = $purchaseRequestService;
     }
     public function update(Request $request, $id)
@@ -161,11 +162,8 @@ class PurchaseRequestController extends Controller
         return [
             'status',
             'materialRequest.status',
-            // 'materialRequest.items.product',
             'prItems.product',
             'prItems.lpoItems.lpo',
-            // 'transactions.items.product',
-            // 'transactions.status',
             'lpos.supplier',
             'lpos.status',
             'lpos.items.product'
@@ -212,18 +210,6 @@ class PurchaseRequestController extends Controller
             'request_number' => $materialRequest->request_number,
             'created_at' => $materialRequest->created_at,
             'status' => $materialRequest->status,
-            // 'items' => collect($materialRequest->items)->map(function ($item) use ($allStockItems) {
-            //     $stockGroup = $allStockItems->get($item->product_id);
-
-            //     return [
-            //         'id' => $item->id,
-            //         'product' => $item->product,
-            //         'quantity' => $item->quantity,
-            //         'requested_quantity' => $stockGroup ? $stockGroup->first()->requested_quantity ?? $item->quantity : $item->quantity,
-            //         'issued_quantity' => $stockGroup ? $stockGroup->sum('issued_quantity') : 0,
-            //         'received_quantity' => $stockGroup ? $stockGroup->sum('received_quantity') : 0,
-            //     ];
-            // })->values()
         ];
 
 
@@ -234,7 +220,6 @@ class PurchaseRequestController extends Controller
             'material_request_number' => $pr->material_request_number,
             'status' => $pr->status,
             'material_request' => $formattedMaterialRequest,
-            // 'transactions' => $pr->transactions,
             'items' => $items,
             'lpos' => $pr->lpos
         ];
@@ -277,6 +262,7 @@ class PurchaseRequestController extends Controller
             'items' => $lpoItems,
         ];
     }
+
     public function storeLpoShipment(Request $request, $id)
     {
         $this->purchaseRequestService->validateShipmentRequest($request);
@@ -284,10 +270,9 @@ class PurchaseRequestController extends Controller
         \DB::beginTransaction();
 
         try {
+            // 1. Create shipment
             $shipment = $this->purchaseRequestService->createLpoShipment($request);
-
             $this->purchaseRequestService->createShipmentItems($shipment->id, $request->items);
-
             $this->purchaseRequestService->updateLpoStatusIfAllItemsReceived($request->lpo_id);
 
             if ($shipment->status_id == StatusEnum::IN_TRANSIT) {
@@ -296,16 +281,40 @@ class PurchaseRequestController extends Controller
                 $shipment->save();
             }
 
-            \DB::commit();
+            // 2. Fetch updated LPO with required relations
+            $lpo = Lpo::with([
+                'items.product',
+                'supplier',
+                'status',
+                'shipments.status'
+            ])->findOrFail($id);
 
-            $lpo = Lpo::with(['items.product', 'supplier', 'status', 'shipments.status'])
-                ->findOrFail($id);
+            // 3. Fetch PR with required relations
+            $pr = PurchaseRequest::with(
+                $this->prRelations()
+            )->findOrFail($lpo->pr_id);
 
+            // 4. Check if all PR items are fully received
+            $allItemsReceived = $pr->prItems->every(function ($prItem) {
+                $totalReceived = $prItem->lpoItems->sum('received_quantity');
+                return $prItem->quantity <= $totalReceived;
+            });
+
+            // 5. If all received, update PR status to 7 and reload status relation
+            if ($allItemsReceived) {
+                $pr->status_id = 7;
+                $pr->save();
+                $pr->load('status');
+            }
+
+            // 6. Format response
+            $purchaseRequest = $this->formatPurchaseRequest($pr);
             $response = [
-                'purchaseRequest' => $this->formatPurchaseRequest($lpo->purchaseRequest),
+                'purchaseRequest' => $purchaseRequest,
                 'lpo' => $this->formatLpo($lpo)
             ];
 
+            \DB::commit();
             return Helpers::sendResponse(200, $response, 'Shipment created successfully');
 
         } catch (\Throwable $e) {
@@ -313,6 +322,45 @@ class PurchaseRequestController extends Controller
             return Helpers::sendResponse(500, $e->getMessage());
         }
     }
+
+    // public function storeLpoShipment(Request $request, $id)
+    // {
+    //     $this->purchaseRequestService->validateShipmentRequest($request);
+
+    //     \DB::beginTransaction();
+
+    //     try {
+    //         $shipment = $this->purchaseRequestService->createLpoShipment($request);
+
+    //         $this->purchaseRequestService->createShipmentItems($shipment->id, $request->items);
+
+    //         $this->purchaseRequestService->updateLpoStatusIfAllItemsReceived($request->lpo_id);
+
+    //         if ($shipment->status_id == StatusEnum::IN_TRANSIT) {
+    //             $this->purchaseRequestService->createShipmentTransaction($shipment);
+    //             $shipment->status_id = StatusEnum::COMPLETED;
+    //             $shipment->save();
+    //         }
+
+    //         \DB::commit();
+
+    //         $lpo = Lpo::with(['items.product', 'supplier', 'status', 'shipments.status'])
+    //             ->findOrFail($id);
+    //         $pr = PurchaseRequest::with($this->prRelations())->findOrFail(id: $lpo->pr_id);
+
+    //         $purchaseRequest = $this->formatPurchaseRequest($pr);
+    //         $response = [
+    //             'purchaseRequest' => $purchaseRequest,
+    //             'lpo' => $this->formatLpo($lpo)
+    //         ];
+
+    //         return Helpers::sendResponse(200, $response, 'Shipment created successfully');
+
+    //     } catch (\Throwable $e) {
+    //         \DB::rollBack();
+    //         return Helpers::sendResponse(500, $e->getMessage());
+    //     }
+    // }
 
 
 }

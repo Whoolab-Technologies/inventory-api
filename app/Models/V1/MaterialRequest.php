@@ -2,8 +2,7 @@
 namespace App\Models\V1;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\URL;
+use App\Enums\StatusEnum;
 
 class MaterialRequest extends BaseModel
 {
@@ -20,6 +19,8 @@ class MaterialRequest extends BaseModel
         'qr_code',
         'status_id',
     ];
+    protected $appends = ['has_on_hold_shipment'];
+
     protected static function booted()
     {
         static::creating(function ($model) {
@@ -96,5 +97,13 @@ class MaterialRequest extends BaseModel
             'material_request_id',
             'id'
         );
+    }
+
+    public function getHasOnHoldShipmentAttribute()
+    {
+        return $this->purchaseRequests
+            ->flatMap->lpos
+            ->flatMap->lpoShipments
+            ->contains('status_id', StatusEnum::ON_HOLD);
     }
 }

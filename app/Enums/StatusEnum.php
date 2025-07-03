@@ -15,6 +15,7 @@ enum StatusEnum: int
     case AWAITING_PROC = 9;
     case IN_TRANSIT = 10;
     case RECEIVED = 11;
+    case ON_HOLD = 12;
 
     public static function getIdByCode(string $code): ?int
     {
@@ -30,6 +31,7 @@ enum StatusEnum: int
             'AWAITING_PROC' => self::AWAITING_PROC->value,
             'IN_TRANSIT' => self::IN_TRANSIT->value,
             'RECEIVED' => self::RECEIVED->value,
+            'ON_HOLD' => self::ON_HOLD->value,
             default => null,
         };
     }
