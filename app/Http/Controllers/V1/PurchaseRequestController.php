@@ -279,16 +279,16 @@ class PurchaseRequestController extends Controller
     }
     public function storeLpoShipment(Request $request, $id)
     {
-        $this->validateShipmentRequest($request);
+        $this->purchaseRequestService->validateShipmentRequest($request);
 
         \DB::beginTransaction();
 
         try {
-            $shipment = $this->createLpoShipment($request);
+            $shipment = $this->purchaseRequestService->createLpoShipment($request);
 
-            $this->createShipmentItems($shipment->id, $request->items);
+            $this->purchaseRequestService->createShipmentItems($shipment->id, $request->items);
 
-            $this->updateLpoStatusIfAllItemsReceived($request->lpo_id);
+            $this->purchaseRequestService->updateLpoStatusIfAllItemsReceived($request->lpo_id);
 
             if ($shipment->status_id == StatusEnum::IN_TRANSIT) {
                 $this->purchaseRequestService->createShipmentTransaction($shipment);
@@ -298,7 +298,7 @@ class PurchaseRequestController extends Controller
 
             \DB::commit();
 
-            $lpo = Lpo::with(['items.product', 'supplier', 'status', 'shipments'])
+            $lpo = Lpo::with(['items.product', 'supplier', 'status', 'shipments.status'])
                 ->findOrFail($id);
 
             $response = [

@@ -100,6 +100,12 @@ class StockTransferService
         $stock->quantity += $quantityChange;
         $stock->save();
 
+        \Log::info('New stock quantity: ' . $stock->quantity, [
+            'store_id' => $storeId,
+            'product_id' => $productId,
+            'engineer_id' => $engineerId,
+        ]);
+
         return $stock;
     }
     public function getOrCreateStock($storeId, $productId, $engineerId = 0)

@@ -510,8 +510,16 @@ class StorekeeperController extends Controller
             }
 
             if ($materialRequestId) {
-                $stockTransfer->where('request_id', $materialRequestId)
-                    ->where('request_type', RequestType::MR);
+
+                $stockTransfer->where(function ($q) use ($materialRequestId) {
+                    $q->where(function ($q2) use ($materialRequestId) {
+                        $q2->where('request_id', $materialRequestId)
+                            ->where('request_type', RequestType::MR);
+                    })->orWhere(function ($q2) use ($materialRequestId) {
+                        $q2->where('request_id', $materialRequestId)
+                            ->where('request_type', RequestType::PR);
+                    });
+                });
             }
             if ($searchTerm) {
                 $stockTransfer->search($searchTerm);
@@ -536,10 +544,16 @@ class StorekeeperController extends Controller
                 }
 
                 if ($transfer->request_type == "PR" && $transfer->request_id > 0 && $transfer->purchaseRequest) {
-                    $transfer->engineer = optional($transfer->purchaseRequest->materialRequest->engineer); // If purchaseRequest has engineer
+                    \Log::info('PR transfer found', [
+                        'transfer_id' => $transfer->id,
+                        'request_id' => $transfer->request_id,
+                        'purchase_request_id' => $transfer->purchaseRequest->id ?? null,
+                        'engg' => $transfer->purchaseRequest->materialRequest->engineer,
+                    ]);
+                    $transfer->engineer = $transfer->purchaseRequest->materialRequest->engineer;
                     $transfer->purchaseRequests = $transfer->purchaseRequest->purchaseRequests;
                 }
-
+                \Log::info('PR transfer Engineer', ['engineer' => $transfer->engineer]);
                 // Notes Mapping
                 $transfer->notes = $transfer->notes->map(function ($item) {
                     $createBy = $item->createdBy;

@@ -119,14 +119,14 @@ class PurchaseRequestService
         $engineerId = $materialRequest->engineer_id;
         $toStoreId = $materialRequest->store_id;
 
-        $stockTransfer = $this->createStockTransfer($shipment, $lpo, $fromStoreId, $toStoreId);
+        $stockTransfer = $this->createStockTransfer($shipment, $materialRequest, $fromStoreId, $toStoreId);
         foreach ($shipmentItems as $shipmentItem) {
             $this->processShipmentItem($shipmentItem, $centralStore, $lpo, $shipment, $materialRequest, $stockTransfer, $engineerId);
         }
     }
 
 
-    public function createStockTransfer($shipment, $lpo, $fromStoreId, $toStoreId)
+    public function createStockTransfer($shipment, $materialRequest, $fromStoreId, $toStoreId)
     {
         $stockTransferData = new StockTransferData(
             $fromStoreId,
@@ -134,7 +134,7 @@ class PurchaseRequestService
             StatusEnum::IN_TRANSIT,
             $shipment->dn_number,
             null,
-            $lpo->pr_id,
+            $materialRequest->id,
             RequestType::PR,
             TransactionType::CS_SS,
             auth()->id(),
@@ -225,7 +225,7 @@ class PurchaseRequestService
         ]);
     }
 
-    private function createShipmentItems($shipmentId, $items)
+    public function createShipmentItems($shipmentId, $items)
     {
         foreach ($items as $item) {
             LpoShipmentItem::create([
@@ -241,7 +241,7 @@ class PurchaseRequestService
         }
     }
 
-    private function updateLpoStatusIfAllItemsReceived($lpoId)
+    public function updateLpoStatusIfAllItemsReceived($lpoId)
     {
         $pendingItems = LpoItem::where('lpo_id', $lpoId)
             ->whereRaw('IFNULL(received_quantity, 0) < requested_quantity')
