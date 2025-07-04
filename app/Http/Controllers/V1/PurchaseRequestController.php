@@ -322,27 +322,7 @@ class PurchaseRequestController extends Controller
                 'shipments.status'
             ])->findOrFail($id);
 
-            // 3. Fetch PR with required relations
-            $pr = PurchaseRequest::with(
-                $this->prRelations()
-            )->findOrFail($lpo->pr_id);
-
-            // 4. Check if all PR items are fully received
-            $allItemsReceived = $pr->prItems->every(function ($prItem) {
-                $totalReceived = $prItem->lpoItems->sum('received_quantity');
-                return $prItem->quantity <= $totalReceived;
-            });
-
-            // 5. If all received, update PR status to 7 and reload status relation
-            if ($allItemsReceived) {
-                $pr->status_id = 7;
-                $pr->save();
-                $pr->load('status');
-            }
-
-            // 6. Format response
-            $purchaseRequest = $this->formatPurchaseRequest($pr);
-            $purchaseRequest['has_on_hold_shipment'] = $pr->has_on_hold_shipment;
+            $purchaseRequest = $this->getFormatedPurchaseRequest($lpo->pr_id);
             $response = [
                 'purchaseRequest' => $purchaseRequest,
                 'lpo' => $this->formatLpo($lpo)
@@ -357,89 +337,70 @@ class PurchaseRequestController extends Controller
             return Helpers::sendResponse(500, $e->getMessage());
         }
     }
+
+    protected function getFormatedPurchaseRequest($id)
+    {
+        $pr = $this->purchaseRequestService->updatePurchaseRequestStatusComplete($id);
+        $pr->load($this->prRelations());
+        // 6. Format response
+        $purchaseRequest = $this->formatPurchaseRequest($pr);
+        $purchaseRequest['has_on_hold_shipment'] = $pr->has_on_hold_shipment;
+        return $purchaseRequest;
+    }
     public function completeOnHoldShipments(Request $request, $id)
     {
         \DB::beginTransaction();
-
+        $response = [];
         try {
+            // $purchaseRequest = PurchaseRequest::with([
+            //     'lpos.shipments' => function ($query) {
+            //         $query->where('status_id', StatusEnum::ON_HOLD);
+            //     }
+            // ])->findOrFail($id);
             $purchaseRequest = PurchaseRequest::with([
-                'lpos.shipments' => function ($query) {
-                    $query->where('status_id', StatusEnum::ON_HOLD);
+                'lpos' => function ($query) {
+                    $query->whereHas('shipments', function ($q) {
+                        $q->where('status_id', StatusEnum::ON_HOLD);
+                    })->with([
+                                'shipments' => function ($q) {
+                                    $q->where('status_id', StatusEnum::ON_HOLD);
+                                }
+                            ]);
                 }
             ])->findOrFail($id);
+            $shipments = $purchaseRequest->lpos->flatMap->shipments;
+            $materialRequest = $purchaseRequest->materialRequest;
+            $this->purchaseRequestService->updateOnHoldSupplierToCentralTransctions(
+                $shipments,
+                $materialRequest
+            );
+            $shipmentItems = collect($shipments)->flatMap(function ($shipment) {
+                return $shipment->items;
+            })->groupBy('product_id')->map(function ($items) {
+                return (object) [
+                    'product_id' => $items->first()->product_id,
+                    'quantity_delivered' => $items->sum('quantity_delivered')
+                ];
+            })->values();
 
-            // Pre-fetch MaterialRequestItems for product mapping
-            $materialRequestItems = MaterialRequestItem::where('material_request_id', $purchaseRequest->material_request_id)
-                ->get()
-                ->keyBy('product_id');
+            $this->purchaseRequestService->updateOnHoldCentralToSiteTransctions(
+                $shipmentItems,
+                $materialRequest,
+                $request->dn_number
+            );
+            $shipments->each(function ($shipment) {
+                $shipment->status_id = 7;
+                $shipment->save();
+            });
 
-            $lpoProductData = [];
-            $productTotalsOverall = [];
-            $allShipments = [];
-
-            foreach ($purchaseRequest->lpos as $lpo) {
-
-                $productTotalsPerLpo = [];
-
-                foreach ($lpo->shipments as $shipment) {
-                    $allShipments[] = $shipment;
-
-                    foreach ($shipment->items as $item) {
-
-                        $productId = $item->product_id;
-                        $materialRequestItemId = $materialRequestItems[$productId]->id ?? null;
-
-                        // Per LPO grouping
-                        if (!isset($productTotalsPerLpo[$productId])) {
-                            $productTotalsPerLpo[$productId] = [
-                                'product_id' => $productId,
-                                'material_request_item_id' => $materialRequestItemId,
-                                'quantity' => 0
-                            ];
-                        }
-                        $productTotalsPerLpo[$productId]['quantity'] += $item->quantity_delivered;
-
-                        // Overall product totals
-                        if (!isset($productTotalsOverall[$productId])) {
-                            $productTotalsOverall[$productId] = [
-                                'product_id' => $productId,
-                                'material_request_item_id' => $materialRequestItemId,
-                                'quantity' => 0
-                            ];
-                        }
-                        $productTotalsOverall[$productId]['quantity'] += $item->quantity_delivered;
-                    }
-                }
-
-                if (!empty($productTotalsPerLpo)) {
-                    $lpoProductData[] = [
-                        'lpo_id' => $lpo->id,
-                        'lpo_number' => $lpo->lpo_number,
-                        'products' => array_values($productTotalsPerLpo)
-                    ];
-                }
-            }
-
-            // Final Transaction Payload
-            $transactionRequest = (object) [
-                'dn_number' => $request->dn_number,
-                'material_request' => $purchaseRequest->materialRequest,
-                'lpos' => $lpoProductData,
-                'products' => array_values($productTotalsOverall)
-            ];
-            $this->purchaseRequestService->transferOnHoldShipments($transactionRequest);
-            foreach ($allShipments as $shipment) {
-                $shipment->update(['status_id' => StatusEnum::COMPLETED]);
-            }
-            $pr = PurchaseRequest::findOrFail($lpo->pr_id);
-            $pr->status_id = StatusEnum::COMPLETED->value;
-            $pr->save();
-            $pr->load($this->prRelations());
-            $purchaseRequest = $this->formatPurchaseRequest($pr);
-            $purchaseRequest['has_on_hold_shipment'] = $pr->has_on_hold_shipment;
-            $response = ['purchaseRequest' => $purchaseRequest];
+            $purchaseRequest->lpos->each(function ($lpo) {
+                $lpo->status_id = 7;
+                $lpo->save();
+            });
+            $purchaseRequest = $this->getFormatedPurchaseRequest($id);
+            $response['purchaseRequest'] = $purchaseRequest;
             \DB::commit();
-            return Helpers::sendResponse(200, $response, 'Grouped product data with LPOs and items');
+            return Helpers::sendResponse(200, $response, '');
 
         } catch (\Throwable $e) {
             \DB::rollBack();

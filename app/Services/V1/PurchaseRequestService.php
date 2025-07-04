@@ -108,63 +108,40 @@ class PurchaseRequestService
         }
     }
 
-    // public function transferOnHoldShipments($transactionRequest)
-    // {
-    //     $centralStore = Store::where('type', 'central')->firstOrFail();
-    //     $fromStoreId = $centralStore->id;
-    //     $dnNumber = $transactionRequest->dn_number;
-    //     $materialRequest = $transactionRequest->material_request;
-    //     $engineerId = $materialRequest->engineer_id;
-    //     $toStoreId = $materialRequest->store_id;
-    //     $lpos = $transactionRequest->lpos;
-    //     $products = $transactionRequest->products;
-    //     $supplierTransfer = $this->createSupplierToCentralStockTransfer($transactionRequest, $materialRequest, $centralStore->id);
-    //     foreach ($lpos as $lpo) {
-    //         $shipment = collect($lpo);
-    //         \Log::info(json_encode($shipment));
-    //         foreach ($shipment['products'] as $product) {
-    //             \Log::info(json_encode($product));
+    public function updateOnHoldSupplierToCentralTransctions($shipments, $materialRequest)
+    {
+        $centralStore = Store::where('type', 'central')->firstOrFail();
+        $engineerId = $materialRequest->engineer_id;
+        foreach ($shipments as $shipment) {
+            $lpo = $shipment->lpo;
+            $this->processSupplierToCentralTransfer(
+                $shipment,
+                $materialRequest,
+                $centralStore,
+                $lpo,
+                $engineerId
+            );
+        }
 
-    //             $shipmentItem = collect($product);
-    //             \Log::info(json_encode($shipmentItem->quantity));
-    //             $shipmentItem->quantity_delivered = $shipmentItem->quantity;
-    //             $this->processShipmentItemArrivalAtCentral($shipmentItem, $supplierTransfer, $centralStore, $lpo, $engineerId);
+    }
+    public function updateOnHoldCentralToSiteTransctions($shipmentItems, $materialRequest, $dnNumber)
+    {
+        $centralStore = Store::where('type', 'central')->firstOrFail();
+        $fromStoreId = $centralStore->id;
+        $engineerId = $materialRequest->engineer_id;
+        $toStoreId = $materialRequest->store_id;
+        $this->processStockTransferAndShipmentItems(
+            $shipmentItems,
+            $dnNumber,
+            $materialRequest,
+            $fromStoreId,
+            $toStoreId,
+            $centralStore,
+            null,
+            $engineerId
+        );
 
-    //         }
-
-
-
-    //     }
-    //     $stockTransfer = $this->createStockTransfer($transactionRequest, $materialRequest, $fromStoreId, $toStoreId);
-
-    //     foreach ($products as $product) {
-    //         $productId = $product->product_id;
-    //         $quantity = $product->quantity;
-    //         $quantity = $product->quantity;
-    //         $materialRequestItemId = $product->material_request_item_id;
-    //         $this->createStockTransaction($centralStore->id, $productId, $engineerId, $quantity, "", '   $dnNumber', StockMovement::TRANSIT);
-    //         $this->stockTransferService->updateStock($centralStore->id, $productId, -abs($quantity));
-    //         $transferItem = $this->stockTransferService->createStockTransferItem(
-    //             $stockTransfer->id,
-    //             $productId,
-    //             $quantity,
-    //             $quantity
-    //         );
-
-    //         $this->stockTransferService->createStockInTransit(new StockInTransitData(
-    //             stockTransferId: $stockTransfer->id,
-    //             stockTransferItemId: $transferItem->id,
-    //             productId: $productId,
-    //             issuedQuantity: $quantity,
-    //             materialRequestId: $materialRequest->id,
-    //             materialRequestItemId: $materialRequestItemId,
-    //             materialReturnId: null,
-    //             materialReturnItemId: null
-    //         ));
-    //     }
-
-
-    // }
+    }
 
     public function createShipmentTransaction($shipment, $transferDnNumber)
     {
@@ -177,19 +154,35 @@ class PurchaseRequestService
         $engineerId = $materialRequest->engineer_id;
         $toStoreId = $materialRequest->store_id;
 
-        $supplierTransfer = $this->createSupplierToCentralStockTransfer($shipment, $materialRequest, $centralStore->id, );
+        $this->processSupplierToCentralTransfer($shipment, $materialRequest, $centralStore, $lpo, $engineerId);
+        $this->processStockTransferAndShipmentItems($shipmentItems, $transferDnNumber, $materialRequest, $fromStoreId, $toStoreId, $centralStore, $lpo, $engineerId);
+    }
+
+    private function processStockTransferAndShipmentItems($shipmentItems, $transferDnNumber, $materialRequest, $fromStoreId, $toStoreId, $centralStore, $lpo, $engineerId)
+    {
+        $stockTransfer = $this->createStockTransfer($transferDnNumber, $materialRequest, $fromStoreId, $toStoreId);
+
+        foreach ($shipmentItems as $shipmentItem) {
+            $this->processShipmentItem(
+                $shipmentItem,
+                $centralStore,
+                $lpo,
+                //  $shipmentItem,
+                $materialRequest,
+                $stockTransfer,
+                $engineerId,
+                $transferDnNumber
+            );
+        }
+    }
+    private function processSupplierToCentralTransfer($shipment, $materialRequest, $centralStore, $lpo, $engineerId)
+    {
+        $supplierTransfer = $this->createSupplierToCentralStockTransfer($shipment->dn_number, $materialRequest, $centralStore->id);
 
         foreach ($shipment->items as $shipmentItem) {
             $this->processShipmentItemArrivalAtCentral($shipmentItem, $supplierTransfer, $centralStore, $lpo, $engineerId);
         }
-
-        $stockTransfer = $this->createStockTransfer($transferDnNumber, $materialRequest, $fromStoreId, $toStoreId);
-        foreach ($shipmentItems as $shipmentItem) {
-            $this->processShipmentItem($shipmentItem, $centralStore, $lpo, $shipmentItem, $materialRequest, $stockTransfer, $engineerId, $transferDnNumber);
-        }
     }
-
-
 
     public function processShipmentItemArrivalAtCentral($shipmentItem, $supplierTransfer, $centralStore, $lpo, $engineerId): void
     {
@@ -212,13 +205,13 @@ class PurchaseRequestService
         );
     }
 
-    public function createSupplierToCentralStockTransfer($shipment, $materialRequest, $centralStoreId)
+    public function createSupplierToCentralStockTransfer($dnNumber, $materialRequest, $centralStoreId)
     {
         $stockTransferData = new StockTransferData(
             null,
             $centralStoreId,
             StatusEnum::COMPLETED,
-            $shipment->dn_number,
+            $dnNumber,
             null,
             $materialRequest->id,
             RequestType::PR,
@@ -249,7 +242,7 @@ class PurchaseRequestService
         return $this->stockTransferService->createStockTransfer($stockTransferData);
     }
 
-    public function processShipmentItem($shipmentItem, $centralStore, $lpo, $shipment, $materialRequest, $stockTransfer, $engineerId, $transferDnNumber)
+    public function processShipmentItem($shipmentItem, $centralStore, $lpo, $materialRequest, $stockTransfer, $engineerId, $transferDnNumber)
     {
         $productId = $shipmentItem->product_id;
         $quantity = $shipmentItem->quantity_delivered;
@@ -354,6 +347,21 @@ class PurchaseRequestService
         if (!$pendingItems) {
             Lpo::where('id', $lpoId)->update(['status_id' => StatusEnum::COMPLETED->value]);
         }
+    }
+
+    public function updatePurchaseRequestStatusComplete($id)
+    {
+        $pr = PurchaseRequest::findOrFail($id);
+
+        $allItemsReceived = $pr->prItems->every(function ($prItem) {
+            $totalReceived = $prItem->lpoItems->sum('received_quantity');
+            return $prItem->quantity <= $totalReceived;
+        });
+        if ($allItemsReceived) {
+            $pr->status_id = 7;
+            $pr->save();
+        }
+        return $pr;
     }
 
 }
