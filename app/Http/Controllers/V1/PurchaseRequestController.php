@@ -326,7 +326,7 @@ class PurchaseRequestController extends Controller
             $pr = PurchaseRequest::with(
                 $this->prRelations()
             )->findOrFail($lpo->pr_id);
-            \Log::info("pr ", ['resp' => $pr]);
+
             // 4. Check if all PR items are fully received
             $allItemsReceived = $pr->prItems->every(function ($prItem) {
                 $totalReceived = $prItem->lpoItems->sum('received_quantity');
@@ -427,60 +427,24 @@ class PurchaseRequestController extends Controller
                 'lpos' => $lpoProductData,
                 'products' => array_values($productTotalsOverall)
             ];
-
-            // foreach ($allShipments as $shipment) {
-            //     $shipment->update(['status_id' => StatusEnum::COMPLETED]);
-            // }
-
+            $this->purchaseRequestService->transferOnHoldShipments($transactionRequest);
+            foreach ($allShipments as $shipment) {
+                $shipment->update(['status_id' => StatusEnum::COMPLETED]);
+            }
+            $pr = PurchaseRequest::findOrFail($lpo->pr_id);
+            $pr->status_id = StatusEnum::COMPLETED->value;
+            $pr->save();
+            $pr->load($this->prRelations());
+            $purchaseRequest = $this->formatPurchaseRequest($pr);
+            $purchaseRequest['has_on_hold_shipment'] = $pr->has_on_hold_shipment;
+            $response = ['purchaseRequest' => $purchaseRequest];
             \DB::commit();
-
-            return Helpers::sendResponse(200, $transactionRequest, 'Grouped product data with LPOs and items');
+            return Helpers::sendResponse(200, $response, 'Grouped product data with LPOs and items');
 
         } catch (\Throwable $e) {
             \DB::rollBack();
             return Helpers::sendResponse(500, [], $e->getMessage());
         }
     }
-
-
-    // public function storeLpoShipment(Request $request, $id)
-    // {
-    //     $this->purchaseRequestService->validateShipmentRequest($request);
-
-    //     \DB::beginTransaction();
-
-    //     try {
-    //         $shipment = $this->purchaseRequestService->createLpoShipment($request);
-
-    //         $this->purchaseRequestService->createShipmentItems($shipment->id, $request->items);
-
-    //         $this->purchaseRequestService->updateLpoStatusIfAllItemsReceived($request->lpo_id);
-
-    //         if ($shipment->status_id == StatusEnum::IN_TRANSIT) {
-    //             $this->purchaseRequestService->createShipmentTransaction($shipment);
-    //             $shipment->status_id = StatusEnum::COMPLETED;
-    //             $shipment->save();
-    //         }
-
-    //         \DB::commit();
-
-    //         $lpo = Lpo::with(['items.product', 'supplier', 'status', 'shipments.status'])
-    //             ->findOrFail($id);
-    //         $pr = PurchaseRequest::with($this->prRelations())->findOrFail(id: $lpo->pr_id);
-
-    //         $purchaseRequest = $this->formatPurchaseRequest($pr);
-    //         $response = [
-    //             'purchaseRequest' => $purchaseRequest,
-    //             'lpo' => $this->formatLpo($lpo)
-    //         ];
-
-    //         return Helpers::sendResponse(200, $response, 'Shipment created successfully');
-
-    //     } catch (\Throwable $e) {
-    //         \DB::rollBack();
-    //         return Helpers::sendResponse(500, $e->getMessage());
-    //     }
-    // }
-
 
 }
