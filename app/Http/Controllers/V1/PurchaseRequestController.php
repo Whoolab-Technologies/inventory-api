@@ -224,10 +224,12 @@ class PurchaseRequestController extends Controller
             'purchase_request_number' => $pr->purchase_request_number,
             'material_request_id' => $pr->material_request_id,
             'material_request_number' => $pr->material_request_number,
+
             'status' => $pr->status,
             'material_request' => $formattedMaterialRequest,
             'items' => $items,
-            'lpos' => $pr->lpos
+            'lpos' => $pr->lpos,
+            // 'has_on_hold_shipment' => $pr->has_on_hold_shipment,
         ];
     }
 
@@ -307,7 +309,7 @@ class PurchaseRequestController extends Controller
             $this->purchaseRequestService->updateLpoStatusIfAllItemsReceived($request->lpo_id);
 
             if ($shipment->status_id == StatusEnum::IN_TRANSIT) {
-                $this->purchaseRequestService->createShipmentTransaction($shipment);
+                $this->purchaseRequestService->createShipmentTransaction($shipment, $request->dn_number);
                 $shipment->status_id = StatusEnum::COMPLETED;
                 $shipment->save();
             }
@@ -324,7 +326,7 @@ class PurchaseRequestController extends Controller
             $pr = PurchaseRequest::with(
                 $this->prRelations()
             )->findOrFail($lpo->pr_id);
-
+            \Log::info("pr ", ['resp' => $pr]);
             // 4. Check if all PR items are fully received
             $allItemsReceived = $pr->prItems->every(function ($prItem) {
                 $totalReceived = $prItem->lpoItems->sum('received_quantity');
@@ -340,6 +342,7 @@ class PurchaseRequestController extends Controller
 
             // 6. Format response
             $purchaseRequest = $this->formatPurchaseRequest($pr);
+            $purchaseRequest['has_on_hold_shipment'] = $pr->has_on_hold_shipment;
             $response = [
                 'purchaseRequest' => $purchaseRequest,
                 'lpo' => $this->formatLpo($lpo)
@@ -350,10 +353,11 @@ class PurchaseRequestController extends Controller
 
         } catch (\Throwable $e) {
             \DB::rollBack();
+            \Log::info($e->getMessage());
             return Helpers::sendResponse(500, $e->getMessage());
         }
     }
-    public function updateOnHoldShipments(Request $request, $id)
+    public function completeOnHoldShipments(Request $request, $id)
     {
         \DB::beginTransaction();
 
@@ -370,11 +374,12 @@ class PurchaseRequestController extends Controller
                 ->keyBy('product_id');
 
             $lpoProductData = [];
+            $productTotalsOverall = [];
             $allShipments = [];
 
             foreach ($purchaseRequest->lpos as $lpo) {
 
-                $productTotals = [];
+                $productTotalsPerLpo = [];
 
                 foreach ($lpo->shipments as $shipment) {
                     $allShipments[] = $shipment;
@@ -384,33 +389,43 @@ class PurchaseRequestController extends Controller
                         $productId = $item->product_id;
                         $materialRequestItemId = $materialRequestItems[$productId]->id ?? null;
 
-                        if (!isset($productTotals[$productId])) {
-                            $productTotals[$productId] = [
+                        // Per LPO grouping
+                        if (!isset($productTotalsPerLpo[$productId])) {
+                            $productTotalsPerLpo[$productId] = [
                                 'product_id' => $productId,
                                 'material_request_item_id' => $materialRequestItemId,
                                 'quantity' => 0
                             ];
                         }
+                        $productTotalsPerLpo[$productId]['quantity'] += $item->quantity_delivered;
 
-                        $productTotals[$productId]['quantity'] += $item->quantity_delivered;
+                        // Overall product totals
+                        if (!isset($productTotalsOverall[$productId])) {
+                            $productTotalsOverall[$productId] = [
+                                'product_id' => $productId,
+                                'material_request_item_id' => $materialRequestItemId,
+                                'quantity' => 0
+                            ];
+                        }
+                        $productTotalsOverall[$productId]['quantity'] += $item->quantity_delivered;
                     }
                 }
 
-                if (!empty($productTotals)) {
+                if (!empty($productTotalsPerLpo)) {
                     $lpoProductData[] = [
                         'lpo_id' => $lpo->id,
                         'lpo_number' => $lpo->lpo_number,
-                        'products' => array_values($productTotals)
+                        'products' => array_values($productTotalsPerLpo)
                     ];
                 }
             }
 
             // Final Transaction Payload
-            $transactionRequest = [
+            $transactionRequest = (object) [
                 'dn_number' => $request->dn_number,
                 'material_request' => $purchaseRequest->materialRequest,
-                'engineer' => $purchaseRequest->materialRequest->engineer,
-                'lpos' => $lpoProductData
+                'lpos' => $lpoProductData,
+                'products' => array_values($productTotalsOverall)
             ];
 
             // foreach ($allShipments as $shipment) {

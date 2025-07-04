@@ -108,7 +108,62 @@ class PurchaseRequestService
         }
     }
 
-    public function createShipmentTransaction($shipment)
+    public function transferOnHoldShipments($transactionRequest)
+    {
+        $centralStore = Store::where('type', 'central')->firstOrFail();
+        $fromStoreId = $centralStore->id;
+        $dnNumber = $transactionRequest->dnNumber;
+        $materialRequest = $transactionRequest->material_request;
+        $engineerId = $materialRequest->engineer_id;
+        $toStoreId = $materialRequest->store_id;
+        $lpos = $transactionRequest->lpos;
+        $products = $transactionRequest->products;
+        $stockTransfer = $this->createStockTransfer($transactionRequest, $materialRequest, null, $fromStoreId);
+        foreach ($lpos as $lpo) {
+            $productId = $lpo->product_id;
+            $quantity = $lpo->quantity;
+
+            $this->createStockTransaction($centralStore->id, $productId, $engineerId, $quantity, $lpo->lpo_number, '', StockMovement::IN);
+            $this->stockTransferService->updateStock($centralStore->id, $productId, $quantity);
+            $transferItem = $this->stockTransferService->createStockTransferItem(
+                $stockTransfer->id,
+                $productId,
+                $quantity,
+                $quantity
+            );
+        }
+        $stockTransfer = $this->createStockTransfer($transactionRequest, $materialRequest, $fromStoreId, $toStoreId);
+
+        foreach ($products as $product) {
+            $productId = $product->product_id;
+            $quantity = $product->quantity;
+            $quantity = $product->quantity;
+            $materialRequestItemId = $product->material_request_item_id;
+            $this->createStockTransaction($centralStore->id, $productId, $engineerId, $quantity, "", '   $dnNumber', StockMovement::TRANSIT);
+            $this->stockTransferService->updateStock($centralStore->id, $productId, -abs($quantity));
+            $transferItem = $this->stockTransferService->createStockTransferItem(
+                $stockTransfer->id,
+                $productId,
+                $quantity,
+                $quantity
+            );
+
+            $this->stockTransferService->createStockInTransit(new StockInTransitData(
+                stockTransferId: $stockTransfer->id,
+                stockTransferItemId: $transferItem->id,
+                productId: $productId,
+                issuedQuantity: $quantity,
+                materialRequestId: $materialRequest->id,
+                materialRequestItemId: $materialRequestItemId,
+                materialReturnId: null,
+                materialReturnItemId: null
+            ));
+        }
+
+
+    }
+
+    public function createShipmentTransaction($shipment, $transferDnNumber)
     {
 
         $centralStore = Store::where('type', 'central')->firstOrFail();
@@ -121,7 +176,7 @@ class PurchaseRequestService
 
         $stockTransfer = $this->createStockTransfer($shipment, $materialRequest, $fromStoreId, $toStoreId);
         foreach ($shipmentItems as $shipmentItem) {
-            $this->processShipmentItem($shipmentItem, $centralStore, $lpo, $shipment, $materialRequest, $stockTransfer, $engineerId);
+            $this->processShipmentItem($shipmentItem, $centralStore, $lpo, $shipmentItem, $materialRequest, $stockTransfer, $engineerId, $transferDnNumber);
         }
     }
 
@@ -144,14 +199,14 @@ class PurchaseRequestService
         return $this->stockTransferService->createStockTransfer($stockTransferData);
     }
 
-    public function processShipmentItem($shipmentItem, $centralStore, $lpo, $shipment, $materialRequest, $stockTransfer, $engineerId)
+    public function processShipmentItem($shipmentItem, $centralStore, $lpo, $shipment, $materialRequest, $stockTransfer, $engineerId, $transferDnNumber)
     {
         $productId = $shipmentItem->product_id;
         $quantity = $shipmentItem->quantity_delivered;
 
         // Stock Transactions: IN & TRANSIT
         $this->createStockTransaction($centralStore->id, $productId, $engineerId, $quantity, $lpo->lpo_number, $shipment->dn_number, StockMovement::IN);
-        $this->createStockTransaction($centralStore->id, $productId, $engineerId, $quantity, $lpo->lpo_number, $shipment->dn_number, StockMovement::TRANSIT);
+        $this->createStockTransaction($centralStore->id, $productId, $engineerId, $quantity, $lpo->lpo_number, $transferDnNumber, StockMovement::TRANSIT);
 
         // Update Stock: IN then OUT
         $this->stockTransferService->updateStock($centralStore->id, $productId, $quantity);
@@ -204,7 +259,8 @@ class PurchaseRequestService
     {
         $request->validate([
             'lpo_id' => 'required|exists:lpos,id',
-            'dn_number' => 'required|string|max:255|unique:lpo_shipments,dn_number',
+            'lpo_dn_number' => 'required|string|max:255|unique:lpo_shipments,dn_number',
+            'dn_number' => 'required_if:initial_immediate_transfer,true|nullable|string|max:255',
             'remarks' => 'nullable|string|max:255',
             'initial_immediate_transfer' => 'required|boolean',
             'items' => 'required|array|min:1',
@@ -218,7 +274,7 @@ class PurchaseRequestService
     {
         return LpoShipment::create([
             'lpo_id' => $request->lpo_id,
-            'dn_number' => $request->dn_number,
+            'dn_number' => $request->lpo_dn_number,
             'remarks' => $request->remarks,
             'date' => $request->date,
             'status_id' => $request->initial_immediate_transfer ? StatusEnum::IN_TRANSIT : StatusEnum::ON_HOLD,

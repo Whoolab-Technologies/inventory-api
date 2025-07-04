@@ -70,7 +70,7 @@ Route::prefix('storekeeper')->group(function () {
             Route::get('/{id}', [PurchaseRequestController::class, 'show']);
             Route::post('/{id}/lpos', [PurchaseRequestController::class, 'createLpo']);
             Route::post('/{id}/shipments', [PurchaseRequestController::class, 'getShipments']);
-            Route::put('/{id}/update-lpo-status', [PurchaseRequestController::class, 'updateOnHoldShipments']);
+            Route::put('/{id}/complete-on-hold-transactions', [PurchaseRequestController::class, 'completeOnHoldShipments']);
 
         });
         Route::prefix('lpos')->group(function () {

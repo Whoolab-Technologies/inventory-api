@@ -48,9 +48,11 @@ class PurchaseRequest extends BaseModel
 
     public function getHasOnHoldShipmentAttribute()
     {
-        return $this->lpos
+        $hasOnholdShipments = $this->lpos
             ->flatMap->shipments
             ->contains('status_id', StatusEnum::ON_HOLD->value);
+        \Log::info("hasOnholdShipments " . $hasOnholdShipments);
+        return $hasOnholdShipments;
     }
 
 }
