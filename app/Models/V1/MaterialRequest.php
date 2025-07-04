@@ -103,7 +103,7 @@ class MaterialRequest extends BaseModel
     {
         return $this->purchaseRequests
             ->flatMap->lpos
-            ->flatMap->lpoShipments
-            ->contains('status_id', StatusEnum::ON_HOLD);
+            ->flatMap->shipments
+            ->contains('status_id', StatusEnum::ON_HOLD->value);
     }
 }

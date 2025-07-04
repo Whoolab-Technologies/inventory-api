@@ -3,7 +3,7 @@
 namespace App\Models\V1;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Support\Facades\Auth;
+use App\Enums\StatusEnum;
 class PurchaseRequest extends BaseModel
 {
     protected $table = 'purchase_requests';
@@ -11,7 +11,7 @@ class PurchaseRequest extends BaseModel
     protected $fillable = ['purchase_request_number', 'material_request_id', 'material_request_number', 'lpo', 'do', 'status_id'];
 
     use HasFactory;
-    protected $appends = ['created_datetime'];
+    protected $appends = ['created_datetime', 'has_on_hold_shipment'];
 
     public function getCreatedDateTimeAttribute()
     {
@@ -44,6 +44,13 @@ class PurchaseRequest extends BaseModel
     {
         return $this->hasMany(StockTransfer::class, 'request_id', 'material_request_id')
             ->where('request_type', 'PR');
+    }
+
+    public function getHasOnHoldShipmentAttribute()
+    {
+        return $this->lpos
+            ->flatMap->shipments
+            ->contains('status_id', StatusEnum::ON_HOLD->value);
     }
 
 }
