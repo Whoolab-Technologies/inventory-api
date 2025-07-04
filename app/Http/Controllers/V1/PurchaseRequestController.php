@@ -6,6 +6,9 @@ use App\Enums\StatusEnum;
 use App\Http\Controllers\Controller;
 use App\Models\V1\PurchaseRequest;
 use App\Models\V1\PurchaseRequestItem;
+use App\Models\V1\LpoShipment;
+use App\Models\V1\LpoShipmentItem;
+use App\Models\V1\MaterialRequestItem;
 use App\Models\V1\Lpo;
 use App\Services\Helpers;
 use App\Services\V1\PurchaseRequestService;
@@ -108,11 +111,13 @@ class PurchaseRequestController extends Controller
             $purchaseRequests = PurchaseRequest::with([
                 'status',
                 'prItems.product',
+                'lpos.status'
             ])
                 ->orderByDesc('id')
                 ->get();
             foreach ($purchaseRequests as $request) {
                 $request->items = $request->prItems;
+                unset($request->prItems);
             }
 
             // $purchaseRequests = $purchaseRequests->map(fn($pr) => $this->formatPurchaseRequest($pr));
@@ -235,6 +240,31 @@ class PurchaseRequestController extends Controller
             $response['lpo'] = $this->formatLpo($lpo);
 
             return Helpers::sendResponse(200, $response, 'LPO details retrieved successfully');
+        } catch (\Exception $e) {
+            return Helpers::sendResponse(500, null, 'Error retrieving LPO: ' . $e->getMessage());
+        }
+    }
+    public function getLpos(Request $request, )
+    {
+        try {
+            $query = Lpo::with(['items.product', 'supplier', 'status', 'shipments.status']);
+
+            if ($request->has('pr_id')) {
+                $query->where('pr_id', $request->input('pr_id'));
+            }
+
+            if ($request->has('shipment_status_id')) {
+                $statusId = $request->input('shipment_status_id');
+                $query->whereHas('shipments', function ($q) use ($statusId) {
+                    $q->where('status_id', $statusId);
+                });
+            }
+
+            $lpos = $query->get();
+            $lpos = $lpos->map(function ($lpo) {
+                return $this->formatLpo($lpo);
+            });
+            return Helpers::sendResponse(200, $lpos, 'LPO details retrieved successfully');
         } catch (\Exception $e) {
             return Helpers::sendResponse(500, null, 'Error retrieving LPO: ' . $e->getMessage());
         }
