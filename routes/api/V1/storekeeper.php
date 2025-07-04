@@ -14,11 +14,7 @@ use App\Http\Controllers\V1\LocationController;
 Route::prefix('storekeeper')->group(function () {
     Route::post('login', [StorekeeperAuthController::class, 'login']);
     Route::delete('fcm', [CommonController::class, 'removeFcmToken']);
-    Route::prefix('lpos')->group(function () {
-        Route::get('/{id}', [PurchaseRequestController::class, 'getLpo']);
-        Route::put('/{id}', [PurchaseRequestController::class, 'storeLpoShipment']);
 
-    });
 
     Route::middleware('auth:storekeeper')->group(function () {
         Route::post('logout', [StorekeeperAuthController::class, 'logout']);
@@ -70,10 +66,17 @@ Route::prefix('storekeeper')->group(function () {
 
 
         Route::prefix('prs')->group(function () {
-
             Route::get('/', [PurchaseRequestController::class, 'index']);
             Route::get('/{id}', [PurchaseRequestController::class, 'show']);
             Route::post('/{id}/lpos', [PurchaseRequestController::class, 'createLpo']);
+            Route::post('/{id}/shipments', [PurchaseRequestController::class, 'getShipments']);
+            Route::put('/{id}/update-lpo-status', [PurchaseRequestController::class, 'updateOnHoldShipments']);
+
+        });
+        Route::prefix('lpos')->group(function () {
+            Route::get('/', [PurchaseRequestController::class, 'getLpos']);
+            Route::get('/{id}', [PurchaseRequestController::class, 'getLpo']);
+            Route::put('/{id}', [PurchaseRequestController::class, 'storeLpoShipment']);
         });
 
     });

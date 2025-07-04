@@ -120,6 +120,7 @@ class PurchaseRequestController extends Controller
                 unset($request->prItems);
             }
 
+
             // $purchaseRequests = $purchaseRequests->map(fn($pr) => $this->formatPurchaseRequest($pr));
 
             return Helpers::sendResponse(200, $purchaseRequests, 'Purchase requests retrieved successfully');
@@ -352,6 +353,80 @@ class PurchaseRequestController extends Controller
             return Helpers::sendResponse(500, $e->getMessage());
         }
     }
+    public function updateOnHoldShipments(Request $request, $id)
+    {
+        \DB::beginTransaction();
+
+        try {
+            $purchaseRequest = PurchaseRequest::with([
+                'lpos.shipments' => function ($query) {
+                    $query->where('status_id', StatusEnum::ON_HOLD);
+                }
+            ])->findOrFail($id);
+
+            // Pre-fetch MaterialRequestItems for product mapping
+            $materialRequestItems = MaterialRequestItem::where('material_request_id', $purchaseRequest->material_request_id)
+                ->get()
+                ->keyBy('product_id');
+
+            $lpoProductData = [];
+            $allShipments = [];
+
+            foreach ($purchaseRequest->lpos as $lpo) {
+
+                $productTotals = [];
+
+                foreach ($lpo->shipments as $shipment) {
+                    $allShipments[] = $shipment;
+
+                    foreach ($shipment->items as $item) {
+
+                        $productId = $item->product_id;
+                        $materialRequestItemId = $materialRequestItems[$productId]->id ?? null;
+
+                        if (!isset($productTotals[$productId])) {
+                            $productTotals[$productId] = [
+                                'product_id' => $productId,
+                                'material_request_item_id' => $materialRequestItemId,
+                                'quantity' => 0
+                            ];
+                        }
+
+                        $productTotals[$productId]['quantity'] += $item->quantity_delivered;
+                    }
+                }
+
+                if (!empty($productTotals)) {
+                    $lpoProductData[] = [
+                        'lpo_id' => $lpo->id,
+                        'lpo_number' => $lpo->lpo_number,
+                        'products' => array_values($productTotals)
+                    ];
+                }
+            }
+
+            // Final Transaction Payload
+            $transactionRequest = [
+                'dn_number' => $request->dn_number,
+                'material_request' => $purchaseRequest->materialRequest,
+                'engineer' => $purchaseRequest->materialRequest->engineer,
+                'lpos' => $lpoProductData
+            ];
+
+            // foreach ($allShipments as $shipment) {
+            //     $shipment->update(['status_id' => StatusEnum::COMPLETED]);
+            // }
+
+            \DB::commit();
+
+            return Helpers::sendResponse(200, $transactionRequest, 'Grouped product data with LPOs and items');
+
+        } catch (\Throwable $e) {
+            \DB::rollBack();
+            return Helpers::sendResponse(500, [], $e->getMessage());
+        }
+    }
+
 
     // public function storeLpoShipment(Request $request, $id)
     // {
