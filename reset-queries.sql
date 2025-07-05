@@ -26,7 +26,7 @@ TRUNCATE TABLE purchase_request_items;
 
 TRUNCATE TABLE lpos;
 TRUNCATE TABLE lpo_items;
-
+TRUNCATE table locations;
 TRUNCATE TABLE lpo_shipments;
 TRUNCATE TABLE lpo_shipment_items
 -- ------ for development purpose -----
