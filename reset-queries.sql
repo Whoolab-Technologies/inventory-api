@@ -7,6 +7,7 @@ TRUNCATE TABLE material_request_stock_transfers;
 TRUNCATE TABLE material_returns;
 TRUNCATE TABLE material_return_details;
 TRUNCATE TABLE material_return_items;
+
 TRUNCATE TABLE stock;
 TRUNCATE TABLE stock_in_transit;
 TRUNCATE TABLE stock_transfers;
@@ -18,6 +19,15 @@ TRUNCATE TABLE stock_transfer_notes;
 
 TRUNCATE TABLE material_requests;
 TRUNCATE TABLE material_request_items;
+
+TRUNCATE TABLE purchase_requests;
+TRUNCATE TABLE purchase_request_items;
+
+TRUNCATE TABLE lpos;
+TRUNCATE TABLE lpo_items
+
+TRUNCATE TABLE lpo_shipments;
+TRUNCATE TABLE lpo_shipment_items
 -- ------ for development purpose -----
 
 ALTER TABLE `inventory_dispatches` CHANGE `delivery_note_number` `dn_number` TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL;

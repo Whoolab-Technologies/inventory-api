@@ -172,7 +172,8 @@ class PurchaseRequestController extends Controller
             'prItems.lpoItems.lpo',
             'lpos.supplier',
             'lpos.status',
-            'lpos.items.product'
+            'lpos.items.product',
+            'lpos.shipments.status'
         ];
     }
 
@@ -327,7 +328,7 @@ class PurchaseRequestController extends Controller
                 'purchaseRequest' => $purchaseRequest,
                 'lpo' => $this->formatLpo($lpo)
             ];
-
+            \Log::info("Return resposne", ["Purchase Request" => $purchaseRequest, "lpo" => $this->formatLpo($lpo)]);
             \DB::commit();
             return Helpers::sendResponse(200, $response, 'Shipment created successfully');
 
@@ -399,11 +400,15 @@ class PurchaseRequestController extends Controller
             });
             $purchaseRequest = $this->getFormatedPurchaseRequest($id);
             $response['purchaseRequest'] = $purchaseRequest;
+            \Log::info("Return resposne", ["Purchase Request" => $purchaseRequest,]);
+
             \DB::commit();
             return Helpers::sendResponse(200, $response, '');
 
         } catch (\Throwable $e) {
             \DB::rollBack();
+            \Log::info("BULK TRANSFER FAILED", ["ERROR" => $e->getMessage()]);
+
             return Helpers::sendResponse(500, [], $e->getMessage());
         }
     }

@@ -130,6 +130,8 @@ class PurchaseRequestService
         $fromStoreId = $centralStore->id;
         $engineerId = $materialRequest->engineer_id;
         $toStoreId = $materialRequest->store_id;
+        $lpo = new \stdClass();
+        $lpo->lpo_number = "";
         $this->processStockTransferAndShipmentItems(
             $shipmentItems,
             $dnNumber,
@@ -137,7 +139,7 @@ class PurchaseRequestService
             $fromStoreId,
             $toStoreId,
             $centralStore,
-            null,
+            $lpo,
             $engineerId
         );
 
@@ -247,10 +249,10 @@ class PurchaseRequestService
         $productId = $shipmentItem->product_id;
         $quantity = $shipmentItem->quantity_delivered;
 
-        // Stock Transactions: IN & TRANSIT
+        // Stock Transactions: OUT
         $this->createStockTransaction($centralStore->id, $productId, $engineerId, $quantity, $lpo->lpo_number, $transferDnNumber, StockMovement::TRANSIT);
 
-        // Update Stock: IN then OUT
+        // Update Stock: OUT 
         $this->stockTransferService->updateStock($centralStore->id, $productId, -abs($quantity));
 
         // Create Transfer Item

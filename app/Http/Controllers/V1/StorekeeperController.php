@@ -1070,6 +1070,7 @@ class StorekeeperController extends Controller
                 'status',
                 'materialRequest.status',
                 'transactions.status',
+                'transactions.items.product',
                 'items.product'
 
             ])
