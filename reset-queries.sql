@@ -9,6 +9,7 @@ TRUNCATE TABLE material_return_details;
 TRUNCATE TABLE material_return_items;
 
 TRUNCATE TABLE stock;
+TRUNCATE TABLE stock_metas;
 TRUNCATE TABLE stock_in_transit;
 TRUNCATE TABLE stock_transfers;
 TRUNCATE TABLE stock_transactions;
@@ -24,7 +25,7 @@ TRUNCATE TABLE purchase_requests;
 TRUNCATE TABLE purchase_request_items;
 
 TRUNCATE TABLE lpos;
-TRUNCATE TABLE lpo_items
+TRUNCATE TABLE lpo_items;
 
 TRUNCATE TABLE lpo_shipments;
 TRUNCATE TABLE lpo_shipment_items

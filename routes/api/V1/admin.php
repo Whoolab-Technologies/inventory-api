@@ -7,6 +7,7 @@ use App\Http\Controllers\V1\EngineerController;
 use App\Http\Controllers\V1\ReportsController;
 use App\Http\Controllers\V1\StockController;
 
+use App\Http\Controllers\V1\SupplierController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\V1\AdminAuthController;
 use App\Http\Controllers\V1\StorekeeperController;
@@ -111,5 +112,12 @@ Route::prefix('admin')->group(function () {
             Route::get('consumption', [ReportsController::class, 'consumptionReport']);
             Route::post('export', [ReportsController::class, 'genericExcelExport']);
         });
+
+
+        Route::post('suppliers', [SupplierController::class, 'store']);
+        Route::get('suppliers', [SupplierController::class, 'index']);
+        Route::get('suppliers/{id}', [SupplierController::class, 'show']);
+        Route::put('suppliers/{id}', [SupplierController::class, 'update']);
+        Route::delete('suppliers/{id}', [SupplierController::class, 'destroy']);
     });
 });
