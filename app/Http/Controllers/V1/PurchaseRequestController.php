@@ -398,6 +398,8 @@ class PurchaseRequestController extends Controller
                 $lpo->status_id = 7;
                 $lpo->save();
             });
+            $materialRequest->status_id = StatusEnum::IN_TRANSIT->value;
+            $materialRequest->save();
             $purchaseRequest = $this->getFormatedPurchaseRequest($id);
             $response['purchaseRequest'] = $purchaseRequest;
             \Log::info("Return resposne", ["Purchase Request" => $purchaseRequest,]);
@@ -413,4 +415,27 @@ class PurchaseRequestController extends Controller
         }
     }
 
+
+    public function getShipment(Request $request, $id)
+    {
+        try {
+            $shipment = LpoShipment::with(['status', 'items.product'])->findOrFail($id);
+            return Helpers::sendResponse(200, $shipment, '');
+        } catch (\Throwable $e) {
+            return Helpers::sendResponse(500, [], $e->getMessage());
+        }
+    }
+    public function updateShipment(Request $request, $id)
+    {
+        try {
+            $shipments = LpoShipment::where('id', $id)->get();
+            $shipment = LpoShipment::findOrFail($id);
+
+            $shipment->status_id = StatusEnum::COMPLETED->value;
+            $shipment->save();
+            return Helpers::sendResponse(200, $shipment->load(['status', 'items.product']), '');
+        } catch (\Throwable $e) {
+            return Helpers::sendResponse(500, [], $e->getMessage());
+        }
+    }
 }

@@ -158,6 +158,8 @@ class PurchaseRequestService
 
         $this->processSupplierToCentralTransfer($shipment, $materialRequest, $centralStore, $lpo, $engineerId);
         $this->processStockTransferAndShipmentItems($shipmentItems, $transferDnNumber, $materialRequest, $fromStoreId, $toStoreId, $centralStore, $lpo, $engineerId);
+        $materialRequest->status_id = StatusEnum::IN_TRANSIT->value;
+        $materialRequest->save();
     }
 
     private function processStockTransferAndShipmentItems($shipmentItems, $transferDnNumber, $materialRequest, $fromStoreId, $toStoreId, $centralStore, $lpo, $engineerId)

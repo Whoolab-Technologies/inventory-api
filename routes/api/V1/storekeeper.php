@@ -78,6 +78,12 @@ Route::prefix('storekeeper')->group(function () {
             Route::get('/{id}', [PurchaseRequestController::class, 'getLpo']);
             Route::put('/{id}', [PurchaseRequestController::class, 'storeLpoShipment']);
         });
+        Route::prefix('shipments')->group(function () {
+            Route::get('/', [PurchaseRequestController::class, 'getShipments']);
+            Route::get('/{id}', [PurchaseRequestController::class, 'getShipment']);
+            Route::put('/{id}', [PurchaseRequestController::class, 'updateShipment']);
+            //  Route::put('/{id}', [PurchaseRequestController::class, 'storeLpoShipment']);
+        });
 
     });
 });

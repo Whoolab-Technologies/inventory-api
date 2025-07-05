@@ -58,7 +58,7 @@ class EngineerController extends Controller
             ]);
             return Helpers::sendResponse(
                 status: 200,
-                data: $engineer,
+                data: $engineer->load('department'),
                 messages: 'Shopkeeper registered successfully',
             );
         } catch (\Throwable $th) {

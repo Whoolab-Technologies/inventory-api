@@ -290,99 +290,30 @@ class TransactionService
     public function updateTransaction(Request $request, int $id)
     {
         \DB::beginTransaction();
+
         try {
-            if (empty($request->items)) {
-                throw new \Exception('Invalid items data');
-            } else {
-                $request->items = json_decode($request->items);
-            }
-
-            foreach ($request->items as $item) {
-                if (!isset($item->received_quantity)) {
-                    throw new \Exception('Missing quantity');
-                }
-            }
-
+            $items = $this->validateAndParseItems($request);
+            $request->items = $items;
             $stockTransfer = StockTransfer::findOrFail($id);
             $user = auth()->user();
             $role = ($user->load('store'))->is_central_store ? TransferPartyRole::CENTRAL_STORE : TransferPartyRole::SITE_STORE;
+
             $stockTransfer = $this->stockTransferService->updateStockTransfer(
                 $id,
                 StatusEnum::COMPLETED,
                 $user->id,
                 $role
             );
-            if (!empty($request->note)) {
-                $stockTransferNote = new StockTransferNote();
-                $stockTransferNote->stock_transfer_id = $stockTransfer->id;
-                $stockTransferNote->material_request_id = $stockTransfer->request_id;
-                $stockTransferNote->notes = $request->note;
-                $stockTransferNote->save();
-            }
+            $this->storeTransferNote($request, $stockTransfer);
 
-            if (!empty($request->images) && is_array($request->images)) {
-                foreach ($request->images as $image) {
-                    $mimeType = $image->getMimeType();
-                    $imagePath = Helpers::uploadFile($image, "images/stock-transfer/$id");
+            $this->storeTransferImages($request, $stockTransfer);
 
-                    $stockTransferFile = new StockTransferFile();
-                    $stockTransferFile->file = $imagePath;
-                    $stockTransferFile->file_mime_type = $mimeType;
-                    $stockTransferFile->stock_transfer_id = $id;
-                    $stockTransferFile->material_request_id = $stockTransfer->request_id;
-                    $stockTransferFile->transaction_type = "receive";
-                    $stockTransferFile->save();
 
-                }
-            }
             $this->updateStock($request, $stockTransfer);
-
-            // $isPartiallyReceived = false;
-            // foreach ($stockTransfer->items as $item) {
-            //     if ($item->received_quantity == 0 || $item->received_quantity < $item->issued_quantity) {
-            //         $isPartiallyReceived = true;
-            //         break;
-            //     }
-            // }
-            // $materialRequest = $stockTransfer->materialRequest;
-            // $materialRequest->status_id = $isPartiallyReceived ? StatusEnum::PARTIALLY_RECEIVED : StatusEnum::COMPLETED;
-            // $materialRequest->save();
-            $hasMissing = false;
-            $hasPartialReceived = false;
-
-            $stockTransferItems = $stockTransfer->items->keyBy('product_id');
-            $materialRequest = $stockTransfer->materialRequest;
-            foreach ($materialRequest->items as $item) {
-                $productId = $item->product_id;
-                $requestedQuantity = $item->quantity;
-
-                $stockTransferItem = $stockTransferItems[$productId] ?? null;
-
-                $issuedQuantity = $stockTransferItem?->issued_quantity ?? 0;
-                $receivedQuantity = $stockTransferItem?->received_quantity ?? 0;
-
-                // Product missing entirely or issued partially
-                if (!$stockTransferItem || $issuedQuantity < $requestedQuantity) {
-                    $hasMissing = true;
-                    break;
-                }
-
-                // Product issued fully but received partially
-                if ($receivedQuantity < $issuedQuantity) {
-                    $hasPartialReceived = true;
-                }
-            }
-
-            if ($hasMissing) {
-                $materialRequest->status_id = StatusEnum::AWAITING_PROC->value;
-            } elseif ($hasPartialReceived) {
-                $materialRequest->status_id = StatusEnum::PARTIALLY_RECEIVED->value;
-            } else {
-                $materialRequest->status_id = StatusEnum::COMPLETED->value;
-            }
-
-            $materialRequest->save();
             $stockTransfer->save();
+            $stockTransfer->refresh();
+
+            $this->updateMaterialRequestStatus($stockTransfer);
 
             \DB::commit();
 
@@ -393,6 +324,269 @@ class TransactionService
             throw $e;
         }
     }
+    private function updateMaterialRequestStatus($stockTransfer)
+    {
+        $materialRequest = $stockTransfer->materialRequest;
+
+        // Step 1: Calculate total received quantities across all transfers
+        $allStockTransfers = $materialRequest->stockTransfers()
+            ->with('items')
+            ->where('transaction_type', TransactionType::CS_SS->value)
+            ->get();
+
+        $receivedQuantities = $this->calculateTotalReceivedQuantities($allStockTransfers);
+
+        $hasMissing = $this->checkForMissingItems($materialRequest, $receivedQuantities);
+
+        // Step 2: Check partial received in current transaction
+        $hasPartialReceived = $this->checkPartialReceivedInCurrentTransfer($stockTransfer);
+
+        // Step 3: Decide final status
+        if ($hasMissing) {
+            $materialRequest->status_id = StatusEnum::AWAITING_PROC->value;
+        } elseif ($hasPartialReceived) {
+            $materialRequest->status_id = StatusEnum::PARTIALLY_RECEIVED->value;
+        } else {
+            $materialRequest->status_id = StatusEnum::COMPLETED->value;
+        }
+
+        $materialRequest->save();
+    }
+    private function checkPartialReceivedInCurrentTransfer($stockTransfer)
+    {
+        foreach ($stockTransfer->items as $transferItem) {
+            $productId = $transferItem->product_id;
+            $issuedQuantity = $transferItem->issued_quantity;
+            $receivedQuantity = $transferItem->received_quantity;
+
+            if ($receivedQuantity < $issuedQuantity) {
+                \Log::notice("Partial received in current transfer for product_id: {$productId}");
+                return true; // Partial received found in current transfer
+            }
+        }
+
+        return false; // All items fully received in this transfer
+    }
+
+    private function checkForMissingItems($materialRequest, $receivedQuantities)
+    {
+        foreach ($materialRequest->items as $item) {
+            $productId = $item->product_id;
+            $requestedQuantity = $item->quantity;
+            $totalReceived = $receivedQuantities[$productId] ?? 0;
+
+
+            if ($totalReceived < $requestedQuantity) {
+                \Log::warning("Missing or insufficient received quantity for product_id: {$productId}");
+                return true; // Missing items found
+            }
+        }
+
+        return false; // All items fully received
+    }
+
+    private function calculateTotalReceivedQuantities($allStockTransfers)
+    {
+        $receivedQuantities = [];
+
+        foreach ($allStockTransfers as $transfer) {
+            foreach ($transfer->items as $transferItem) {
+                $productId = $transferItem->product_id;
+                \Log::info('Transfer Item', [
+                    "product_id" => $productId,
+                    "received_quantity" => $transferItem->received_quantity
+                ]);
+
+                $receivedQuantities[$productId] = ($receivedQuantities[$productId] ?? 0) + $transferItem->received_quantity;
+            }
+        }
+
+        \Log::info('Final Received Quantities', [
+            'receivedQuantities' => $receivedQuantities
+        ]);
+
+        return $receivedQuantities;
+    }
+
+    private function storeTransferImages(Request $request, $stockTransfer)
+    {
+        if (empty($request->images) || !is_array($request->images)) {
+            return;
+        }
+
+        foreach ($request->images as $image) {
+            $mimeType = $image->getMimeType();
+            $imagePath = Helpers::uploadFile($image, "images/stock-transfer/{$stockTransfer->id}");
+
+            StockTransferFile::create([
+                'file' => $imagePath,
+                'file_mime_type' => $mimeType,
+                'stock_transfer_id' => $stockTransfer->id,
+                'material_request_id' => $stockTransfer->request_id,
+                'transaction_type' => "receive",
+            ]);
+        }
+    }
+
+    private function storeTransferNote(Request $request, $stockTransfer)
+    {
+        if (empty($request->note)) {
+            return;
+        }
+
+        StockTransferNote::create([
+            'stock_transfer_id' => $stockTransfer->id,
+            'material_request_id' => $stockTransfer->request_id,
+            'notes' => $request->note,
+        ]);
+    }
+
+    private function validateAndParseItems(Request $request)
+    {
+        if (empty($request->items)) {
+            throw new \Exception('Invalid items data');
+        }
+
+        $items = json_decode($request->items);
+
+        if (empty($items) || !is_array($items)) {
+            throw new \Exception('Invalid items data');
+        }
+
+        foreach ($items as $item) {
+            if (!isset($item->received_quantity)) {
+                throw new \Exception('Missing quantity');
+            }
+        }
+
+        return $items;
+    }
+
+
+    // public function updateTransaction(Request $request, int $id)
+    // {
+    //     \DB::beginTransaction();
+    //     try {
+    //         if (empty($request->items)) {
+    //             throw new \Exception('Invalid items data');
+    //         } else {
+    //             $request->items = json_decode($request->items);
+    //         }
+
+    //         foreach ($request->items as $item) {
+    //             if (!isset($item->received_quantity)) {
+    //                 throw new \Exception('Missing quantity');
+    //             }
+    //         }
+
+    //         $stockTransfer = StockTransfer::findOrFail($id);
+    //         $user = auth()->user();
+    //         $role = ($user->load('store'))->is_central_store ? TransferPartyRole::CENTRAL_STORE : TransferPartyRole::SITE_STORE;
+    //         $stockTransfer = $this->stockTransferService->updateStockTransfer(
+    //             $id,
+    //             StatusEnum::COMPLETED,
+    //             $user->id,
+    //             $role
+    //         );
+    //         if (!empty($request->note)) {
+    //             $stockTransferNote = new StockTransferNote();
+    //             $stockTransferNote->stock_transfer_id = $stockTransfer->id;
+    //             $stockTransferNote->material_request_id = $stockTransfer->request_id;
+    //             $stockTransferNote->notes = $request->note;
+    //             $stockTransferNote->save();
+    //         }
+
+    //         if (!empty($request->images) && is_array($request->images)) {
+    //             foreach ($request->images as $image) {
+    //                 $mimeType = $image->getMimeType();
+    //                 $imagePath = Helpers::uploadFile($image, "images/stock-transfer/$id");
+
+    //                 $stockTransferFile = new StockTransferFile();
+    //                 $stockTransferFile->file = $imagePath;
+    //                 $stockTransferFile->file_mime_type = $mimeType;
+    //                 $stockTransferFile->stock_transfer_id = $id;
+    //                 $stockTransferFile->material_request_id = $stockTransfer->request_id;
+    //                 $stockTransferFile->transaction_type = "receive";
+    //                 $stockTransferFile->save();
+
+    //             }
+    //         }
+    //         $this->updateStock($request, $stockTransfer);
+    //         $stockTransfer->save();
+    //         $stockTransfer->refresh();
+    //         $this->updateMaterialRequestStatus($stockTransfer);
+
+    //         \DB::commit();
+
+    //         return $stockTransfer;
+
+    //     } catch (\Throwable $e) {
+    //         \DB::rollBack();
+    //         throw $e;
+    //     }
+    // }
+
+    // private function updateMaterialRequestStatus($stockTransfer)
+    // {
+
+    //     $materialRequest = $stockTransfer->materialRequest;
+
+    //     $allStockTransfers = $materialRequest->stockTransfers()
+    //         ->with('items')
+    //         ->where('transaction_type', TransactionType::CS_SS->value)
+    //         ->get();
+
+    //     $receivedQuantities = [];
+    //     $transferCounts = [];
+
+    //     foreach ($allStockTransfers as $transfer) {
+    //         foreach ($transfer->items as $transferItem) {
+    //             $productId = $transferItem->product_id;
+    //             \Log::info('transferItem ', ["productId" => $productId, 'received_quantity', $transferItem->received_quantity]);
+    //             $receivedQuantities[$productId] = ($receivedQuantities[$productId] ?? 0) + $transferItem->received_quantity;
+    //             $transferCounts[$productId] = ($transferCounts[$productId] ?? 0) + 1;
+    //         }
+    //     }
+    //     \Log::info('final receivedQuantities', [
+    //         'receivedQuantities' => $receivedQuantities
+    //     ]);
+    //     $hasMissing = false;
+    //     $hasPartialReceived = false;
+
+    //     foreach ($materialRequest->items as $item) {
+    //         $productId = $item->product_id;
+    //         $requestedQuantity = $item->quantity;
+    //         $totalReceived = $receivedQuantities[$productId] ?? 0;
+    //         $transferCount = $transferCounts[$productId] ?? 0;
+
+    //         \Log::info("Checking Product", [
+    //             'product_id' => $productId,
+    //             'requested_quantity' => $requestedQuantity,
+    //             'total_received_quantity' => $totalReceived,
+    //             'transfer_count' => $transferCount
+    //         ]);
+
+    //         if ($totalReceived < $requestedQuantity) {
+    //             \Log::warning("Missing or insufficient received quantity for product_id: {$productId}");
+    //             $hasMissing = true;
+    //             break;
+    //         }
+
+    //         if ($transferCount > 1) {
+    //             $hasPartialReceived = true;
+    //         }
+    //     }
+
+    //     if ($hasMissing) {
+    //         $materialRequest->status_id = StatusEnum::AWAITING_PROC->value;
+    //     } elseif ($hasPartialReceived) {
+    //         $materialRequest->status_id = StatusEnum::PARTIALLY_RECEIVED->value;
+    //     } else {
+    //         $materialRequest->status_id = StatusEnum::COMPLETED->value;
+    //     }
+
+    //     $materialRequest->save();
+    // }
 
     private function updateStock(Request $request, StockTransfer $stockTransfer)
     {
@@ -422,9 +616,6 @@ class TransactionService
                 $toStoreQuery->where('engineer_id', $engineerId);
             } else {
             }
-
-            //    $toStoreStocks = $toStoreQuery->get()->keyBy('product_id');
-
             foreach ($request->items as $item) {
                 $productId = $item->product_id;
                 $newReceivedQuantity = $item->received_quantity;
