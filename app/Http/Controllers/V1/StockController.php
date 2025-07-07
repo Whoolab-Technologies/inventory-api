@@ -68,7 +68,7 @@ class StockController extends Controller
             $stockMeta->store_id = $request->store_id;
             $stockMeta->product_id = $request->product_id;
             $stockMeta->quantity = $quantityChange;
-            $stockMeta->supplier = $request->supplier;
+            $stockMeta->supplier_id = $request->supplier_id;
             $stockMeta->lpo = $request->lpo;
             $stockMeta->dn_number = $request->dn_number;
 

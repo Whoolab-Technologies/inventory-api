@@ -149,4 +149,4 @@ php artisan make:migration create_lpo_shipments_table --create=lpo_shipments --p
 php artisan make:model V1/LpoItems
 php artisan make:controller V1/SupplierController
 
-php artisan make:migration add_fields_table --table=purchase_requests --path=database/migrations/V1/pr
+php artisan make:migration add_supplier_id_to_stock_metas --table=stock_metas --path=database/migrations/V1/pr
