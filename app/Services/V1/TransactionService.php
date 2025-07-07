@@ -643,7 +643,7 @@ class TransactionService
                 }
 
                 // Add received quantity to toStore
-                $toStock = $this->stockTransferService->updateStock($toStoreId, $productId, $newReceivedQuantity);
+                $toStock = $this->stockTransferService->updateStock($toStoreId, $productId, $newReceivedQuantity, $engineerId);
 
                 // Update stock transfer item
                 $this->stockTransferService->updateStockTransferItem($item->id, $newReceivedQuantity);

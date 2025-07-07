@@ -427,15 +427,44 @@ class PurchaseRequestController extends Controller
     }
     public function updateShipment(Request $request, $id)
     {
-        try {
-            $shipments = LpoShipment::where('id', $id)->get();
-            $shipment = LpoShipment::findOrFail($id);
+        \DB::beginTransaction();
 
+        try {
+            $shipment = LpoShipment::with(['lpo.purchaseRequest.materialRequest', 'items'])->findOrFail($id);
+
+            $lpo = $shipment->lpo;
+            $purchaseRequest = $lpo->purchaseRequest;
+            $materialRequest = $purchaseRequest->materialRequest;
+
+            $this->purchaseRequestService->updateOnHoldSupplierToCentralTransctions(
+                $shipment,
+                $materialRequest
+            );
+
+            $this->purchaseRequestService->updateOnHoldCentralToSiteTransctions(
+                $shipment->items,
+                $materialRequest,
+                $request->dn_number ?? $shipment->dn_number
+            );
+
+            $lpo->status_id = StatusEnum::COMPLETED->value;
             $shipment->status_id = StatusEnum::COMPLETED->value;
+            $materialRequest->status_id = StatusEnum::IN_TRANSIT->value;
+
+            $lpo->save();
             $shipment->save();
+            $materialRequest->save();
+
+            $this->purchaseRequestService->updatePurchaseRequestStatusComplete($purchaseRequest->id);
+
+            \DB::commit();
+
             return Helpers::sendResponse(200, $shipment->load(['status', 'items.product']), '');
+
         } catch (\Throwable $e) {
+            \DB::rollBack();
             return Helpers::sendResponse(500, [], $e->getMessage());
         }
     }
+
 }

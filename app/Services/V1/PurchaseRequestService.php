@@ -112,6 +112,9 @@ class PurchaseRequestService
     {
         $centralStore = Store::where('type', 'central')->firstOrFail();
         $engineerId = $materialRequest->engineer_id;
+        if (!is_iterable($shipments)) {
+            $shipments = [$shipments];
+        }
         foreach ($shipments as $shipment) {
             $lpo = $shipment->lpo;
             $this->processSupplierToCentralTransfer(
@@ -122,7 +125,6 @@ class PurchaseRequestService
                 $engineerId
             );
         }
-
     }
     public function updateOnHoldCentralToSiteTransctions($shipmentItems, $materialRequest, $dnNumber)
     {
@@ -353,9 +355,9 @@ class PurchaseRequestService
         }
     }
 
-    public function updatePurchaseRequestStatusComplete($id)
+    public function updatePurchaseRequestStatusComplete($purchaseRequestId)
     {
-        $pr = PurchaseRequest::findOrFail($id);
+        $pr = PurchaseRequest::findOrFail($purchaseRequestId);
 
         $allItemsReceived = $pr->prItems->every(function ($prItem) {
             $totalReceived = $prItem->lpoItems->sum('received_quantity');

@@ -81,6 +81,12 @@ class StockTransferService
 
     public function updateStock($storeId, $productId, $quantityChange, $engineerId = 0)
     {
+        \Log::info("On Update stock", [
+            "storeId" => $storeId,
+            "productId" => $productId,
+            "quantityChange" => $quantityChange,
+            "engineerId" => $engineerId,
+        ]);
         $store = Store::findOrFail($storeId);
 
         if ($store->is_central_store) {
@@ -99,6 +105,7 @@ class StockTransferService
 
         $stock->quantity += $quantityChange;
         $stock->save();
+        \Log::info("Stock after update", ["stock" => $stock]);
         return $stock;
     }
     public function getOrCreateStock($storeId, $productId, $engineerId = 0)
