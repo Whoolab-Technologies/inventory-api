@@ -550,6 +550,10 @@ class StorekeeperController extends Controller
                     $transfer->engineer = $transfer->purchaseRequest->materialRequest->engineer;
                     $transfer->purchaseRequests = $transfer->purchaseRequest->purchaseRequests;
                 }
+                if ($transfer->request_type == "DISPATCH" && $transfer->request_id > 0 && $transfer->pickup) {
+                    $transfer->engineer = $transfer->pickup->engineer;
+                    //  $transfer->purchaseRequests = $transfer->purchaseRequest->purchaseRequests;
+                }
                 // Notes Mapping
                 $transfer->notes = $transfer->notes->map(function ($item) {
                     $createBy = $item->createdBy;

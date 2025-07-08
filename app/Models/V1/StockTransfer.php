@@ -24,7 +24,7 @@ class StockTransfer extends BaseModel
     ];
 
     protected $hidden = ['created_by', 'created_type', 'updated_by', 'updated_type', 'created_at', 'updated_at'];
-
+    protected $appends = ['date'];
     protected static function booted()
     {
         static::creating(function ($model) {
@@ -119,5 +119,13 @@ class StockTransfer extends BaseModel
     public function purchaseRequest()
     {
         return $this->belongsTo(PurchaseRequest::class, 'request_id', 'material_request_id');
+    }
+    public function pickup()
+    {
+        return $this->belongsTo(InventoryDispatch::class, 'request_id', 'id');
+    }
+    public function getDateAttribute()
+    {
+        return $this->created_at ? $this->created_at->format('Y-m-d H:i a') : null;
     }
 }
