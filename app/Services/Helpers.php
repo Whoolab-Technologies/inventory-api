@@ -29,7 +29,7 @@ class Helpers
             'data' => $data,
         ];
 
-        return response()->json($response, $statusCode, [], JSON_NUMERIC_CHECK);
+        return response()->json($response, $statusCode, [], JSON_PRESERVE_ZERO_FRACTION);
     }
 
     static public function uploadFile($file, $destination)

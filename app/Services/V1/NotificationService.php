@@ -103,10 +103,15 @@ class NotificationService
     }
     public function sendNotificationOnMaterialIssued($materialRequest)
     {
+
         $transaction = StockTransfer::
             where('request_id', $materialRequest->id)
             ->where('request_type', RequestType::MR)
             ->latest('id')->first();
+        if (!$transaction) {
+            \Log::warning("No stock transfer found for material request ID {$materialRequest->id}");
+            return;
+        }
 
         $engineer = $materialRequest->engineer;
         $transactionNumber = $transaction->transaction_number;

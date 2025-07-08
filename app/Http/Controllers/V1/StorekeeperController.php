@@ -447,12 +447,15 @@ class StorekeeperController extends Controller
     public function createTransaction(Request $request)
     {
         try {
+            \DB::beginTransaction();
             $materialRequest = $this->transactionService->createTransaction($request);
             $this->notificationService->sendNotificationOnMaterialIssued($materialRequest);
             $materialRequest = $this->mapStockItemsProduct($materialRequest);
+            \DB::commit();
             return Helpers::sendResponse(200, $materialRequest, 'Transaction created successfully');
 
         } catch (\Throwable $th) {
+            \DB::rollBack();
             return Helpers::sendResponse(500, [], $th->getMessage());
         }
     }

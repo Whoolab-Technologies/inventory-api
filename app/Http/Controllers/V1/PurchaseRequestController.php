@@ -14,7 +14,7 @@ use App\Services\Helpers;
 use App\Services\V1\PurchaseRequestService;
 use Illuminate\Http\Request;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
-
+use Carbon\Carbon;
 class PurchaseRequestController extends Controller
 {
     protected $purchaseRequestService;
@@ -107,14 +107,36 @@ class PurchaseRequestController extends Controller
 
     public function index(Request $request)
     {
+
+
+        $search = $request->input('search');
+        $statusId = $request->input('status_id');
+        $storeId = $request->input('store_id');
+        $engineerId = $request->input('engineer_id');
+        $dateFrom = $request->input('date_from');
+        $dateTo = $request->input('date_to');   // string (Y-m-d) or null
+
         try {
+            $dateFrom = $request->input('date_from');
+            $dateTo = $request->input('date_to');
+
+            if ($dateFrom) {
+                $dateFrom = Carbon::parse($dateFrom)->format('Y-m-d');
+            }
+
+            if ($dateTo) {
+                $dateTo = Carbon::parse($dateTo)->format('Y-m-d');
+            }
+
             $purchaseRequests = PurchaseRequest::with([
                 'status',
                 'prItems.product',
                 'lpos.status'
             ])
+                ->search($search, $statusId, $dateFrom, $dateTo, $storeId, $engineerId)
                 ->orderByDesc('id')
                 ->get();
+
             foreach ($purchaseRequests as $request) {
                 $request->items = $request->prItems;
                 unset($request->prItems);
@@ -242,7 +264,7 @@ class PurchaseRequestController extends Controller
                 ->findOrFail($id);
 
             $response['lpo'] = $this->formatLpo($lpo);
-
+            \Log::info("message", ['lpo' => $response['lpo']]);
             return Helpers::sendResponse(200, $response, 'LPO details retrieved successfully');
         } catch (\Exception $e) {
             return Helpers::sendResponse(500, null, 'Error retrieving LPO: ' . $e->getMessage());

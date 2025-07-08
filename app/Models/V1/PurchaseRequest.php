@@ -53,5 +53,60 @@ class PurchaseRequest extends BaseModel
             ->contains('status_id', StatusEnum::ON_HOLD->value);
         return $hasOnholdShipments;
     }
+    public function scopeSearch($query, $search = null, $statusId = null, $dateFrom = null, $dateTo = null, $storeId = null, $engineerId = null)
+    {
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('purchase_request_number', 'LIKE', "%{$search}%")
+                    ->orWhere('material_request_number', 'LIKE', "%{$search}%")
+                    ->orWhereHas('materialRequest', function ($q2) use ($search) {
+                        $q2->where('request_number', 'LIKE', "%{$search}%")
+                            ->orWhereHas('store', function ($q3) use ($search) {
+                                $q3->where('name', 'LIKE', "%{$search}%");
+                            })
+                            ->orWhereHas('engineer', function ($q3) use ($search) {
+                                $q3->where('first_name', 'LIKE', "%{$search}%")
+                                    ->orWhere('first_name', 'LIKE', "%{$search}%");
+                            });
+                    })
+                    ->orWhereHas('status', function ($q3) use ($search) {
+                        $q3->where('name', 'LIKE', "%{$search}%");
+                    })
+                    ->orWhereHas('lpos', function ($q4) use ($search) {
+                        $q4->where('lpo_number', 'LIKE', "%{$search}%")
+                            ->orWhereHas('supplier', function ($q5) use ($search) {
+                                $q5->where('name', 'LIKE', "%{$search}%");
+                            });
+                    });
+            });
+        }
+
+        if ($statusId) {
+            $query->where('status_id', $statusId);
+        }
+
+        if ($dateFrom) {
+            $query->whereDate('created_at', '>=', $dateFrom);
+        }
+
+        if ($dateTo) {
+            $query->whereDate('created_at', '<=', $dateTo);
+        }
+
+        if ($storeId) {
+            $query->whereHas('materialRequest.store', function ($q) use ($storeId) {
+                $q->where('id', $storeId);
+            });
+        }
+
+        if ($engineerId) {
+            $query->whereHas('materialRequest.engineer', function ($q) use ($engineerId) {
+                $q->where('id', $engineerId);
+            });
+        }
+
+        return $query;
+    }
+
 
 }
