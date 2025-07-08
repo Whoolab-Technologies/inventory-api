@@ -90,7 +90,7 @@ class StockTransferService
         $store = Store::findOrFail($storeId);
 
         if ($store->is_central_store) {
-
+            \Log::info("On Update stock Store is central store");
             $engineerId = 0;
         }
         $stock = Stock::firstOrNew([

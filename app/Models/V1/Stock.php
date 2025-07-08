@@ -11,6 +11,7 @@ class Stock extends BaseModel
     protected $fillable = [
         'store_id',
         'product_id',
+        'engineer_id',
         'quantity',
     ];
     protected $append = ["transactions"];

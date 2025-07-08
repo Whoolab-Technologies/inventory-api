@@ -34,6 +34,7 @@ class StockController extends Controller
     public function show($id)
     {
         try {
+
             $stock = Stock::with(['store', 'product.brand', 'product.category'])->find($id);
             if ($stock) {
                 $stock = $this->createStockData($stock);
@@ -54,8 +55,15 @@ class StockController extends Controller
     }
     public function store(Request $request)
     {
+        \DB::beginTransaction();
         try {
-            \DB::beginTransaction();
+
+            $this->validate($request, [
+                'store_id' => 'required|integer',
+                'product_id' => 'required|integer',
+                'supplier_id' => 'required|integer',
+                'dn_number' => 'required|string',
+            ]);
             $quantityChange = $request->quantity;
             $movementType = $quantityChange > 0 ? 'IN' : 'OUT';
 
