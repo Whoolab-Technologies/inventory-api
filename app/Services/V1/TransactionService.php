@@ -731,7 +731,7 @@ class TransactionService
                 'dispatch_number' => 'DISPATCH-' . str_pad(InventoryDispatch::max('id') + 1001, 6, '0', STR_PAD_LEFT),
                 'dn_number' => $request->dnNumber,
                 'store_id' => $storekeeper->store_id,
-                'engineer_id' => $request->engineer_id,
+                'engineer_id' => (int) $request->engineer_id,
                 'self' => $request->self == true ? 1 : 0,
                 'representative' => $request->representative,
                 "picked_at" => now()->toDateTimeString(),
