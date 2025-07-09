@@ -341,6 +341,10 @@ class PurchaseRequestService
             $lpoItem = LpoItem::findOrFail($item['item_id']);
             $lpoItem->received_quantity = ($lpoItem->received_quantity ?? 0) + $item['received_quantity'];
             $lpoItem->save();
+
+            $purchaseRequestItem = PurchaseRequestItem::where('id', $lpoItem->pr_item_id)->first();
+            $purchaseRequestItem->received_quantity = ($purchaseRequestItem->received_quantity ?? 0) + $item['received_quantity'];
+            $purchaseRequestItem->save();
         }
     }
 

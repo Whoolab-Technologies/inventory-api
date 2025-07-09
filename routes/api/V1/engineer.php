@@ -9,7 +9,6 @@ use App\Http\Controllers\V1\ProductController;
 Route::prefix('engineer')->group(function () {
     Route::post('login', [EngineerAuthController::class, 'login']);
     Route::delete('fcm', [CommonController::class, 'removeFcmToken']);
-    Route::get('notification', [CommonController::class, 'testNotification']);
 
     Route::middleware('auth:engineer')->group(function () {
         Route::post('logout', [EngineerAuthController::class, 'logout']);

@@ -12,7 +12,7 @@ class Store extends BaseModel
     protected $hidden = ['created_by', 'created_type', 'updated_by', 'updated_type', 'created_at', 'updated_at'];
     protected $fillable = ['name', 'location', 'type'];
 
-    protected $append = ['is_central_store'];
+    protected $appends = ['is_central_store'];
 
 
     public function engineers()

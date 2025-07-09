@@ -157,6 +157,9 @@ class PurchaseRequestController extends Controller
             $pr = PurchaseRequest::with($this->prRelations())->findOrFail($id);
             $response = $this->formatPurchaseRequest($pr);
             return Helpers::sendResponse(200, $response, 'Purchase request retrieved successfully');
+
+        } catch (ModelNotFoundException $e) {
+            return Helpers::sendResponse(404, null, 'Purchase request not found');
         } catch (\Exception $e) {
             return Helpers::sendResponse(500, null, $e->getMessage());
         }

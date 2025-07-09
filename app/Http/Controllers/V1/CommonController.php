@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\PasswordResetLink;
 use Illuminate\Support\Facades\Crypt;
-use App\Jobs\PushNotificationJob;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 class CommonController extends Controller
 {
@@ -136,8 +136,29 @@ class CommonController extends Controller
 
     public function getMaterialRequests(Request $request)
     {
+        $search = $request->input('search');
+        $statusId = $request->input('status_id');
+        $storeId = $request->input('store_id');
+        $engineerId = $request->input('engineer_id');
+        $dateFrom = $request->input('date_from');
+        $dateTo = $request->input('date_to');   // string (Y-m-d) or null
+
         try {
-            $materialRequests = MaterialRequest::with(['items', 'items.product', 'store', 'engineer'])->orderByDesc('id')->get();
+            $dateFrom = $request->input('date_from');
+            $dateTo = $request->input('date_to');
+
+            if ($dateFrom) {
+                $dateFrom = Carbon::parse($dateFrom)->format('Y-m-d');
+            }
+
+            if ($dateTo) {
+                $dateTo = Carbon::parse($dateTo)->format('Y-m-d');
+            }
+            $materialRequests = MaterialRequest::with(['items', 'items.product', 'store', 'engineer'])
+                ->search($search, $statusId, $dateFrom, $dateTo, $storeId, $engineerId)
+                ->orderByDesc('id')
+                ->get();
+
             return Helpers::sendResponse(200, $materialRequests);
         } catch (\Throwable $th) {
             return Helpers::sendResponse(400, [], $th->getMessage());

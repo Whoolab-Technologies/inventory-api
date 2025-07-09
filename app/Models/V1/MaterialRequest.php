@@ -55,27 +55,52 @@ class MaterialRequest extends BaseModel
         return $this->belongsTo(Engineer::class);
     }
 
-    public function scopeSearch($query, $term)
-    {
-        $term = "%{$term}%";
-        return $query->where('request_number', 'LIKE', $term)
-            ->orWhereHas('store', function ($q) use ($term) {
-                $q->where('name', 'LIKE', $term);
-            })
-            ->orWhereHas('engineer', function ($q) use ($term) {
-                $q->where('first_name', 'LIKE', $term)
-                    ->orWhere('last_name', 'LIKE', $term);
-            });
 
-        //     $term = "%{$term}%";
-        // return $query->where(function ($q) use ($term) {
-        //     $q->where('item', 'LIKE', $term)
-        //         ->orWhere('description', 'LIKE', $term)
-        //         ->orWhereHas('unit', function ($q) use ($term) {
-        //             $q->where('name', 'LIKE', $term)
-        //                 ->orWhere('symbol', 'LIKE', $term);
-        //         });
-        // });
+
+    public function scopeSearch($query, $search = null, $statusId = null, $dateFrom = null, $dateTo = null, $storeId = null, $engineerId = null)
+    {
+
+        if ($search) {
+            $search = "%{$search}%";
+            $query->where('request_number', 'LIKE', $search)
+                ->orWhereHas('store', function ($q) use ($search) {
+                    $q->where('name', 'LIKE', $search);
+                })
+                ->orWhereHas('status', function ($q3) use ($search) {
+                    $q3->where('name', 'LIKE', "%{$search}%");
+                })
+                ->orWhereHas('engineer', function ($q) use ($search) {
+                    $q->where('first_name', 'LIKE', $search)
+                        ->orWhere('last_name', 'LIKE', $search);
+                })
+                ->orWhereHas('purchaseRequests', function ($q) use ($search) {
+                    $q->where('purchase_request_number', 'LIKE', $search);
+                });
+        }
+        if ($statusId) {
+            $query->where('status_id', $statusId);
+        }
+
+        if ($dateFrom) {
+            $query->whereDate('created_at', '>=', $dateFrom);
+        }
+
+        if ($dateTo) {
+            $query->whereDate('created_at', '<=', $dateTo);
+        }
+
+        if ($storeId) {
+            $query->whereHas('store', function ($q) use ($storeId) {
+                $q->where('id', $storeId);
+            });
+        }
+
+        if ($engineerId) {
+            $query->whereHas('engineer', function ($q) use ($engineerId) {
+                $q->where('id', $engineerId);
+            });
+        }
+        return $query;
     }
     public function materialRequestStockTransfer()
     {

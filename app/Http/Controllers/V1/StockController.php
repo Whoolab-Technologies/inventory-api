@@ -61,7 +61,7 @@ class StockController extends Controller
             $this->validate($request, [
                 'store_id' => 'required|integer',
                 'product_id' => 'required|integer',
-                'supplier_id' => 'required|integer',
+                'supplier_id' => 'required|integer|exists:suppliers,id',
                 'dn_number' => 'required|string',
             ]);
             $quantityChange = $request->quantity;

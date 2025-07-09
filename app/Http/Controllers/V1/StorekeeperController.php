@@ -325,8 +325,6 @@ class StorekeeperController extends Controller
         }
     }
 
-
-
     public function getDashboardData(Request $request)
     {
         try {
