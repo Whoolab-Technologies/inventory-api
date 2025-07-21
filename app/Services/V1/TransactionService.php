@@ -164,7 +164,7 @@ class TransactionService
 
             // Handle Central to Site Transfer
             if (count($centralToSiteItems)) {
-                $this->createStockTransferWithItems(
+                $stockTransfer = $this->createStockTransferWithItems(
                     $centralStore->id,
                     $toStoreId,
                     $materialRequest->id,
@@ -174,6 +174,8 @@ class TransactionService
                     $request->dn_number,
                     true
                 );
+                $this->storeTransferNote($request, $stockTransfer);
+                $this->storeTransferImages($request, $stockTransfer, 'transfer');
             }
 
             $materialRequest->status_id = ($totalIssued == $totalRequested) ? StatusEnum::IN_TRANSIT : StatusEnum::PROCESSING;
@@ -274,6 +276,7 @@ class TransactionService
                 ));
             }
         }
+        return $transfer;
     }
     private function groupItemsByEngineer(array $items): array
     {
@@ -307,9 +310,8 @@ class TransactionService
             $this->storeTransferNote($request, $stockTransfer);
 
             $this->storeTransferImages($request, $stockTransfer);
+            $this->applyStockTransferChanges($request, $stockTransfer);
 
-
-            $this->updateStock($request, $stockTransfer);
             $stockTransfer->save();
             $stockTransfer->refresh();
 
@@ -408,7 +410,7 @@ class TransactionService
         return $receivedQuantities;
     }
 
-    private function storeTransferImages(Request $request, $stockTransfer)
+    private function storeTransferImages(Request $request, $stockTransfer, $transactionType = "receive")
     {
         if (empty($request->images) || !is_array($request->images)) {
             return;
@@ -423,7 +425,7 @@ class TransactionService
                 'file_mime_type' => $mimeType,
                 'stock_transfer_id' => $stockTransfer->id,
                 'material_request_id' => $stockTransfer->request_id,
-                'transaction_type' => "receive",
+                'transaction_type' => $transactionType,
             ]);
         }
     }
@@ -588,7 +590,7 @@ class TransactionService
     //     $materialRequest->save();
     // }
 
-    private function updateStock(Request $request, StockTransfer $stockTransfer)
+    private function applyStockTransferChanges(Request $request, StockTransfer $stockTransfer)
     {
 
         \DB::beginTransaction();
@@ -600,32 +602,19 @@ class TransactionService
             $materialRequest = $stockTransfer->materialRequest;
             $engineerId = $materialRequest->engineer_id;
 
-
-            $productIds = collect($request->items)->pluck('product_id');
-
+            $ids = collect($request->items)->pluck('id');
             $stockInTransitRecords = StockInTransit::where('stock_transfer_id', $stockTransfer->id)
-                ->whereIn('product_id', $productIds)
+                ->whereIn('stock_transfer_item_id', $ids)
                 ->get()
-                ->keyBy('product_id');
+                ->keyBy('stock_transfer_item_id');
 
-            $toStoreQuery = Stock::where('store_id', $toStoreId)
-                ->whereIn('product_id', $productIds);
 
-            $toStore = Store::find($toStoreId);
-            if ($toStore && !$toStore->is_central_store) {
-                $toStoreQuery->where('engineer_id', $engineerId);
-            } else {
-            }
             foreach ($request->items as $item) {
                 $productId = $item->product_id;
+                $itemId = $item->id;
                 $newReceivedQuantity = $item->received_quantity;
-
-                $stockInTransit = $stockInTransitRecords[$productId] ?? null;
-                if (!$stockInTransit) {
-                    continue;
-                }
-
-                if ($stockInTransit->received_quantity > 0) {
+                $stockInTransit = $stockInTransitRecords[$itemId] ?? null;
+                if (!$stockInTransit || $stockInTransit->received_quantity > 0) {
                     continue;
                 }
 
