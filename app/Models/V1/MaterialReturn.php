@@ -8,21 +8,13 @@ class MaterialReturn extends BaseModel
 {
     use HasFactory;
     protected $table = "material_returns";
-    protected $fillable = ['from_store_id', 'to_store_id', 'status_id', 'dn_number'];
+    protected $fillable = ['return_number', 'from_store_id', 'to_store_id', 'status_id', 'dn_number'];
 
 
     protected $hidden = ['created_by', 'created_type', 'updated_by', 'updated_type', 'created_at', 'updated_at'];
     // protected $attributes = [
     //     'status' => 'IN TRANSIT',
     // ];
-    protected static function booted()
-    {
-        static::creating(function ($model) {
-            if (is_null($model->status_id)) {
-                $model->status_id = 10;
-            }
-        });
-    }
 
     public function status()
     {
@@ -84,5 +76,8 @@ class MaterialReturn extends BaseModel
             });
     }
 
-
+    public function files()
+    {
+        return $this->hasMany(MaterialReturn::class, 'material_return_id');
+    }
 }

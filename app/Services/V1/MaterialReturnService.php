@@ -10,6 +10,7 @@ use App\Enums\TransactionType;
 use App\Enums\TransferPartyRole;
 use App\Models\V1\MaterialReturn;
 use App\Models\V1\MaterialReturnDetail;
+use App\Models\V1\MaterialReturnFile;
 use App\Models\V1\MaterialReturnItem;
 use App\Models\V1\StockInTransit;
 use App\Models\V1\Stock;
@@ -21,7 +22,7 @@ use App\Data\StockInTransitData;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
-
+use App\Services\Helpers;
 class MaterialReturnService
 {
     protected $stockTransferService;
@@ -73,6 +74,7 @@ class MaterialReturnService
             $materialReturn->from_store_id = $request->from_store_id;
             $materialReturn->to_store_id = $request->to_store_id;
             $materialReturn->dn_number = $dnNumber;
+            $materialReturn->status_id = StatusEnum::IN_TRANSIT->value;
             $materialReturn->save();
 
 
@@ -90,6 +92,8 @@ class MaterialReturnService
                 $materialReturnItem->issued = $product['issued'];
                 $materialReturnItem->save();
             }
+            $this->uploadMaterialReturnImages($request, $materialReturn, 'transfer');
+
             $this->createStockTransferWithItems(
                 $request->from_store_id,
                 $request->to_store_id,
@@ -101,14 +105,14 @@ class MaterialReturnService
 
             \DB::commit();
 
-            return $materialReturn->load([
+            $materialReturn->load([
                 'status',
                 'fromStore',
                 'toStore',
                 'details.engineer',
                 'details.items.product',
             ]);
-
+            return $materialReturn;
         } catch (\Throwable $th) {
             \DB::rollBack();
             throw $th;
@@ -327,5 +331,25 @@ class MaterialReturnService
         }
         return $attribute;
     }
+    public function uploadMaterialReturnImages(Request $request, $materialReturn, $transactionType = "receive")
+    {
+        $files = $request->file('files')
+            ?? [];
 
+        if (empty($files) || !is_array($files)) {
+            return;
+        }
+
+        foreach ($files as $file) {
+            $mimeType = $file->getMimeType();
+            $filePath = Helpers::uploadFile($file, "images/material-return/{$materialReturn->id}");
+
+            MaterialReturnFile::create([
+                'file' => $filePath,
+                'file_mime_type' => $mimeType,
+                'material_return_id' => $materialReturn->id,
+                'transaction_type' => $transactionType,
+            ]);
+        }
+    }
 }

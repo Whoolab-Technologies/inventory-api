@@ -724,6 +724,11 @@ class StorekeeperController extends Controller
                 'from_store_id' => $user->store->id,
                 'to_store_id' => $centralStore->id
             ]);
+            if (is_string($request->products)) {
+                $decoded = json_decode($request->products, true);
+                $request->merge(['products' => $decoded]);
+            }
+
             $materialReturn = $this->materialReturnService->createMaterialReturns($request);
             $this->notificationService->sendNotificationOnMaterialReturnToCentralStore($materialReturn, $request->engineer_id);
             return Helpers::sendResponse(200, $materialReturn, 'Material return created successfully');
@@ -948,6 +953,12 @@ class StorekeeperController extends Controller
         \DB::beginTransaction();
         try {
             $user = auth()->user();
+            if (is_string($request->products)) {
+                $decoded = json_decode($request->products, true);
+                $request->merge(['products' => $decoded]);
+            }
+
+            \Log::info("createEngineerMaterialReturns ", ["input" => $request->all()]);
 
             // Validate incoming request
             $validated = $request->validate([
@@ -962,8 +973,6 @@ class StorekeeperController extends Controller
                 'from_store_id' => $user->store->id,
                 'to_store_id' => $user->store->id,
             ]);
-
-
 
             // Create Material Return
             $materialReturn = MaterialReturn::create([
@@ -989,6 +998,7 @@ class StorekeeperController extends Controller
                 ]);
             }
 
+            $this->materialReturnService->uploadMaterialReturnImages($request, $materialReturn, 'transfer');
             $this->createStockTransferWithItems($request, $materialReturn, $user, $validated['products']);
 
             \DB::commit();
@@ -998,7 +1008,7 @@ class StorekeeperController extends Controller
                 'status',
                 'fromStore',
                 'toStore',
-                'items',
+                'items.product',
                 'details.engineer',
                 'details.items.product',
             ]);
