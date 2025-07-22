@@ -958,9 +958,6 @@ class StorekeeperController extends Controller
                 $decoded = json_decode($request->products, true);
                 $request->merge(['products' => $decoded]);
             }
-
-            \Log::info("createEngineerMaterialReturns ", ["input" => $request->all()]);
-
             // Validate incoming request
             $validated = $request->validate([
                 'engineer_id' => 'required',

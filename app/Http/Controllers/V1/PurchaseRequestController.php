@@ -5,10 +5,7 @@ namespace App\Http\Controllers\V1;
 use App\Enums\StatusEnum;
 use App\Http\Controllers\Controller;
 use App\Models\V1\PurchaseRequest;
-use App\Models\V1\PurchaseRequestItem;
 use App\Models\V1\LpoShipment;
-use App\Models\V1\LpoShipmentItem;
-use App\Models\V1\MaterialRequestItem;
 use App\Models\V1\Lpo;
 use App\Services\Helpers;
 use App\Services\V1\PurchaseRequestService;
@@ -28,74 +25,17 @@ class PurchaseRequestController extends Controller
     {
         \DB::beginTransaction();
         try {
-            $data = $request->validate([
-                'lpo' => 'nullable|string',
-                'do' => 'nullable|string',
-                'status_id' => 'required|integer',
-                'items' => 'required|array',
-                'items.*.id' => 'required|integer|exists:purchase_request_items,id',
-                'items.*.received_quantity' => 'required|numeric|min:0',
-            ]);
 
-            $purchaseRequest = PurchaseRequest::with(['items', 'materialRequest'])->findOrFail($id);
+            $purchaseRequest = PurchaseRequest::findOrFail($id);
 
-            if ($data['status_id'] == 5 && empty($data['lpo'])) {
-                return Helpers::sendResponse(422, null, 'LPO is required when status is Processing');
-            }
-
-            $hasOverReceived = collect($data['items'])->contains(function ($item) use ($purchaseRequest) {
-                $existingItem = $purchaseRequest->items->firstWhere('id', $item['id']);
-                return $existingItem->received_quantity + $item['received_quantity'] > $existingItem->quantity;
-            });
-
-            if ($hasOverReceived) {
-                return Helpers::sendResponse(422, null, 'Received quantity exceeds ordered quantity for one or more items.');
-            }
-
-            $anyQuantityEntered = collect($data['items'])->contains(fn($item) => $item['received_quantity'] > 0);
-
-            if ($anyQuantityEntered && empty($data['do'])) {
-                return Helpers::sendResponse(422, null, 'Delivery Order (DO) is required when item quantity is provided.');
-            }
-
-            $purchaseRequest->fill([
-                'lpo' => $data['lpo'],
-                'do' => $data['do'],
-                'status_id' => $data['status_id'],
-            ])->save();
-
-            foreach ($data['items'] as $itemData) {
-                PurchaseRequestItem::where('id', $itemData['id'])
-                    ->where('purchase_request_id', $purchaseRequest->id)
-                    ->increment('received_quantity', $itemData['received_quantity']);
-            }
-
-            $purchaseRequest->refresh();
-
-            $allFullyReceived = $purchaseRequest->items->every(fn($item) => $item->quantity == $item->received_quantity);
-
-            if (!empty($purchaseRequest->lpo) && $purchaseRequest->status_id == 2) {
-                $purchaseRequest->update(['status_id' => 5]);
-            }
-
-            if ($allFullyReceived && !empty($purchaseRequest->do)) {
-                $purchaseRequest->update(['status_id' => 7]);
-            }
-
-            if (!empty($data['do'])) {
-                $this->processStockMovement($purchaseRequest, $data['items']);
-            }
-
-            if ($purchaseRequest->materialRequest) {
-                $purchaseRequest->materialRequest->status_id = $purchaseRequest->status_id;
-                $purchaseRequest->materialRequest->save();
-            }
+            $purchaseRequest->status_id = $request->input('status_id', $purchaseRequest->status_id);
+            $purchaseRequest->save();
+            $purchaseRequest->materialRequest->status_id = StatusEnum::COMPLETED;
+            $purchaseRequest->materialRequest->save();
+            $pr = PurchaseRequest::with($this->prRelations())->findOrFail($id);
+            $response = $this->formatPurchaseRequest($pr);
             \DB::commit();
-
-            $purchaseRequest->load(['materialRequest', 'items', 'items.product', 'status']);
-
-            return Helpers::sendResponse(200, $purchaseRequest, 'Purchase Request updated successfully');
-
+            return Helpers::sendResponse(200, $response, 'Purchase Request updated successfully');
         } catch (ModelNotFoundException $e) {
             \DB::rollBack();
             return Helpers::sendResponse(404, [], 'Purchase request not found');
@@ -247,6 +187,7 @@ class PurchaseRequestController extends Controller
 
         return [
             'id' => $pr->id,
+            'status_id' => $pr->status_id,
             'purchase_request_number' => $pr->purchase_request_number,
             'material_request_id' => $pr->material_request_id,
             'material_request_number' => $pr->material_request_number,

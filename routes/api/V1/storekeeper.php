@@ -68,6 +68,7 @@ Route::prefix('storekeeper')->group(function () {
         Route::prefix('prs')->group(function () {
             Route::get('/', [PurchaseRequestController::class, 'index']);
             Route::get('/{id}', [PurchaseRequestController::class, 'show']);
+            Route::put('/{id}', [PurchaseRequestController::class, 'update']);
             Route::post('/{id}/lpos', [PurchaseRequestController::class, 'createLpo']);
             Route::post('/{id}/shipments', [PurchaseRequestController::class, 'getShipments']);
             Route::put('/{id}/complete-on-hold-transactions', [PurchaseRequestController::class, 'completeOnHoldShipments']);
