@@ -28,7 +28,7 @@ TRUNCATE TABLE lpos;
 TRUNCATE TABLE lpo_items;
 TRUNCATE table locations;
 TRUNCATE TABLE lpo_shipments;
-TRUNCATE TABLE lpo_shipment_items
+TRUNCATE TABLE lpo_shipment_items;
 -- ------ for development purpose -----
 
 ALTER TABLE `inventory_dispatches` CHANGE `delivery_note_number` `dn_number` TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL;

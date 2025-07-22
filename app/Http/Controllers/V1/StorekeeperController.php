@@ -741,7 +741,10 @@ class StorekeeperController extends Controller
     public function updateMaterialReturns(Request $request, $id)
     {
         try {
-
+            if (is_string($request->items)) {
+                $decoded = json_decode($request->items, true);
+                $request->merge(['items' => $decoded]);
+            }
             $materialReturn = $this->materialReturnService->updateMaterialReturns($id, $request);
             return Helpers::sendResponse(200, $materialReturn, 'Material return updated successfully');
 

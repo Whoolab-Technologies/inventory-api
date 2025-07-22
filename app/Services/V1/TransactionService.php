@@ -61,7 +61,6 @@ class TransactionService
             $missingItems = [];
             $materialReturnItems = [];
             $centralToSiteItems = [];
-            \Log::info("on createTransaction", ["items transfered" => $request->items]);
             foreach ($request->items as $item) {
                 $requestedQty = (int) $item['requested_quantity'];
                 $issuedQty = (int) $item['issued_quantity'];
@@ -184,13 +183,8 @@ class TransactionService
                 $this->storeTransferImages($request, $stockTransfer, 'transfer');
             }
 
-            $materialRequest->status_id = ($totalIssued == $totalRequested) ? StatusEnum::IN_TRANSIT : StatusEnum::AWAITING_PROC;
+            $materialRequest->status_id = ($totalIssued == $totalRequested) ? StatusEnum::IN_TRANSIT : StatusEnum::PROCESSING;
             $materialRequest->save();
-
-            \Log::info("on createTransaction", [
-                "missing items" => count($missingItems),
-            ]);
-
             if (count($missingItems)) {
                 $this->purchaseRequestService->createPurchaseRequest(new PurchaseRequestData(
                     $materialRequest->id,

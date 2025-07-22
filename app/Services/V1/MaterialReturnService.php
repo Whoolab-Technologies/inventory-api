@@ -192,11 +192,14 @@ class MaterialReturnService
         try {
             $materialReturn = MaterialReturn::where('id', $id)->first();
             $materialReturn = $this->updateStock($request, $materialReturn);
+            $this->uploadMaterialReturnImages($request, $materialReturn);
+
             \DB::commit();
             return $materialReturn->load([
                 'fromStore',
                 'status',
                 'toStore',
+                'files',
                 'details.engineer',
                 'details.items.product',
             ]);
