@@ -78,6 +78,6 @@ class MaterialReturn extends BaseModel
 
     public function files()
     {
-        return $this->hasMany(MaterialReturn::class, 'material_return_id');
+        return $this->hasMany(MaterialReturnFile::class, 'material_return_id');
     }
 }

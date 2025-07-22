@@ -700,6 +700,7 @@ class StorekeeperController extends Controller
                     'status',
                     'toStore',
                     'fromStore',
+                    'files',
                     'details.engineer',
                     'details.items.product',
                 ]);
@@ -980,7 +981,7 @@ class StorekeeperController extends Controller
                 'from_store_id' => $request->from_store_id,
                 'to_store_id' => $request->to_store_id,
                 'dn_number' => $request->dn_number,
-                'status_id' => StatusEnum::COMPLETED->value
+                'status_id' => StatusEnum::RECEIVED->value
             ]);
 
             // Create Material Return Detail

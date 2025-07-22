@@ -224,7 +224,6 @@ class MaterialReturnService
                 ->whereIn('material_return_item_id', collect($products)->pluck('id'))
                 ->get()
                 ->keyBy('product_id');
-
             $user = Auth::user();
             $tokenName = optional($user?->currentAccessToken())->name;
             foreach ($products as $item) {
@@ -239,7 +238,7 @@ class MaterialReturnService
                     }
                 }
                 $stockInTransit = $stockInTransitRecords[$productId] ?? null;
-                if (!$stockInTransit) {
+                if (!$stockInTransit || $stockInTransit->received_quantity > 0) {
                     continue;
                 }
                 $remaining = max(0, $stockInTransit->issued_quantity - $receivedQuantity);
