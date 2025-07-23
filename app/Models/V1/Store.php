@@ -58,5 +58,14 @@ class Store extends BaseModel
         return $this->type == "central" ? true : false;
     }
 
+    public function minStocks()
+    {
+        return $this->hasMany(ProductMinStock::class);
+    }
+
+    public function minStockForProduct($productId)
+    {
+        return $this->minStocks()->where('product_id', $productId)->first();
+    }
 }
 

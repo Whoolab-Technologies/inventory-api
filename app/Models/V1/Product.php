@@ -129,4 +129,13 @@ class Product extends BaseModel
     {
         return $this->belongsTo(Category::class);
     }
+
+    public function minStocks()
+    {
+        return $this->hasMany(ProductMinStock::class);
+    }
+    public function minStockForStore($storeId)
+    {
+        return $this->minStocks()->where('store_id', $storeId)->first();
+    }
 }

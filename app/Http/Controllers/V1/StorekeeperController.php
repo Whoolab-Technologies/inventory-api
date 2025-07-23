@@ -16,6 +16,7 @@ use App\Models\V1\Product;
 use App\Models\V1\MaterialRequest;
 use App\Models\V1\StockTransfer;
 use App\Models\V1\PurchaseRequest;
+use App\Models\V1\ProductMinStock;
 use App\Data\StockTransferData;
 use App\Data\StockTransactionData;
 use App\Enums\StatusEnum;
@@ -341,16 +342,13 @@ class StorekeeperController extends Controller
                     'products',
                     'stockTransfers'
                 ])
-                    // ->where('status', 'pending')
+                    ->where('status_id', '<>', StatusEnum::COMPLETED->value)
                     ->orderBy('created_at', 'desc')
                     ->get();
                 $data['material_requests'] = $materialRequests;
             }
-            $outOfStockProducts = Product::whereDoesntHave('engineerStocks', function ($query) use ($storekeeper) {
-                $query->where('store_id', $storekeeper->store->id)
-                    ->where('quantity', '>', 0);
-            })->get();
-            $data['out_of_stock_products'] = $outOfStockProducts;
+
+            $data['low_stock_products'] = $this->getLowStockProductsForStore($storekeeper->store->id);
             return Helpers::sendResponse(200, $data, 'Products retrieved successfully');
         } catch (\Throwable $th) {
             return Helpers::sendResponse(500, [], $th->getMessage());
@@ -358,6 +356,29 @@ class StorekeeperController extends Controller
 
     }
 
+
+
+    public function getLowStockProductsForStore($storeId)
+    {
+        $stocks = ProductMinStock::with('product')->where('store_id', $storeId)->get();
+
+        foreach ($stocks as $stock) {
+            $stock->total_stock = $stock->product->stocks
+                ->where('store_id', $storeId)
+                ->sum('quantity');
+        }
+        $productsWithStock = $stocks->filter(function ($item) {
+            return ($item->total_stock ?? 0) <= $item->min_stock_qty;
+        })->map(function ($item) {
+            $product = $item->product;
+            $product->total_stock = $item->total_stock;
+            $product->min_stock_qty = $item->min_stock_qty;
+            return $product;
+        })->values();
+
+        return $productsWithStock;
+
+    }
     // public function getMaterialRequests(Request $request)
     // {
     //     try {

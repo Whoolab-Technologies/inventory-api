@@ -148,5 +148,6 @@ php artisan make:migration create_material_return_files_table --create=material_
 
 php artisan make:model V1/LpoItems
 php artisan make:controller V1/SupplierController
+php artisan make:migration create_product_min_stocks_table  --create=product_min_stocks --path=database/migrations/V1/pr
 
 php artisan make:migration add_supplier_id_to_stock_metas --table=stock_metas --path=database/migrations/V1/pr

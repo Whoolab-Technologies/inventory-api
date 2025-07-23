@@ -44,6 +44,11 @@ Route::prefix('admin')->group(function () {
         Route::get('stores/{id}', [StoreController::class, 'show']);
         Route::put('stores/{id}', [StoreController::class, 'update']);
         Route::delete('stores/{id}', [StoreController::class, 'destroy']);
+
+        Route::get('min-stock', [StoreController::class, 'getProductMinStock']);
+        Route::post('min-stock', [StoreController::class, 'manageMinStock']);
+
+
         Route::get('storekeepers/{storekeeper_id}/stores', [StoreController::class, 'getStoresByStorekeeper']);
 
         // Add brand-related routes
