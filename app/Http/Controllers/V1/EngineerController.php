@@ -322,7 +322,6 @@ class EngineerController extends Controller
             );
         } catch (\Throwable $th) {
             \DB::rollBack();
-            \Log::error("Error: " . $th->getMessage());
             return Helpers::sendResponse(
                 status: 400,
                 data: [],

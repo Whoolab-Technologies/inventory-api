@@ -208,7 +208,6 @@ class PurchaseRequestController extends Controller
                 ->findOrFail($id);
 
             $response['lpo'] = $this->formatLpo($lpo);
-            \Log::info("message", ['lpo' => $response['lpo']]);
             return Helpers::sendResponse(200, $response, 'LPO details retrieved successfully');
         } catch (\Exception $e) {
             return Helpers::sendResponse(500, null, 'Error retrieving LPO: ' . $e->getMessage());
@@ -292,15 +291,14 @@ class PurchaseRequestController extends Controller
             $purchaseRequest = $this->getFormatedPurchaseRequest($lpo->pr_id);
             $response = [
                 'purchaseRequest' => $purchaseRequest,
-                'lpo' => $this->formatLpo($lpo)
+                'lpo' => $this->formatLpo($lpo),
+                'shipment' => $shipment
             ];
-            \Log::info("Return resposne", ["Purchase Request" => $purchaseRequest, "lpo" => $this->formatLpo($lpo)]);
             \DB::commit();
             return Helpers::sendResponse(200, $response, 'Shipment created successfully');
 
         } catch (\Throwable $e) {
             \DB::rollBack();
-            \Log::info($e->getMessage());
             return Helpers::sendResponse(500, $e->getMessage());
         }
     }
@@ -319,41 +317,20 @@ class PurchaseRequestController extends Controller
         \DB::beginTransaction();
         $response = [];
         try {
-            // $purchaseRequest = PurchaseRequest::with([
-            //     'lpos.shipments' => function ($query) {
-            //         $query->where('status_id', StatusEnum::ON_HOLD);
-            //     }
-            // ])->findOrFail($id);
-            $purchaseRequest = PurchaseRequest::with([
-                'lpos' => function ($query) {
-                    $query->whereHas('shipments', function ($q) {
-                        $q->where('status_id', StatusEnum::ON_HOLD);
-                    })->with([
-                                'shipments' => function ($q) {
-                                    $q->where('status_id', StatusEnum::ON_HOLD);
-                                }
-                            ]);
-                }
-            ])->findOrFail($id);
-            $shipments = $purchaseRequest->lpos->flatMap->shipments;
+            $data = $this->purchaseRequestService->getOnHoldShipments($id);
+            $purchaseRequest = $data['purchaseRequest'];
+            $shipments = $data['shipments'];
             $materialRequest = $purchaseRequest->materialRequest;
             $this->purchaseRequestService->updateOnHoldSupplierToCentralTransctions(
                 $shipments,
                 $materialRequest
             );
-            $shipmentItems = collect($shipments)->flatMap(function ($shipment) {
-                return $shipment->items;
-            })->groupBy('product_id')->map(function ($items) {
-                return (object) [
-                    'product_id' => $items->first()->product_id,
-                    'quantity_delivered' => $items->sum('quantity_delivered')
-                ];
-            })->values();
+            $shipmentItems = $this->purchaseRequestService->getShipmentItems($shipments);
 
             $this->purchaseRequestService->updateOnHoldCentralToSiteTransctions(
                 $shipmentItems,
                 $materialRequest,
-                $request->dn_number
+                $request
             );
             $shipments->each(function ($shipment) {
                 $shipment->status_id = 7;
@@ -368,15 +345,10 @@ class PurchaseRequestController extends Controller
             $materialRequest->save();
             $purchaseRequest = $this->getFormatedPurchaseRequest($id);
             $response['purchaseRequest'] = $purchaseRequest;
-            \Log::info("Return resposne", ["Purchase Request" => $purchaseRequest,]);
-
             \DB::commit();
             return Helpers::sendResponse(200, $response, '');
-
         } catch (\Throwable $e) {
             \DB::rollBack();
-            \Log::info("BULK TRANSFER FAILED", ["ERROR" => $e->getMessage()]);
-
             return Helpers::sendResponse(500, [], $e->getMessage());
         }
     }
@@ -410,7 +382,7 @@ class PurchaseRequestController extends Controller
             $this->purchaseRequestService->updateOnHoldCentralToSiteTransctions(
                 $shipment->items,
                 $materialRequest,
-                $request->dn_number ?? $shipment->dn_number
+                $request
             );
 
             $lpo->status_id = StatusEnum::COMPLETED->value;
@@ -433,4 +405,19 @@ class PurchaseRequestController extends Controller
         }
     }
 
+
+    public function getOnHoldShipments(Request $request, $id)
+    {
+        \DB::beginTransaction();
+        $response = [];
+        try {
+            $data = $this->purchaseRequestService->getOnHoldShipments($id);
+            $shipments = $data['shipments'];
+            $shipmentItems = $this->purchaseRequestService->getShipmentItems($shipments);
+            return Helpers::sendResponse(200, $shipmentItems, '');
+        } catch (\Throwable $e) {
+            \DB::rollBack();
+            return Helpers::sendResponse(500, [], $e->getMessage());
+        }
+    }
 }

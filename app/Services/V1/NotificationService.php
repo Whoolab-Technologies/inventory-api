@@ -42,7 +42,6 @@ class NotificationService
      */
     public function sendToTokens(array $tokens, string $title, string $body, array $data = []): bool
     {
-        \Log::error('Start sending..');
         $accessToken = $this->getAccessToken();
         $url = "https://fcm.googleapis.com/v1/projects/{$this->projectId}/messages:send";
         foreach ($tokens as $token) {

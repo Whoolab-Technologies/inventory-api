@@ -126,6 +126,6 @@ class StockTransfer extends BaseModel
     }
     public function getDateAttribute()
     {
-        return $this->created_at ? $this->created_at->format('Y-m-d H:i a') : null;
+        return $this->created_at ? $this->created_at->format('Y-m-d h:i a') : null;
     }
 }

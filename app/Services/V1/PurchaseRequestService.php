@@ -10,6 +10,7 @@ use App\Models\V1\Store;
 use App\Models\V1\LpoItem;
 use App\Models\V1\LpoShipmentItem;
 use App\Models\V1\LpoShipment;
+use App\Models\V1\StockTransferFile;
 
 use App\Enums\StatusEnum;
 use App\Enums\StockMovementType;
@@ -22,7 +23,7 @@ use App\Data\PurchaseRequestData;
 use App\Data\StockTransactionData;
 use App\Data\StockTransferData;
 use App\Data\StockInTransitData;
-
+use App\Services\Helpers;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Http\Request;
 
@@ -126,7 +127,7 @@ class PurchaseRequestService
             );
         }
     }
-    public function updateOnHoldCentralToSiteTransctions($shipmentItems, $materialRequest, $dnNumber)
+    public function updateOnHoldCentralToSiteTransctions($shipmentItems, $materialRequest, $request)
     {
         $centralStore = Store::where('type', 'central')->firstOrFail();
         $fromStoreId = $centralStore->id;
@@ -134,9 +135,9 @@ class PurchaseRequestService
         $toStoreId = $materialRequest->store_id;
         $lpo = new \stdClass();
         $lpo->lpo_number = "";
-        $this->processStockTransferAndShipmentItems(
+        $stockTransfer = $this->processStockTransferAndShipmentItems(
             $shipmentItems,
-            $dnNumber,
+            $request->dn_number,
             $materialRequest,
             $fromStoreId,
             $toStoreId,
@@ -144,7 +145,30 @@ class PurchaseRequestService
             $lpo,
             $engineerId
         );
+        $this->storeTransferImages($request, $stockTransfer, 'transfer');
+    }
 
+    private function storeTransferImages(Request $request, $stockTransfer, $transactionType = "receive")
+    {
+        $files = $request->file('files')
+            ?? [];
+
+        if (empty($files) || !is_array($files)) {
+            return;
+        }
+
+        foreach ($files as $file) {
+            $mimeType = $file->getMimeType();
+            $imagePath = Helpers::uploadFile($file, "images/stock-transfer/{$stockTransfer->id}");
+
+            StockTransferFile::create([
+                'file' => $imagePath,
+                'file_mime_type' => $mimeType,
+                'stock_transfer_id' => $stockTransfer->id,
+                'material_request_id' => $stockTransfer->request_id,
+                'transaction_type' => $transactionType,
+            ]);
+        }
     }
 
     public function createShipmentTransaction($shipment, $transferDnNumber)
@@ -180,6 +204,7 @@ class PurchaseRequestService
                 $transferDnNumber
             );
         }
+        return $stockTransfer;
     }
     private function processSupplierToCentralTransfer($shipment, $materialRequest, $centralStore, $lpo, $engineerId)
     {
@@ -239,7 +264,7 @@ class PurchaseRequestService
             $dnNumber,
             null,
             $materialRequest->id,
-            RequestType::PR,
+            RequestType::MR,
             TransactionType::CS_SS,
             auth()->id(),
             TransferPartyRole::CENTRAL_STORE
@@ -306,10 +331,8 @@ class PurchaseRequestService
     {
         $request->validate([
             'lpo_id' => 'required|exists:lpos,id',
-            'lpo_dn_number' => 'required|string|max:255|unique:lpo_shipments,dn_number',
-            'dn_number' => 'required_if:initial_immediate_transfer,true|nullable|string|max:255',
+            'dn_number' => 'required|string|max:255|unique:lpo_shipments,dn_number',
             'remarks' => 'nullable|string|max:255',
-            'initial_immediate_transfer' => 'required|boolean',
             'items' => 'required|array|min:1',
             'items.*.item_id' => 'required|exists:lpo_items,id',
             'items.*.product_id' => 'required|exists:products,id',
@@ -321,10 +344,10 @@ class PurchaseRequestService
     {
         return LpoShipment::create([
             'lpo_id' => $request->lpo_id,
-            'dn_number' => $request->lpo_dn_number,
+            'dn_number' => $request->dn_number,
             'remarks' => $request->remarks,
             'date' => $request->date,
-            'status_id' => $request->initial_immediate_transfer ? StatusEnum::IN_TRANSIT : StatusEnum::ON_HOLD,
+            'status_id' => StatusEnum::ON_HOLD,
         ]);
     }
 
@@ -372,6 +395,41 @@ class PurchaseRequestService
             $pr->save();
         }
         return $pr;
+    }
+
+    public function getOnHoldShipments($purchaseRequestId)
+    {
+        $purchaseRequest = PurchaseRequest::with([
+            'lpos' => function ($query) {
+                $query->whereHas('shipments', function ($q) {
+                    $q->where('status_id', StatusEnum::ON_HOLD);
+                })->with([
+                            'shipments' => function ($q) {
+                                $q->where('status_id', StatusEnum::ON_HOLD);
+                            },
+                            // 'shipments.status',
+                            // 'items.product'
+                        ]);
+            }
+        ])->findOrFail($purchaseRequestId);
+        $shipments = $purchaseRequest->lpos->flatMap->shipments;
+        return [
+            'purchaseRequest' => $purchaseRequest,
+            'shipments' => $shipments,
+        ];
+    }
+
+    public function getShipmentItems($shipments)
+    {
+        return collect($shipments)->flatMap(function ($shipment) {
+            return $shipment->items;
+        })->groupBy('product_id')->map(function ($items) {
+            return (object) [
+                'product_id' => $items->first()->product_id,
+                'quantity_delivered' => $items->sum('quantity_delivered'),
+                'product' => $items->first()['product'],
+            ];
+        })->values();
     }
 
 }

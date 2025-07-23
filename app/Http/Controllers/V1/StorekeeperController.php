@@ -469,7 +469,7 @@ class StorekeeperController extends Controller
                 'items.product',
                 'purchaseRequests',
                 'stockTransfers' => function ($q) {
-                    $q->whereIn('request_type', ['MR', 'PR']);
+                    $q->whereIn('request_type', ['MR',]);
                 },
                 'stockTransfers.fromStore',
                 'stockTransfers.toStore',
@@ -1018,7 +1018,6 @@ class StorekeeperController extends Controller
 
         } catch (\Throwable $th) {
             \DB::rollBack();
-            \Log::error('Material return creation failed: ' . $th->getMessage());
             return Helpers::sendResponse(500, [], $th->getMessage());
         }
 

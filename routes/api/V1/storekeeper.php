@@ -70,8 +70,8 @@ Route::prefix('storekeeper')->group(function () {
             Route::get('/{id}', [PurchaseRequestController::class, 'show']);
             Route::put('/{id}', [PurchaseRequestController::class, 'update']);
             Route::post('/{id}/lpos', [PurchaseRequestController::class, 'createLpo']);
-            Route::post('/{id}/shipments', [PurchaseRequestController::class, 'getShipments']);
-            Route::put('/{id}/complete-on-hold-transactions', [PurchaseRequestController::class, 'completeOnHoldShipments']);
+            Route::get('/{id}/on-hold-shipments', [PurchaseRequestController::class, 'getOnHoldShipments']);
+            Route::post('/{id}/complete-on-hold-transactions', [PurchaseRequestController::class, 'completeOnHoldShipments']);
 
         });
         Route::prefix('lpos')->group(function () {
@@ -82,7 +82,7 @@ Route::prefix('storekeeper')->group(function () {
         Route::prefix('shipments')->group(function () {
             Route::get('/', [PurchaseRequestController::class, 'getShipments']);
             Route::get('/{id}', [PurchaseRequestController::class, 'getShipment']);
-            Route::put('/{id}', [PurchaseRequestController::class, 'updateShipment']);
+            Route::post('/{id}', [PurchaseRequestController::class, 'updateShipment']);
             //  Route::put('/{id}', [PurchaseRequestController::class, 'storeLpoShipment']);
         });
 

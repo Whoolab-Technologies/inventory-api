@@ -76,12 +76,6 @@ class TransactionService
                 $totalIssued += $issuedQty;
 
                 $missingQty = $requestedQty - $issuedQty;
-                \Log::info("on createTransaction", [
-                    "requestedQty" => $requestedQty,
-                    "issuedQty" => $issuedQty,
-                    "missingQty" => $missingQty,
-                ]);
-
                 if ($missingQty > 0) {
                     $missingItems[] = [
                         'product_id' => $productId,
@@ -307,7 +301,7 @@ class TransactionService
 
             $stockTransfer = $this->stockTransferService->updateStockTransfer(
                 $id,
-                StatusEnum::COMPLETED,
+                StatusEnum::PARTIALLY_RECEIVED,
                 $user->id,
                 $role
             );
@@ -366,12 +360,11 @@ class TransactionService
             $receivedQuantity = $transferItem->received_quantity;
 
             if ($receivedQuantity < $issuedQuantity) {
-                \Log::notice("Partial received in current transfer for product_id: {$productId}");
-                return true; // Partial received found in current transfer
+                return true;
             }
         }
 
-        return false; // All items fully received in this transfer
+        return false;
     }
 
     private function checkForMissingItems($materialRequest, $receivedQuantities)
@@ -383,12 +376,11 @@ class TransactionService
 
 
             if ($totalReceived < $requestedQuantity) {
-                \Log::warning("Missing or insufficient received quantity for product_id: {$productId}");
-                return true; // Missing items found
+                return true;
             }
         }
 
-        return false; // All items fully received
+        return false;
     }
 
     private function calculateTotalReceivedQuantities($allStockTransfers)
@@ -398,19 +390,9 @@ class TransactionService
         foreach ($allStockTransfers as $transfer) {
             foreach ($transfer->items as $transferItem) {
                 $productId = $transferItem->product_id;
-                \Log::info('Transfer Item', [
-                    "product_id" => $productId,
-                    "received_quantity" => $transferItem->received_quantity
-                ]);
-
                 $receivedQuantities[$productId] = ($receivedQuantities[$productId] ?? 0) + $transferItem->received_quantity;
             }
         }
-
-        \Log::info('Final Received Quantities', [
-            'receivedQuantities' => $receivedQuantities
-        ]);
-
         return $receivedQuantities;
     }
 
@@ -468,132 +450,6 @@ class TransactionService
         return $items;
     }
 
-
-    // public function updateTransaction(Request $request, int $id)
-    // {
-    //     \DB::beginTransaction();
-    //     try {
-    //         if (empty($request->items)) {
-    //             throw new \Exception('Invalid items data');
-    //         } else {
-    //             $request->items = json_decode($request->items);
-    //         }
-
-    //         foreach ($request->items as $item) {
-    //             if (!isset($item->received_quantity)) {
-    //                 throw new \Exception('Missing quantity');
-    //             }
-    //         }
-
-    //         $stockTransfer = StockTransfer::findOrFail($id);
-    //         $user = auth()->user();
-    //         $role = ($user->load('store'))->is_central_store ? TransferPartyRole::CENTRAL_STORE : TransferPartyRole::SITE_STORE;
-    //         $stockTransfer = $this->stockTransferService->updateStockTransfer(
-    //             $id,
-    //             StatusEnum::COMPLETED,
-    //             $user->id,
-    //             $role
-    //         );
-    //         if (!empty($request->note)) {
-    //             $stockTransferNote = new StockTransferNote();
-    //             $stockTransferNote->stock_transfer_id = $stockTransfer->id;
-    //             $stockTransferNote->material_request_id = $stockTransfer->request_id;
-    //             $stockTransferNote->notes = $request->note;
-    //             $stockTransferNote->save();
-    //         }
-
-    //         if (!empty($request->images) && is_array($request->images)) {
-    //             foreach ($request->images as $image) {
-    //                 $mimeType = $image->getMimeType();
-    //                 $imagePath = Helpers::uploadFile($image, "images/stock-transfer/$id");
-
-    //                 $stockTransferFile = new StockTransferFile();
-    //                 $stockTransferFile->file = $imagePath;
-    //                 $stockTransferFile->file_mime_type = $mimeType;
-    //                 $stockTransferFile->stock_transfer_id = $id;
-    //                 $stockTransferFile->material_request_id = $stockTransfer->request_id;
-    //                 $stockTransferFile->transaction_type = "receive";
-    //                 $stockTransferFile->save();
-
-    //             }
-    //         }
-    //         $this->updateStock($request, $stockTransfer);
-    //         $stockTransfer->save();
-    //         $stockTransfer->refresh();
-    //         $this->updateMaterialRequestStatus($stockTransfer);
-
-    //         \DB::commit();
-
-    //         return $stockTransfer;
-
-    //     } catch (\Throwable $e) {
-    //         \DB::rollBack();
-    //         throw $e;
-    //     }
-    // }
-
-    // private function updateMaterialRequestStatus($stockTransfer)
-    // {
-
-    //     $materialRequest = $stockTransfer->materialRequest;
-
-    //     $allStockTransfers = $materialRequest->stockTransfers()
-    //         ->with('items')
-    //         ->where('transaction_type', TransactionType::CS_SS->value)
-    //         ->get();
-
-    //     $receivedQuantities = [];
-    //     $transferCounts = [];
-
-    //     foreach ($allStockTransfers as $transfer) {
-    //         foreach ($transfer->items as $transferItem) {
-    //             $productId = $transferItem->product_id;
-    //             \Log::info('transferItem ', ["productId" => $productId, 'received_quantity', $transferItem->received_quantity]);
-    //             $receivedQuantities[$productId] = ($receivedQuantities[$productId] ?? 0) + $transferItem->received_quantity;
-    //             $transferCounts[$productId] = ($transferCounts[$productId] ?? 0) + 1;
-    //         }
-    //     }
-    //     \Log::info('final receivedQuantities', [
-    //         'receivedQuantities' => $receivedQuantities
-    //     ]);
-    //     $hasMissing = false;
-    //     $hasPartialReceived = false;
-
-    //     foreach ($materialRequest->items as $item) {
-    //         $productId = $item->product_id;
-    //         $requestedQuantity = $item->quantity;
-    //         $totalReceived = $receivedQuantities[$productId] ?? 0;
-    //         $transferCount = $transferCounts[$productId] ?? 0;
-
-    //         \Log::info("Checking Product", [
-    //             'product_id' => $productId,
-    //             'requested_quantity' => $requestedQuantity,
-    //             'total_received_quantity' => $totalReceived,
-    //             'transfer_count' => $transferCount
-    //         ]);
-
-    //         if ($totalReceived < $requestedQuantity) {
-    //             \Log::warning("Missing or insufficient received quantity for product_id: {$productId}");
-    //             $hasMissing = true;
-    //             break;
-    //         }
-
-    //         if ($transferCount > 1) {
-    //             $hasPartialReceived = true;
-    //         }
-    //     }
-
-    //     if ($hasMissing) {
-    //         $materialRequest->status_id = StatusEnum::AWAITING_PROC->value;
-    //     } elseif ($hasPartialReceived) {
-    //         $materialRequest->status_id = StatusEnum::PARTIALLY_RECEIVED->value;
-    //     } else {
-    //         $materialRequest->status_id = StatusEnum::COMPLETED->value;
-    //     }
-
-    //     $materialRequest->save();
-    // }
-
     private function applyStockTransferChanges(Request $request, StockTransfer $stockTransfer)
     {
 
@@ -602,7 +458,7 @@ class TransactionService
             $fromStoreId = $stockTransfer->from_store_id;
             $toStoreId = $stockTransfer->to_store_id;
             $dnNumber = $stockTransfer->dn_number;
-
+            $receivedCompletely = true;
             $materialRequest = $stockTransfer->materialRequest;
             $engineerId = $materialRequest->engineer_id;
 
@@ -618,12 +474,13 @@ class TransactionService
                 $itemId = $item->id;
                 $newReceivedQuantity = $item->received_quantity;
                 $stockInTransit = $stockInTransitRecords[$itemId] ?? null;
-                if (!$stockInTransit || $stockInTransit->received_quantity > 0) {
+                if (!$stockInTransit) {
                     continue;
                 }
-
+                $stockInTransit->increment('received_quantity', $newReceivedQuantity);
                 // Update stock in transit
-                $stockInTransit->received_quantity = $newReceivedQuantity;
+                // $stockInTransit->received_quantity = $newReceivedQuantity;
+                $newReceivedQuantity = $stockInTransit->refresh()->received_quantity;
                 $stockInTransit->status_id = $newReceivedQuantity < $stockInTransit->issued_quantity
                     ? StatusEnum::getIdByCode('PARTIALLY_RECEIVED')
                     : StatusEnum::getIdByCode('RECEIVED');
@@ -632,21 +489,18 @@ class TransactionService
                 // Return remaining quantity to fromStore if applicable
                 $remainingQuantity = max(0, $stockInTransit->issued_quantity - $newReceivedQuantity);
                 if ($remainingQuantity > 0) {
-                    $fromStock = $this->stockTransferService->updateStock($fromStoreId, $productId, $remainingQuantity);
+                    $receivedCompletely = false;
+                    //  $fromStock = $this->stockTransferService->updateStock($fromStoreId, $productId, $remainingQuantity);
                 }
-
-                // Add received quantity to toStore
                 $toStock = $this->stockTransferService->updateStock($toStoreId, $productId, $newReceivedQuantity, $engineerId);
-
-                // Update stock transfer item
                 $this->stockTransferService->updateStockTransferItem($item->id, $newReceivedQuantity);
-
-                // Log stock movement
                 $this->handleStockMovement($fromStoreId, $toStoreId, $productId, $engineerId, $newReceivedQuantity, StockMovementType::MR, $dnNumber);
             }
-
+            if ($receivedCompletely) {
+                $stockTransfer->status_id = StatusEnum::COMPLETED->value;
+            }
+            $stockTransfer->save();
             \DB::commit();
-
             return $stockTransfer;
         } catch (\Throwable $e) {
             \DB::rollBack();
@@ -662,7 +516,7 @@ class TransactionService
             ->where('stock_movement', StockMovement::TRANSIT)
             ->where('type', $movementType, )
             ->delete();
-        // From Store - OUT movement
+
         $this->createStockTransaction(
             $fromStoreId,
             $productId,
