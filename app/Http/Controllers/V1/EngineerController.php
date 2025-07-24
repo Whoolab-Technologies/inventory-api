@@ -297,7 +297,7 @@ class EngineerController extends Controller
 
             $materialRequest->items()->createMany($items);
             $this->materialRequestService->uploadMaterialRequestImages($request, $materialRequest);
-            $materialRequest = $materialRequest->load(["status", "items.product", 'files']);
+            \DB::commit();
             $this->notificationService->sendNotificationOnMaterialRequestCreate($materialRequest);
             $materialRequest = [
                 'id' => $materialRequest->id,
@@ -305,6 +305,7 @@ class EngineerController extends Controller
                 'request_number' => $materialRequest->request_number,
                 'created_at' => $materialRequest->created_at,
                 'status' => $materialRequest->status,
+                'files' => $materialRequest->files,
                 'items' => $materialRequest->items->map(function ($item) {
                     return [
                         'id' => $item->id,
@@ -323,7 +324,6 @@ class EngineerController extends Controller
                     ];
                 }),
             ];
-            \DB::commit();
             return Helpers::sendResponse(
                 status: 200,
                 data: $materialRequest,

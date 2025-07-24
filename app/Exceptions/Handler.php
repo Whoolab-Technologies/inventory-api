@@ -19,7 +19,6 @@ use App\Services\Helpers;
 use Illuminate\Auth\Access\AuthorizationException;
 use InvalidArgumentException;
 use Illuminate\Support\Facades\Log;
-
 class Handler extends ExceptionHandler
 {
     /**
@@ -40,7 +39,8 @@ class Handler extends ExceptionHandler
         ModelNotFoundException::class,
         TokenMismatchException::class,
         ValidationException::class,
-        InvalidArgumentException::class
+        InvalidArgumentException::class,
+        QueryException::class
     ];
 
     /**
@@ -54,6 +54,7 @@ class Handler extends ExceptionHandler
 
         $this->renderable(function (Throwable $e, Request $request) {
             Log::info("Exception caught: " . get_class($e) . ", " . $e->getMessage());
+
 
             if ($e instanceof InvalidArgumentException) {
                 return Helpers::response(["statusCode" => 400, "message" => 'Invalid argument provided.']);
@@ -86,12 +87,11 @@ class Handler extends ExceptionHandler
 
             if ($e instanceof QueryException) {
                 Log::error('Database Query Error: ' . $e->getMessage());
-
                 // Handle specific SQL error codes
                 $errorCode = $e->getCode();
                 $message = match ($errorCode) {
-                    '42S02' => 'Database table not found.',  // Table not found
-                    '23000' => 'Integrity constraint violation.',  // Foreign key constraint fails
+                    '42S02' => 'Database table not found.',
+                    '23000' => 'Integrity constraint violation.',
                     default => 'Database query error.',
                 };
 

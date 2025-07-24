@@ -5,6 +5,7 @@ namespace App\Http\Controllers\V1;
 use App\Enums\StatusEnum;
 use App\Http\Controllers\Controller;
 use App\Models\V1\PurchaseRequest;
+use App\Models\V1\MaterialRequestStock;
 use App\Models\V1\LpoShipment;
 use App\Models\V1\Lpo;
 use App\Services\Helpers;
@@ -32,6 +33,8 @@ class PurchaseRequestController extends Controller
             $purchaseRequest->save();
             $purchaseRequest->materialRequest->status_id = StatusEnum::COMPLETED;
             $purchaseRequest->materialRequest->save();
+            MaterialRequestStock::where('purchase_request_id', $id)
+                ->delete();
             $pr = PurchaseRequest::with($this->prRelations())->findOrFail($id);
             $response = $this->formatPurchaseRequest($pr);
             \DB::commit();
@@ -345,6 +348,8 @@ class PurchaseRequestController extends Controller
             $materialRequest->status_id = StatusEnum::IN_TRANSIT->value;
             $materialRequest->save();
             $purchaseRequest = $this->getFormatedPurchaseRequest($id);
+            MaterialRequestStock::where('purchase_request_id', $id)
+                ->delete();
             $response['purchaseRequest'] = $purchaseRequest;
             \DB::commit();
             return Helpers::sendResponse(200, $response, '');
@@ -410,12 +415,51 @@ class PurchaseRequestController extends Controller
     public function getOnHoldShipments(Request $request, $id)
     {
         \DB::beginTransaction();
-        $response = [];
         try {
             $data = $this->purchaseRequestService->getOnHoldShipments($id);
             $shipments = $data['shipments'];
             $shipmentItems = $this->purchaseRequestService->getShipmentItems($shipments);
             return Helpers::sendResponse(200, $shipmentItems, '');
+        } catch (\Throwable $e) {
+            \DB::rollBack();
+            return Helpers::sendResponse(500, [], $e->getMessage());
+        }
+    }
+
+    public function updateMaterialRequestStock(Request $request, $id)
+    {
+        try {
+            $shipment = LpoShipment::with(['items.product'])->findOrFail($id);
+            $lpo = $shipment->lpo;
+            $purchaseRequest = $lpo->purchaseRequest;
+            $materialRequest = $purchaseRequest->materialRequest;
+            $materialRequestId = $materialRequest->id;
+            $purchaseRequestId = $purchaseRequest->id;
+
+            foreach ($shipment->items as $item) {
+                $productId = $item->product_id;
+                $quantityToAdd = $item->quantity_delivered;
+
+                $stock = MaterialRequestStock::where('material_request_id', $materialRequestId)
+                    ->where('product_id', $productId)
+                    ->where('purchase_request_id', $purchaseRequestId)
+                    ->first();
+
+                if ($stock) {
+                    // Increment existing quantity
+                    $stock->increment('quantity', $quantityToAdd);
+                } else {
+                    $stock = new MaterialRequestStock();
+
+                    $stock->material_request_id = $materialRequestId;
+                    $stock->purchase_request_id = $purchaseRequestId;
+                    $stock->product_id = $productId;
+                    $stock->quantity = $quantityToAdd;
+                    $stock->save();
+                }
+            }
+            \DB::commit();
+            return Helpers::sendResponse(200, $shipment, '');
         } catch (\Throwable $e) {
             \DB::rollBack();
             return Helpers::sendResponse(500, [], $e->getMessage());

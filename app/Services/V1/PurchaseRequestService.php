@@ -11,6 +11,7 @@ use App\Models\V1\LpoItem;
 use App\Models\V1\LpoShipmentItem;
 use App\Models\V1\LpoShipment;
 use App\Models\V1\StockTransferFile;
+use App\Models\V1\MaterialRequestStock;
 
 use App\Enums\StatusEnum;
 use App\Enums\StockMovementType;
@@ -65,6 +66,15 @@ class PurchaseRequestService
                 'product_id' => $item['product_id'],
                 'quantity' => $item['missing_quantity'],
             ]);
+
+            $stock = new MaterialRequestStock();
+
+            $stock->material_request_id = $data->materialRequestId;
+            $stock->purchase_request_id = $purchaseRequest->id;
+            $stock->material_request_item_id = $materialRequestItems[$item['product_id']]->id;
+            $stock->product_id = $item['product_id'];
+            $stock->quantity = 0;
+            $stock->save();
         }
         return $purchaseRequest;
 
