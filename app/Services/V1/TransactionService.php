@@ -324,25 +324,39 @@ class TransactionService
             throw $e;
         }
     }
+
     private function updateMaterialRequestStatus($stockTransfer)
     {
         $materialRequest = $stockTransfer->materialRequest;
 
-        // Step 1: Calculate total received quantities across all transfers
         $allStockTransfers = $materialRequest->stockTransfers()
             ->with('items')
             ->where('transaction_type', TransactionType::CS_SS->value)
             ->get();
 
-        $receivedQuantities = $this->calculateTotalReceivedQuantities($allStockTransfers);
 
-        $hasMissing = $this->checkForMissingItems($materialRequest, $receivedQuantities);
+        $totalIssued = $this->calculateTotalIssuedQuantities($allStockTransfers);
+        $totalReceived = $this->calculateTotalReceivedQuantities($allStockTransfers);
 
-        // Step 2: Check partial received in current transaction
-        $hasPartialReceived = $this->checkPartialReceivedInCurrentTransfer($stockTransfer);
+        $hasMissingIssued = false;
+        $hasPartialReceived = false;
 
-        // Step 3: Decide final status
-        if ($hasMissing) {
+
+        foreach ($materialRequest->items as $item) {
+            $productId = $item->product_id;
+            $requestedQty = $item->quantity;
+            $issuedQty = $totalIssued[$productId] ?? 0;
+            $receivedQty = $totalReceived[$productId] ?? 0;
+            if ($issuedQty < $requestedQty) {
+                $hasMissingIssued = true;
+                break;
+            }
+
+            if ($receivedQty < $issuedQty) {
+                $hasPartialReceived = true;
+            }
+        }
+        if ($hasMissingIssued) {
             $materialRequest->status_id = StatusEnum::AWAITING_PROC->value;
         } elseif ($hasPartialReceived) {
             $materialRequest->status_id = StatusEnum::PARTIALLY_RECEIVED->value;
@@ -352,6 +366,59 @@ class TransactionService
 
         $materialRequest->save();
     }
+
+    private function calculateTotalIssuedQuantities($stockTransfers)
+    {
+        $issued = [];
+        foreach ($stockTransfers as $transfer) {
+            foreach ($transfer->items as $item) {
+                $issued[$item->product_id] = ($issued[$item->product_id] ?? 0) + $item->issued_quantity;
+            }
+        }
+        return $issued;
+    }
+
+    private function calculateTotalReceivedQuantities($stockTransfers)
+    {
+        $received = [];
+        foreach ($stockTransfers as $transfer) {
+            foreach ($transfer->items as $item) {
+                $received[$item->product_id] = ($received[$item->product_id] ?? 0) + $item->received_quantity;
+            }
+        }
+        return $received;
+    }
+
+    // private function updateMaterialRequestStatus($stockTransfer)
+    // {
+    //     $materialRequest = $stockTransfer->materialRequest;
+
+    //     // Step 1: Calculate total received quantities across all transfers
+    //     $allStockTransfers = $materialRequest->stockTransfers()
+    //         ->with('items')
+    //         ->where('transaction_type', TransactionType::CS_SS->value)
+    //         ->get();
+
+    //     $receivedQuantities = $this->calculateTotalReceivedQuantities($allStockTransfers);
+
+    //     $hasMissing = $this->checkForMissingItems($materialRequest, $receivedQuantities);
+
+    //     // Step 2: Check partial received in current transaction
+    //     $hasPartialReceived = $this->checkPartialReceivedInCurrentTransfer($stockTransfer);
+
+    //     // Step 3: Decide final status
+    //     if ($hasMissing) {
+    //         $materialRequest->status_id = StatusEnum::AWAITING_PROC->value;
+    //     } elseif ($hasPartialReceived) {
+    //         $materialRequest->status_id = StatusEnum::PARTIALLY_RECEIVED->value;
+    //     } else {
+    //         $materialRequest->status_id = StatusEnum::COMPLETED->value;
+    //     }
+
+    //     $materialRequest->save();
+    // }
+
+
     private function checkPartialReceivedInCurrentTransfer($stockTransfer)
     {
         foreach ($stockTransfer->items as $transferItem) {
@@ -374,26 +441,12 @@ class TransactionService
             $requestedQuantity = $item->quantity;
             $totalReceived = $receivedQuantities[$productId] ?? 0;
 
-
             if ($totalReceived < $requestedQuantity) {
                 return true;
             }
         }
 
         return false;
-    }
-
-    private function calculateTotalReceivedQuantities($allStockTransfers)
-    {
-        $receivedQuantities = [];
-
-        foreach ($allStockTransfers as $transfer) {
-            foreach ($transfer->items as $transferItem) {
-                $productId = $transferItem->product_id;
-                $receivedQuantities[$productId] = ($receivedQuantities[$productId] ?? 0) + $transferItem->received_quantity;
-            }
-        }
-        return $receivedQuantities;
     }
 
     private function storeTransferImages(Request $request, $stockTransfer, $transactionType = "receive")

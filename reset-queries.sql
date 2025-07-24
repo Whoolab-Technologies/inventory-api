@@ -7,6 +7,7 @@ TRUNCATE TABLE material_request_stock_transfers;
 TRUNCATE TABLE material_returns;
 TRUNCATE TABLE material_return_details;
 TRUNCATE TABLE material_return_items;
+TRUNCATE TABLE material_return_files;
 
 TRUNCATE TABLE stock;
 TRUNCATE TABLE stock_metas;
@@ -20,6 +21,7 @@ TRUNCATE TABLE stock_transfer_notes;
 
 TRUNCATE TABLE material_requests;
 TRUNCATE TABLE material_request_items;
+TRUNCATE TABLE material_request_files;
 
 TRUNCATE TABLE purchase_requests;
 TRUNCATE TABLE purchase_request_items;
