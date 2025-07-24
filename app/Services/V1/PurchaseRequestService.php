@@ -347,7 +347,7 @@ class PurchaseRequestService
             'dn_number' => $request->dn_number,
             'remarks' => $request->remarks,
             'date' => $request->date,
-            'status_id' => StatusEnum::ON_HOLD,
+            'status_id' => StatusEnum::ON_HOLD->value,
         ]);
     }
 

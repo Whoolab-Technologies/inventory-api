@@ -403,7 +403,7 @@ class StorekeeperController extends Controller
 
             $searchTerm = $request->query('search');
 
-            $materialRequestsQuery = MaterialRequest::with(['status', 'store', 'engineer', 'items.product', 'stockTransfers.items']);
+            $materialRequestsQuery = MaterialRequest::with(['status', 'store', 'engineer', 'files', 'items.product', 'stockTransfers.items']);
             if ($storekeeper->store->type != 'central') {
                 $materialRequestsQuery->where('store_id', $storekeeper->store_id);
             }

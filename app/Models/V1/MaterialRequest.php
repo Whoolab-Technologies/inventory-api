@@ -131,4 +131,9 @@ class MaterialRequest extends BaseModel
             ->flatMap->shipments
             ->contains('status_id', StatusEnum::ON_HOLD->value);
     }
+
+    public function files()
+    {
+        return $this->hasMany(MaterialRequestFile::class, 'material_request_id');
+    }
 }

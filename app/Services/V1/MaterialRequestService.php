@@ -3,6 +3,7 @@
 namespace App\Services\V1;
 
 use App\Models\V1\MaterialRequest;
+use App\Models\V1\MaterialRequestFile;
 use App\Data\PurchaseRequestData;
 use Illuminate\Http\Request;
 use App\Services\Helpers;
@@ -104,5 +105,29 @@ class MaterialRequestService
         });
         $materialRequest = $materialRequest->setRelation('items', $materialRequestItems);
         return $materialRequest;
+    }
+
+
+    public function uploadMaterialRequestImages(Request $request, $materialRequest)
+    {
+        \Log::info("uploadMaterialRequestImages ", ['materialRequest' => $materialRequest->id]);
+        $files = $request->file('files')
+            ?? [];
+
+        if (empty($files) || !is_array($files)) {
+            return;
+        }
+
+        foreach ($files as $file) {
+            $mimeType = $file->getMimeType();
+            $filePath = Helpers::uploadFile($file, "images/material-return/{$materialRequest->id}");
+
+            MaterialRequestFile::create([
+                'file' => $filePath,
+                'file_mime_type' => $mimeType,
+                'material_request_id' => $materialRequest->id,
+                'transaction_type' => "create",
+            ]);
+        }
     }
 }

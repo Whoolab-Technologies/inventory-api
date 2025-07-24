@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\V1;
 
+use App\Enums\RequestType;
 use App\Http\Controllers\Controller;
 use App\Models\V1\MaterialRequest;
+use App\Services\V1\MaterialRequestService;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use App\Services\Helpers;
@@ -19,11 +21,14 @@ class EngineerController extends Controller
 {
 
     protected $notificationService;
+    protected $materialRequestService;
 
     public function __construct(
         NotificationService $notificationService,
+        MaterialRequestService $materialRequestService,
     ) {
         $this->notificationService = $notificationService;
+        $this->materialRequestService = $materialRequestService;
     }
 
     public function index()
@@ -270,7 +275,10 @@ class EngineerController extends Controller
         \DB::beginTransaction();
         try {
             $user = auth()->user();
-
+            if (is_string($request->items)) {
+                $decoded = json_decode($request->items, true);
+                $request->merge(['items' => $decoded]);
+            }
             // Generate request number
             $materialRequest = MaterialRequest::create([
                 'request_number' => 'MR-' . date('Y') . '-' . str_pad(MaterialRequest::max('id') + 1, 3, '0', STR_PAD_LEFT),
@@ -288,8 +296,8 @@ class EngineerController extends Controller
             }, $request->items);
 
             $materialRequest->items()->createMany($items);
-            $materialRequest = $materialRequest->load(["status", "items.product"]);
-
+            $this->materialRequestService->uploadMaterialRequestImages($request, $materialRequest);
+            $materialRequest = $materialRequest->load(["status", "items.product", 'files']);
             $this->notificationService->sendNotificationOnMaterialRequestCreate($materialRequest);
             $materialRequest = [
                 'id' => $materialRequest->id,
@@ -353,6 +361,7 @@ class EngineerController extends Controller
                         'request_number' => $mr->request_number,
                         'created_at' => $mr->created_at,
                         'status' => $mr->status,
+                        'files' => $mr->files,
                         'items' => $mr->items->map(function ($item) use ($stockItemsGrouped) {
                             $stockItems = $stockItemsGrouped->get($item->product_id, collect());
 
@@ -440,7 +449,7 @@ class EngineerController extends Controller
             $engineerId = auth()->id();
             $stockTransfers = StockTransfer::whereHas('materialRequest', function ($query) use ($engineerId) {
                 $query->where('engineer_id', $engineerId);
-            })
+            })->where('request_type', RequestType::MR->value)
                 ->with(['status', 'stockTransferItems.product', 'materialRequest', 'notes.createdBy.store'])
                 ->orderBy('created_at', 'desc')
                 ->get()
@@ -484,6 +493,7 @@ class EngineerController extends Controller
                         }),
 
                         "material_request" => $transfer->materialRequest,
+                        "files" => $transfer->files,
                     ];
                 });
 

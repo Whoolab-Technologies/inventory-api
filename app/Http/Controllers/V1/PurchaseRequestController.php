@@ -280,6 +280,7 @@ class PurchaseRequestController extends Controller
                 $shipment->save();
             }
 
+            $shipment->load(['items', 'status']);
             // 2. Fetch updated LPO with required relations
             $lpo = Lpo::with([
                 'items.product',
