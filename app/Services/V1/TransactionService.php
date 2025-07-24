@@ -722,4 +722,95 @@ class TransactionService
             throw $e;
         }
     }
+
+    public function createManualTransaction(Request $request, $id)
+    {
+        $centralStore = Store::where('type', 'central')->firstOrFail();
+        $materialRequest = MaterialRequest::findOrFail($id);
+        $centralToSiteItems = [];
+        $toStoreId = $materialRequest->store_id;
+        $fromStoreId = $centralStore->id;
+        foreach ($request->items as $item) {
+            $materialRequestItemId = (int) $item['itemId'];
+            $issuedQty = (int) $item['quantity'];
+            $productId = (int) $item['productId'];
+            $this->createStockTransaction($fromStoreId, $productId, $materialRequest->engineer_id, $issuedQty, StockMovement::IN, StockMovementType::PR, $request->dn_number);
+            $centralToSiteItems[] = [
+                'product_id' => $productId,
+                'requested_qty' => $issuedQty,
+                'issued_qty' => $issuedQty
+            ];
+            $this->createStockTransaction($centralStore->id, $productId, $materialRequest->engineer_id, $issuedQty, StockMovement::TRANSIT, StockMovementType::MR, $request->dn_number);
+        }
+
+        $this->createCentralStockTransfer($request->dn_number, $materialRequest, $centralStore->id, $centralToSiteItems);
+
+        $stockTransfer = $this->createStockTransferWithItems(
+            $centralStore->id,
+            $toStoreId,
+            $materialRequest->id,
+            RequestType::MR,
+            TransactionType::CS_SS,
+            $centralToSiteItems,
+            $request->dn_number,
+            true
+        );
+
+        $this->storeTransferNote($request, $stockTransfer);
+        $this->storeTransferFiles($request, $stockTransfer, 'transfer');
+        //   $materialRequest->status_id = StatusEnum::IN_TRANSIT;
+        $materialRequest->save();
+        return $materialRequest;
+    }
+
+    private function storeTransferFiles(Request $request, $stockTransfer, $transactionType = "receive")
+    {
+        $files = $request->file('files')
+            ?? [];
+
+        if (empty($files) || !is_array($files)) {
+            return;
+        }
+
+        foreach ($files as $file) {
+            $mimeType = $file->getMimeType();
+            $filePath = Helpers::uploadFile($file, "images/stock-transfer/{$stockTransfer->id}");
+
+            StockTransferFile::create([
+                'file' => $filePath,
+                'file_mime_type' => $mimeType,
+                'stock_transfer_id' => $stockTransfer->id,
+                'material_request_id' => $stockTransfer->request_id,
+                'transaction_type' => $transactionType,
+            ]);
+        }
+    }
+
+    public function createCentralStockTransfer($dnNumber, $materialRequest, $centralStoreId, $items)
+    {
+        $stockTransferData = new StockTransferData(
+            null,
+            $centralStoreId,
+            StatusEnum::COMPLETED,
+            $dnNumber,
+            null,
+            $materialRequest->id,
+            RequestType::PR,
+            TransactionType::DIRECT,
+            auth()->id(),
+            TransferPartyRole::CENTRAL_STORE
+        );
+
+        $transfer = $this->stockTransferService->createStockTransfer($stockTransferData);
+        foreach ($items as $item) {
+            $transferItem = $this->stockTransferService->createStockTransferItem(
+                $transfer->id,
+                $item['product_id'],
+                $item['requested_qty'],
+                $item['issued_qty'],
+                $item['issued_qty']
+            );
+        }
+        return $transfer;
+    }
 }

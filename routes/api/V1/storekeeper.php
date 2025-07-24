@@ -34,6 +34,7 @@ Route::prefix('storekeeper')->group(function () {
 
         Route::get('transactions', [StorekeeperController::class, 'getTransactions']);
         Route::post('transactions', [StorekeeperController::class, 'createTransaction']);
+        Route::post('transactions/{id}/manual', [StorekeeperController::class, 'createManualTransaction']);
         Route::post('transactions/{id}', [StorekeeperController::class, 'updateTransaction']);
 
         Route::get('dispatches', [StorekeeperController::class, 'getInventoryDispatches']);
@@ -85,6 +86,10 @@ Route::prefix('storekeeper')->group(function () {
             Route::post('/{id}', [PurchaseRequestController::class, 'updateShipment']);
             Route::put('/{id}', [PurchaseRequestController::class, 'updateMaterialRequestStock']);
             //  Route::put('/{id}', [PurchaseRequestController::class, 'storeLpoShipment']);
+        });
+
+        Route::prefix('material-request-stock')->group(function () {
+            Route::get('/{id}', [StorekeeperController::class, 'getMaterialRequestStock']);
         });
 
     });

@@ -12,6 +12,7 @@ class MaterialRequestItem extends Model
     protected $table = 'material_request_items';
 
     protected $fillable = ['material_request_id', 'product_id', 'quantity'];
+    protected $hidden = ['created_at', 'updated_at'];
 
     public function materialRequest()
     {

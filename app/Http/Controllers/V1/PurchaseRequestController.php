@@ -303,6 +303,7 @@ class PurchaseRequestController extends Controller
 
         } catch (\Throwable $e) {
             \DB::rollBack();
+            \Log::info($e->getMessage());
             return Helpers::sendResponse(500, $e->getMessage());
         }
     }

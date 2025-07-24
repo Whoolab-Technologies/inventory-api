@@ -20,9 +20,9 @@ class MaterialRequestStock extends BaseModel
     {
         return $this->belongsTo(MaterialRequest::class);
     }
-    public function materialRequestItem()
+    public function item()
     {
-        return $this->belongsTo(MaterialRequestItem::class);
+        return $this->belongsTo(MaterialRequestItem::class, 'material_request_item_id');
     }
 
     public function purchaseRequest()

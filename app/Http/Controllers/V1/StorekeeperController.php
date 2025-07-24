@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Http\Controllers\V1;
+use App\Models\V1\MaterialRequestStock;
 use App\Services\V1\NotificationService;
 use Illuminate\Http\Request;
 
@@ -1120,4 +1121,49 @@ class StorekeeperController extends Controller
             return Helpers::sendResponse(500, $th->getMessage());
         }
     }
+
+    public function getMaterialRequestStock(Request $request, $id)
+    {
+        try {
+            $stocks = MaterialRequestStock::with(['item', 'product'])->where('material_request_id', $id)->get();
+            return Helpers::sendResponse(200, $stocks, 'Material stocks request retrieved successfully');
+        } catch (ModelNotFoundException $e) {
+            return Helpers::sendResponse(
+                status: 404,
+                data: [],
+                messages: 'Material Request not found',
+            );
+        } catch (\Throwable $th) {
+            return Helpers::sendResponse(500, $th->getMessage());
+        }
+    }
+
+    public function createManualTransaction(Request $request, $id)
+    {
+        try {
+            \DB::beginTransaction();
+            $materialRequest = $this->transactionService->createManualTransaction($request, $id);
+            $this->notificationService->sendNotificationOnMaterialIssued($materialRequest);
+            $materialRequest = $this->mapStockItemsProduct($materialRequest);
+            foreach ($request->items as $item) {
+                $issuedQty = (int) $item['quantity'];
+                $productId = (int) $item['productId'];
+                $stock = MaterialRequestStock::where('material_request_id', $id)
+                    ->where('product_id', $productId)
+                    ->first();
+                if ($stock) {
+                    $stock->decrement('quantity', $issuedQty);
+                }
+            }
+            \DB::commit();
+
+            return Helpers::sendResponse(200, $materialRequest, 'Transaction created successfully');
+        } catch (\Throwable $th) {
+            \Log::info('createManualTransaction ', ['error' => $th->getMessage()]);
+
+            return Helpers::sendResponse(500, $th->getMessage());
+        }
+    }
+
+
 }

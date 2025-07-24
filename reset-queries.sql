@@ -1,3 +1,4 @@
+SET FOREIGN_KEY_CHECKS = 0;
 TRUNCATE TABLE engineer_stock;
 TRUNCATE TABLE inventory_dispatches;
 TRUNCATE TABLE inventory_dispatch_files;
@@ -31,6 +32,8 @@ TRUNCATE TABLE lpo_items;
 TRUNCATE table locations;
 TRUNCATE TABLE lpo_shipments;
 TRUNCATE TABLE lpo_shipment_items;
+
+SET FOREIGN_KEY_CHECKS = 1;
 -- ------ for development purpose -----
 
 ALTER TABLE `inventory_dispatches` CHANGE `delivery_note_number` `dn_number` TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL;
