@@ -740,9 +740,28 @@ class TransactionService
             throw $e;
         }
     }
+    private function validateItemQuantities(array $items): void
+    {
+        $allZero = true;
+
+        foreach ($items as $item) {
+            $quantity = (int) ($item['quantity'] ?? 0);
+            if ($quantity > 0) {
+                $allZero = false;
+                break;
+            }
+        }
+
+        if ($allZero) {
+            throw ValidationException::withMessages([
+                'items' => 'At least one item must have a quantity greater than 0.',
+            ]);
+        }
+    }
 
     public function createManualTransaction(Request $request, $id)
     {
+        $this->validateItemQuantities($request->items);
         $centralStore = Store::where('type', 'central')->firstOrFail();
         $materialRequest = MaterialRequest::findOrFail($id);
         $centralToSiteItems = [];
@@ -776,7 +795,7 @@ class TransactionService
 
         $this->storeTransferNote($request, $stockTransfer);
         $this->storeTransferFiles($request, $stockTransfer, 'transfer');
-        //   $materialRequest->status_id = StatusEnum::IN_TRANSIT;
+        $materialRequest->status_id = StatusEnum::IN_TRANSIT;
         $materialRequest->save();
         return $materialRequest;
     }

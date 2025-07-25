@@ -110,7 +110,6 @@ class MaterialRequestService
 
     public function uploadMaterialRequestImages(Request $request, $materialRequest)
     {
-        \Log::info("uploadMaterialRequestImages ", ['materialRequest' => $materialRequest->id]);
         $files = $request->file('files')
             ?? [];
 
