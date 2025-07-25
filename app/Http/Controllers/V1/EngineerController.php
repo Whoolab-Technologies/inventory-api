@@ -358,6 +358,7 @@ class EngineerController extends Controller
                     return [
                         'id' => $mr->id,
                         'store_id' => $mr->store_id,
+                        'description' => $mr->description,
                         'request_number' => $mr->request_number,
                         'created_at' => $mr->created_at,
                         'status' => $mr->status,

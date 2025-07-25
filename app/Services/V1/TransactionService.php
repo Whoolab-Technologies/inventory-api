@@ -329,33 +329,50 @@ class TransactionService
     {
         $materialRequest = $stockTransfer->materialRequest;
 
+        if (!$materialRequest) {
+            return;
+        }
+        // Fetch all relevant stock transfers
         $allStockTransfers = $materialRequest->stockTransfers()
             ->with('items')
             ->where('transaction_type', TransactionType::CS_SS->value)
             ->get();
 
-
         $totalIssued = $this->calculateTotalIssuedQuantities($allStockTransfers);
         $totalReceived = $this->calculateTotalReceivedQuantities($allStockTransfers);
 
+        // Check if PR was rejected
+        $purchaseRequest = $materialRequest->purchaseRequests()->latest()->first();
+        if ($purchaseRequest && $purchaseRequest->status_id == StatusEnum::REJECTED->value) {
+            $materialRequest->status_id = $stockTransfer->status_id;
+            $materialRequest->save();
+            return;
+        }
+
+        // Initialize flags
         $hasMissingIssued = false;
         $hasPartialReceived = false;
 
-
+        // Evaluate each item in the material request
         foreach ($materialRequest->items as $item) {
             $productId = $item->product_id;
             $requestedQty = $item->quantity;
             $issuedQty = $totalIssued[$productId] ?? 0;
             $receivedQty = $totalReceived[$productId] ?? 0;
+
+            // Check if not fully issued
             if ($issuedQty < $requestedQty) {
                 $hasMissingIssued = true;
-                break;
+                break; // No need to check further
             }
 
+            // Check if not fully received
             if ($receivedQty < $issuedQty) {
                 $hasPartialReceived = true;
             }
         }
+
+        // Set final status
         if ($hasMissingIssued) {
             $materialRequest->status_id = StatusEnum::AWAITING_PROC->value;
         } elseif ($hasPartialReceived) {
@@ -366,6 +383,7 @@ class TransactionService
 
         $materialRequest->save();
     }
+
 
     private function calculateTotalIssuedQuantities($stockTransfers)
     {

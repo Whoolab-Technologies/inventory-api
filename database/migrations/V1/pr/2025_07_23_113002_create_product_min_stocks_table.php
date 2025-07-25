@@ -13,7 +13,6 @@ return new class extends Migration {
      */
     public function up()
     {
-        DB::statement("ALTER TABLE `products` DROP COLUMN `min_stock_qty`");
         Schema::create('product_min_stocks', function (Blueprint $table) {
             $table->id();
             $table->foreignId('product_id')->constrained('products')->onDelete('cascade');

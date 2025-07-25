@@ -31,8 +31,15 @@ class PurchaseRequestController extends Controller
 
             $purchaseRequest->status_id = $request->input('status_id', $purchaseRequest->status_id);
             $purchaseRequest->save();
-            $purchaseRequest->materialRequest->status_id = StatusEnum::COMPLETED;
-            $purchaseRequest->materialRequest->save();
+            $materialRequest = $purchaseRequest->materialRequest;
+            $latestStockTransfer = $materialRequest->stockTransfers()->latest()->first();
+            if ($latestStockTransfer) {
+                $materialRequest->status_id = $latestStockTransfer->status_id;
+            } else {
+                $materialRequest->status_id = $purchaseRequest->status_id;
+            }
+            $materialRequest->description = "Material Request status changed as a result of Purchase Request being rejected.";
+            $materialRequest->save();
             MaterialRequestStock::where('purchase_request_id', $id)
                 ->delete();
             $pr = PurchaseRequest::with($this->prRelations())->findOrFail($id);
