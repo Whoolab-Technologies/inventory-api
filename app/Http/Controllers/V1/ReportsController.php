@@ -8,6 +8,7 @@ use App\Exports\GenericExcelExport;
 use App\Http\Controllers\Controller;
 use App\Models\V1\Engineer;
 use App\Models\V1\InventoryDispatch;
+use App\Models\V1\Product;
 use Illuminate\Http\Request;
 use App\Services\Helpers;
 use App\Models\V1\StockTransaction;
@@ -184,6 +185,15 @@ class ReportsController extends Controller
         }
     }
 
+    public function getProducts(Request $request)
+    {
+        try {
+            $products = Product::all();
+            return Helpers::sendResponse(200, $products, 'Products retrieved successfully');
+        } catch (\Exception $e) {
+            return Helpers::sendResponse(500, [], $e->getMessage());
+        }
+    }
     public function getEngineers(Request $request)
     {
         try {

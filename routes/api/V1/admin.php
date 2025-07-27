@@ -117,6 +117,7 @@ Route::prefix('admin')->group(function () {
             Route::get('material-returns', [ReportsController::class, 'materialReturnReport']);
             Route::get('summary', [ReportsController::class, 'summaryReport']);
             Route::get('engineers', [ReportsController::class, 'getEngineers']);
+            Route::get('products', [ReportsController::class, 'getProducts']);
             Route::get('consumption', [ReportsController::class, 'consumptionReport']);
             Route::post('export', [ReportsController::class, 'genericExcelExport']);
         });
