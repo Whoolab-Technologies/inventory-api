@@ -39,12 +39,12 @@ class StockController extends Controller
             if ($stock) {
                 $stock = $this->createStockData($stock);
             }
-            $products = Product::all();
+            // $products = Product::all();
             $stores = Store::all();
             $engineers = Engineer::all();
             $response = [
                 'stock' => $stock,
-                'products' => $products,
+                //'products' => $products,
                 'engineers' => $engineers,
                 'stores' => $stores
             ];

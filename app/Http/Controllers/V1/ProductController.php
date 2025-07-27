@@ -20,14 +20,16 @@ class ProductController extends Controller
     {
         try {
             $searchTerm = $request->query('search');
+            $perPage = $request->query('per_page', 50);
+
             $products = Product::query();
 
             if ($searchTerm) {
                 $products->search($searchTerm);
             }
 
-            $products = $products->get();
-            return Helpers::sendResponse(200, $products, 'Products retrieved successfully');
+            $paginatedProducts = $products->paginate($perPage);
+            return Helpers::sendResponse(200, $paginatedProducts, 'Products retrieved successfully');
         } catch (\Exception $e) {
             return Helpers::sendResponse(500, [], $e->getMessage());
         }

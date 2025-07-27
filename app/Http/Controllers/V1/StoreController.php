@@ -138,7 +138,7 @@ class StoreController extends Controller
     public function getProductMinStock(Request $request)
     {
         try {
-            $response = ['stocks' => [], 'products' => []];
+            // $response = ['stocks' => [], 'products' => []];
             $this->validate($request, [
                 'store_id' => 'required|exists:stores,id',
             ]);
@@ -146,16 +146,16 @@ class StoreController extends Controller
             $stocks = ProductMinStock::with(['product'])
                 ->where('store_id', $storeId)
                 ->get();
-            $products = Product::get();
+            // $products = Product::get();
             $stocks = $stocks->map(function ($item) {
                 $product = $item->product;
                 $product->min_stock_qty = $item->min_stock_qty;
                 return $product;
             });
-            $response = ['stocks' => $stocks, 'products' => $products];
+            //   $response = ['stocks' => $stocks, 'products' => $products];
             return Helpers::sendResponse(
                 status: 200,
-                data: $response,
+                data: $stocks,
                 messages: '',
             );
         } catch (ValidationException $th) {
