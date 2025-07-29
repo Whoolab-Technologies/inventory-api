@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers\V1;
 
-use App\Enums\StatusEnum;
 use App\Enums\StockMovementType;
 use App\Exports\GenericExcelExport;
 use App\Http\Controllers\Controller;
 use App\Models\V1\Engineer;
 use App\Models\V1\InventoryDispatch;
 use App\Models\V1\Product;
+use App\Models\V1\ProductMinStock;
 use Illuminate\Http\Request;
 use App\Services\Helpers;
 use App\Models\V1\StockTransaction;
@@ -22,20 +22,63 @@ use Illuminate\Support\Facades\URL;
 class ReportsController extends Controller
 {
 
+    public function minStockReport(Request $request)
+    {
+        try {
+            $searchTerm = $request->query('search');
+            $storeId = $request->query('store');
+            $productId = $request->query('product');
+
+            $stockQuery = ProductMinStock::with(['product.unit', 'store'])
+                ->when($storeId, fn($q) => $q->where('store_id', $storeId))
+                ->when($productId, fn($q) => $q->where('product_id', $productId))
+                ->when($searchTerm, function ($q) use ($searchTerm) {
+                    $q->whereHas('product', function ($query) use ($searchTerm) {
+                        $query->search($searchTerm);
+                    });
+                })
+                ->orderByDesc('id');
+
+            $minStocks = $stockQuery->get();
+
+            $stocks = $minStocks->map(function ($minStock) {
+                $product = $minStock->product;
+                $currentStock = $product->stocks()
+                    ->where('store_id', $minStock->store_id)
+                    ->sum('quantity');
+                return [
+                    'id' => $minStock->id,
+                    'store_id' => $minStock->store_id,
+                    'store_name' => $minStock->store->name ?? '',
+                    'product_id' => $product->id,
+                    'product_name' => $product->item,
+                    'unit' => $product->unit?->symbol ?? '',
+                    'min_stock_qty' => $minStock->min_stock_qty,
+                    'current_stock' => $currentStock,
+                    'description' => $product->description,
+                    'brand_name' => $product->brand_name,
+                    'cat_id' => $product->cat_id,
+                    'category_id' => $product->product_category,
+                    'category_name' => $product->category_name,
+                    'image_url' => $product->image_url,
+                ];
+            });
+            return Helpers::sendResponse(200, $stocks, 'Min Stock Report retrieved successfully');
+        } catch (\Exception $e) {
+            return Helpers::sendResponse(500, [], $e->getMessage());
+        }
+    }
+
+
     public function transactionReport(Request $request)
     {
         try {
             $searchTerm = $request->query('search');
-            $date = $request->query('date', Carbon::now()->format('Y-m-d'));
             $storeId = $request->query('store');
             $productId = $request->query('product');
 
 
-            $transactions = StockTransaction::with(['product', 'store', 'engineer'])
-                ->whereBetween('created_at', [
-                    Carbon::parse($date)->startOfDay(),
-                    Carbon::parse($date)->endOfDay(),
-                ]);
+            $transactions = StockTransaction::with(['product', 'store', 'engineer']);
 
             if ($searchTerm) {
                 $transactions->search($searchTerm);

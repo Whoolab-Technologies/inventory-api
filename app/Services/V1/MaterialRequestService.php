@@ -57,6 +57,7 @@ class MaterialRequestService
 
             $materialRequest = MaterialRequest::findOrFail($id);
             $materialRequest->status_id = $request->status_id;
+            $materialRequest->description = $request->description;
             $materialRequest->save();
             if ($request->create_pr) {
                 $missingItems = [];
@@ -119,7 +120,7 @@ class MaterialRequestService
 
         foreach ($files as $file) {
             $mimeType = $file->getMimeType();
-            $filePath = Helpers::uploadFile($file, "images/material-return/{$materialRequest->id}");
+            $filePath = Helpers::uploadFile($file, "images/material-request/{$materialRequest->id}");
 
             MaterialRequestFile::create([
                 'file' => $filePath,

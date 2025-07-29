@@ -565,7 +565,7 @@ class TransactionService
                 }
                 $toStock = $this->stockTransferService->updateStock($toStoreId, $productId, $newReceivedQuantity, $engineerId);
                 $this->stockTransferService->updateStockTransferItem($item->id, $newReceivedQuantity);
-                $this->handleStockMovement($fromStoreId, $toStoreId, $productId, $engineerId, $newReceivedQuantity, StockMovementType::MR, $dnNumber);
+                $this->handleStockMovement($fromStoreId, $toStoreId, $productId, $engineerId, $newReceivedQuantity, StockMovementType::MR, $dnNumber, $stockInTransit->id);
             }
             if ($receivedCompletely) {
                 $stockTransfer->status_id = StatusEnum::COMPLETED->value;
@@ -579,13 +579,14 @@ class TransactionService
         }
 
     }
-    protected function handleStockMovement($fromStoreId, $toStoreId, $productId, $engineerId, $quantity, $movementType, $dnNumber)
+    protected function handleStockMovement($fromStoreId, $toStoreId, $productId, $engineerId, $quantity, $movementType, $dnNumber, $stockInTransitId)
     {
         StockTransaction::where('store_id', $fromStoreId)
             ->where('product_id', $productId)
             ->where('engineer_id', $engineerId)
             ->where('stock_movement', StockMovement::TRANSIT)
-            ->where('type', $movementType, )
+            ->where('type', $movementType)
+            ->where('stock_in_transit_id', $stockInTransitId)
             ->delete();
 
         $this->createStockTransaction(
@@ -644,13 +645,12 @@ class TransactionService
                     throw new \Exception("Insufficient stock for product ID: {$item->product_name}");
                 }
             }
-            // Create Inventory Dispatch
             $inventoryDispatch = InventoryDispatch::create([
                 'dispatch_number' => 'DISPATCH-' . str_pad(InventoryDispatch::max('id') + 1001, 6, '0', STR_PAD_LEFT),
                 'dn_number' => $request->dnNumber,
                 'store_id' => $storekeeper->store_id,
                 'engineer_id' => (int) $request->engineer_id,
-                'self' => $request->self == true ? 1 : 0,
+                'self' => $request->self == 'true' ? 1 : 0,
                 'representative' => $request->representative,
                 "picked_at" => now()->toDateTimeString(),
             ]);

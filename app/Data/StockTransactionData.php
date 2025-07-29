@@ -14,6 +14,7 @@ class StockTransactionData
         public StockMovement $movement,
         public ?string $lpo = null,
         public ?string $dnNumber = null,
+        public ?string $stockTransitId = null,
     ) {
     }
 }

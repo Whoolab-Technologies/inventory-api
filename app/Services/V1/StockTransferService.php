@@ -76,6 +76,7 @@ class StockTransferService
             'type' => $data->type,
             'lpo' => $data->lpo,
             'dn_number' => $data->dnNumber,
+            'stock_in_transit_id' => $data->stockTransitId,
         ]);
     }
 

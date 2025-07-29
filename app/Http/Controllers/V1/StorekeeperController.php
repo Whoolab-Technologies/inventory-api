@@ -460,7 +460,14 @@ class StorekeeperController extends Controller
     private function mapStockItemsProduct($materialRequest)
     {
         $materialRequest->refresh();
-        $materialRequest->load(['status', 'store', 'engineer', 'items.product', 'stockTransfers.items']);
+        $materialRequest->load([
+            'status',
+            'store',
+            'engineer',
+            'files',
+            'items.product',
+            'stockTransfers.items'
+        ]);
         $materialRequest = $this->materialRequestService->mapStockItemsProduct($materialRequest);
         return $materialRequest;
     }
@@ -757,6 +764,7 @@ class StorekeeperController extends Controller
             return Helpers::sendResponse(200, $materialReturn, 'Material return created successfully');
 
         } catch (\Throwable $th) {
+            \Log::info($th->getMessage());
             return Helpers::sendResponse(500, [], $th->getMessage());
         }
     }

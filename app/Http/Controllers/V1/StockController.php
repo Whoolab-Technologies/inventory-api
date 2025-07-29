@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\V1\Supplier;
 use Illuminate\Http\Request;
 use App\Models\V1\Stock;
 use App\Services\Helpers;
@@ -18,14 +19,33 @@ class StockController extends Controller
     public function index()
     {
         try {
-            $stocks = Stock::with(['store', 'product.brand'])
+            $storeIds = Stock::distinct()->pluck('store_id');
+            $stores = Store::whereIn('id', $storeIds)->get();
+
+            return Helpers::sendResponse(200, $stores);
+        } catch (\Exception $e) {
+            return Helpers::sendResponse(500, [], $e->getMessage());
+        }
+    }
+
+    public function getProducts(Request $request, $id)
+    {
+        try {
+            $store = Store::findOrFail($id);
+            $products = Stock::with([
+                'store' => function ($q) use ($id) {
+                    $q->where('id', $id);
+                },
+                'product.brand'
+            ])
+                ->where('store_id', $id)
                 ->select('id', 'store_id', 'product_id', 'quantity')
                 ->get()
                 ->map(function ($stock) {
                     return $this->createStockData($stock);
                 });
-            return Helpers::sendResponse(200, $stocks, );
-
+            $response = ['products' => $products, 'store' => $store];
+            return Helpers::sendResponse(200, $response);
         } catch (\Exception $e) {
             return Helpers::sendResponse(500, [], $e->getMessage());
         }
@@ -35,16 +55,11 @@ class StockController extends Controller
     {
         try {
 
-            $stock = Stock::with(['store', 'product.brand', 'product.category'])->find($id);
-            if ($stock) {
-                $stock = $this->createStockData($stock);
-            }
-            // $products = Product::all();
+            $suppliers = Supplier::orderBy('id', 'desc')->get();
             $stores = Store::all();
             $engineers = Engineer::all();
             $response = [
-                'stock' => $stock,
-                //'products' => $products,
+                'suppliers' => $suppliers,
                 'engineers' => $engineers,
                 'stores' => $stores
             ];
@@ -171,6 +186,7 @@ class StockController extends Controller
     }
     private function createStockData($stock)
     {
+        $minStock = $stock->product?->minStockForStore($stock->store_id);
         return [
             'id' => $stock->id ?? null,
             'store_id' => $stock->store_id ?? null,
@@ -184,6 +200,7 @@ class StockController extends Controller
             'unit' => $stock->product?->unit?->id ?? null,
             'symbol' => $stock->product->unit->symbol ?? null,
             'transactions' => $stock->transactions,
+            'min_stock_qty' => $minStock?->min_stock_qty ?? 0
         ];
     }
 

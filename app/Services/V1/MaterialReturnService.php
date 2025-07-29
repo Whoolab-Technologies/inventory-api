@@ -109,6 +109,7 @@ class MaterialReturnService
                 'status',
                 'fromStore',
                 'toStore',
+                'files',
                 'details.engineer',
                 'details.items.product',
             ]);
@@ -168,7 +169,7 @@ class MaterialReturnService
                 materialReturnItemId: $materialReturnItem->id,
 
             );
-            $this->stockTransferService->createStockInTransit($stockInTransitData);
+            $stockTransit = $this->stockTransferService->createStockInTransit($stockInTransitData);
 
 
             $stockTransactionData = new StockTransactionData(
@@ -180,6 +181,7 @@ class MaterialReturnService
                 StockMovement::TRANSIT,
                 null,
                 $dnNumber,
+                $stockTransit->id,
             );
             $this->stockTransferService->createStockTransaction($stockTransactionData);
 
@@ -269,6 +271,7 @@ class MaterialReturnService
                     ->where('engineer_id', $engineerId)
                     ->where('stock_movement', StockMovement::TRANSIT)
                     ->where('type', StockMovementType::SS_RETURN)
+                    ->where('stock_in_transit_id', $stockInTransit->id)
                     ->delete();
                 // Log new stock transactions
                 if ($receivedQuantity > 0) {

@@ -16,7 +16,8 @@ class StockTransaction extends BaseModel
         'quantity',
         'type',
         'lpo',
-        'dn_number'
+        'dn_number',
+        'stock_in_transit_id'
     ];
     use HasFactory;
 

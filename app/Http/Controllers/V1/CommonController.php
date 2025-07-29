@@ -10,6 +10,7 @@ use App\Services\Helpers;
 use App\Models\V1\Admin;
 use App\Models\V1\Engineer;
 use App\Models\V1\Storekeeper;
+use App\Models\V1\Product;
 use App\Models\V1\MaterialRequest;
 use \App\Models\V1\UserToken;
 use Illuminate\Support\Facades\Hash;
@@ -255,5 +256,23 @@ class CommonController extends Controller
     }
 
 
+
+    public function getProducts(Request $request)
+    {
+        try {
+            $searchTerm = $request->query('search');
+            $perPage = $request->query('per_page', 50);
+
+            $products = Product::query();
+
+            if ($searchTerm) {
+                $products->search($searchTerm);
+            }
+            $paginatedProducts = $products->paginate($perPage);
+            return Helpers::sendResponse(200, $paginatedProducts->items(), 'Products retrieved successfully');
+        } catch (\Exception $e) {
+            return Helpers::sendResponse(500, [], $e->getMessage());
+        }
+    }
 
 }

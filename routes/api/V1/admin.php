@@ -86,6 +86,7 @@ Route::prefix('admin')->group(function () {
         Route::get('stocks', [StockController::class, 'index']);
         Route::get('stocks/{id}', [StockController::class, 'show']);
         Route::put('stocks/{id}', [StockController::class, 'update']);
+        Route::get('stocks/{id}/products', [StockController::class, 'getProducts']);
         Route::delete('stocks/{id}', [StockController::class, 'destroy']);
 
         Route::get('stocks/{id}/transactions', [StockController::class, 'getTransactions']);
@@ -119,6 +120,7 @@ Route::prefix('admin')->group(function () {
             Route::get('engineers', [ReportsController::class, 'getEngineers']);
             Route::get('products', [ReportsController::class, 'getProducts']);
             Route::get('consumption', [ReportsController::class, 'consumptionReport']);
+            Route::get('stock', [ReportsController::class, 'minStockReport']);
             Route::post('export', [ReportsController::class, 'genericExcelExport']);
         });
 

@@ -7,7 +7,6 @@ use Illuminate\Http\Request;
 use App\Models\V1\Location;
 use App\Services\Helpers;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Validator;
 
 class LocationController extends Controller
 {
@@ -87,13 +86,13 @@ class LocationController extends Controller
                 $location = Location::with(['product', 'store'])->find($id);
             }
 
-            $products = \App\Models\V1\Product::all();
+            //  $products = \App\Models\V1\Product::all();
 
             return Helpers::sendResponse(
                 status: 200,
                 data: [
                     'location' => $location,
-                    'products' => $products
+                    'products' => []
                 ],
                 messages: 'Location and products fetched successfully'
             );
@@ -170,4 +169,5 @@ class LocationController extends Controller
             );
         }
     }
+
 }
