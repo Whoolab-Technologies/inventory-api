@@ -133,8 +133,16 @@ class Product extends BaseModel
     {
         return $this->hasMany(ProductMinStock::class);
     }
+    public function locations()
+    {
+        return $this->hasMany(Location::class);
+    }
     public function minStockForStore($storeId)
     {
         return $this->minStocks()->where('store_id', $storeId)->first();
+    }
+    public function locationForStore($storeId)
+    {
+        return $this->locations()->where('store_id', $storeId)->first();
     }
 }

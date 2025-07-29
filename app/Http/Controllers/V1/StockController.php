@@ -187,6 +187,7 @@ class StockController extends Controller
     private function createStockData($stock)
     {
         $minStock = $stock->product?->minStockForStore($stock->store_id);
+        $location = $stock->product?->locationForStore($stock->store_id);
         return [
             'id' => $stock->id ?? null,
             'store_id' => $stock->store_id ?? null,
@@ -200,7 +201,9 @@ class StockController extends Controller
             'unit' => $stock->product?->unit?->id ?? null,
             'symbol' => $stock->product->unit->symbol ?? null,
             'transactions' => $stock->transactions,
-            'min_stock_qty' => $minStock?->min_stock_qty ?? 0
+            'min_stock_qty' => $minStock?->min_stock_qty ?? 0,
+            'location' => $location?->location ?? "",
+            'rack' => $location?->rack_number ?? ""
         ];
     }
 

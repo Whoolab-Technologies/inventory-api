@@ -46,6 +46,7 @@ class ReportsController extends Controller
                 $currentStock = $product->stocks()
                     ->where('store_id', $minStock->store_id)
                     ->sum('quantity');
+                $location = $product->locationForStore($minStock->store_id);
                 return [
                     'id' => $minStock->id,
                     'store_id' => $minStock->store_id,
@@ -61,6 +62,8 @@ class ReportsController extends Controller
                     'category_id' => $product->product_category,
                     'category_name' => $product->category_name,
                     'image_url' => $product->image_url,
+                    'location' => $location?->location ?? '',
+                    'rack' => $location?->rack_number ?? '',
                 ];
             });
             return Helpers::sendResponse(200, $stocks, 'Min Stock Report retrieved successfully');
