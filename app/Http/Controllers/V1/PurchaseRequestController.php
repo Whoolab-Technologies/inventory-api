@@ -148,7 +148,8 @@ class PurchaseRequestController extends Controller
             'lpos.supplier',
             'lpos.status',
             'lpos.items.product',
-            'lpos.shipments.status'
+            'lpos.shipments.status',
+            'lpos.shipments.items.product'
         ];
     }
 
