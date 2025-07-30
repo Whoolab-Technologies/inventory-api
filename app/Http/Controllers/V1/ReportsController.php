@@ -79,9 +79,13 @@ class ReportsController extends Controller
             $searchTerm = $request->query('search');
             $storeId = $request->query('store');
             $productId = $request->query('product');
+            $date = $request->query('date', Carbon::now()->format('Y-m-d'));
 
+            $transactions = StockTransaction::with(['product', 'store', 'engineer'])->whereBetween('created_at', [
+                Carbon::parse($date)->startOfDay(),
+                Carbon::parse($date)->endOfDay(),
+            ]);
 
-            $transactions = StockTransaction::with(['product', 'store', 'engineer']);
 
             if ($searchTerm) {
                 $transactions->search($searchTerm);
