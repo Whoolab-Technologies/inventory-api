@@ -116,8 +116,8 @@ class TransactionService
                             'requested_qty' => $requestedQty,
                             'issued_qty' => $issuedQtyForEngineer
                         ];
-
-                        $this->createStockTransaction($centralStore->id, $productId, $materialRequest->engineer_id, $issuedQtyForEngineer, StockMovement::TRANSIT, StockMovementType::MR, $request->dn_number);
+                        \Log::info("Central to Site Transfer");
+                        // $this->createStockTransaction($centralStore->id, $productId, $materialRequest->engineer_id, $issuedQtyForEngineer, StockMovement::TRANSIT, StockMovementType::MR, $request->dn_number);
                     }
                 }
 
@@ -136,7 +136,8 @@ class TransactionService
                         'requested_qty' => $requestedQty,
                         'issued_qty' => $issuedQty
                     ];
-                    $this->createStockTransaction($centralStore->id, $productId, $materialRequest->engineer_id, $issuedQty, StockMovement::TRANSIT, StockMovementType::MR, $request->dn_number);
+                    \Log::info("Central to Site Transfer if its site to site");
+                    //  $this->createStockTransaction($centralStore->id, $productId, $materialRequest->engineer_id, $issuedQty, StockMovement::TRANSIT, StockMovementType::MR, $request->dn_number);
                 }
             }
 
@@ -210,7 +211,7 @@ class TransactionService
         $stock->decrement('quantity', $quantity);
     }
 
-    private function createStockTransaction($fromStoreId, $productId, $engineerId, $quantity, $movement, $ype, $dnNumber)
+    private function createStockTransaction($fromStoreId, $productId, $engineerId, $quantity, $movement, $type, $dnNumber, $stockInTransitId = null)
     {
 
         $data = new StockTransactionData(
@@ -218,10 +219,11 @@ class TransactionService
             $productId,
             $engineerId,
             $quantity,
-            $ype,
+            $type,
             $movement,
             null,
-            $dnNumber
+            $dnNumber,
+            $stockInTransitId
         );
 
         $this->stockTransferService->createStockTransaction($data);
@@ -262,7 +264,7 @@ class TransactionService
                     ->where('product_id', $item['product_id'])
                     ->firstOrFail();
 
-                $this->stockTransferService->createStockInTransit(new StockInTransitData(
+                $stockInTransit = $this->stockTransferService->createStockInTransit(new StockInTransitData(
                     stockTransferId: $transfer->id,
                     stockTransferItemId: $transferItem->id,
                     productId: $item['product_id'],
@@ -272,6 +274,16 @@ class TransactionService
                     materialReturnId: null,
                     materialReturnItemId: null
                 ));
+                $this->createStockTransaction(
+                    $fromStoreId,
+                    $item['product_id'],
+                    $materialRequestItem->materialRequest->engineer_id,
+                    $item['issued_qty'],
+                    StockMovement::TRANSIT,
+                    StockMovementType::MR,
+                    $dnNumber,
+                    $stockInTransit->id
+                );
             }
         }
         return $transfer;
@@ -321,7 +333,7 @@ class TransactionService
 
         } catch (\Throwable $e) {
             \DB::rollBack();
-            throw $e;
+            // throw $e;
         }
     }
 
@@ -565,13 +577,15 @@ class TransactionService
                 }
                 $toStock = $this->stockTransferService->updateStock($toStoreId, $productId, $receivedQuantity, $engineerId);
                 $this->stockTransferService->updateStockTransferItem($item->id, $newReceivedQuantity);
-                $this->handleStockMovement($fromStoreId, $toStoreId, $productId, $engineerId, $receivedQuantity, StockMovementType::MR, $dnNumber);
+                $this->handleStockMovement($fromStoreId, $toStoreId, $productId, $engineerId, $receivedQuantity, [StockMovementType::MR, StockMovementType::PR], $dnNumber, $stockInTransit->id);
             }
+            \Log::info("stockTransfer", ['stockTransfer' => $stockTransfer]);
             if ($receivedCompletely) {
                 $stockTransfer->status_id = StatusEnum::COMPLETED->value;
             }
             $stockTransfer->save();
             \DB::commit();
+            // \Log::info("stockTransfer", ['stockTransfer' => $stockTransfer]);
             return $stockTransfer;
         } catch (\Throwable $e) {
             \DB::rollBack();
@@ -579,34 +593,55 @@ class TransactionService
         }
 
     }
-    protected function handleStockMovement($fromStoreId, $toStoreId, $productId, $engineerId, $quantity, $movementType, $dnNumber)
+    protected function handleStockMovement($fromStoreId, $toStoreId, $productId, $engineerId, $receivedQty, $movementType, $dnNumber, $stockInTransitId)
     {
-        StockTransaction::where('store_id', $fromStoreId)
+
+        $transitTxn = StockTransaction::where('store_id', $fromStoreId)
             ->where('product_id', $productId)
             ->where('engineer_id', $engineerId)
             ->where('stock_movement', StockMovement::TRANSIT)
-            ->where('type', $movementType)
-            ->delete();
-        $this->createStockTransaction(
-            $fromStoreId,
-            $productId,
-            $engineerId,
-            $quantity,
-            StockMovement::OUT,
-            $movementType,
-            $dnNumber
-        );
+            ->whereIn('type', $movementType)
+            ->where('stock_in_transit_id', $stockInTransitId)
+            ->first();
+        if (!$transitTxn) {
+            \Log::warning("Transit stock transaction not found.");
+        }
+        $remainingQty = $transitTxn->quantity - $receivedQty;
 
-        // To Store - IN movement
-        $this->createStockTransaction(
-            $toStoreId,
-            $productId,
-            $engineerId,
-            $quantity,
-            StockMovement::IN,
-            $movementType,
-            $dnNumber
-        );
+        if ($remainingQty > 0) {
+            $transitTxn->quantity = $remainingQty;
+            $transitTxn->save();
+        } else {
+            // If all quantity is received, then delete the transit record
+            $transitTxn->delete();
+        }
+        if ($receivedQty > 0) {
+            $this->createStockTransaction(
+                $fromStoreId,
+                $productId,
+                $engineerId,
+                $receivedQty,
+                StockMovement::OUT,
+                StockMovementType::MR,
+                $dnNumber
+            );
+
+            // To Store - IN movement
+            $this->createStockTransaction(
+                $toStoreId,
+                $productId,
+                $engineerId,
+                $receivedQty,
+                StockMovement::IN,
+                StockMovementType::MR,
+                $dnNumber
+            );
+        }
+
+        if ($remainingQty > 0) {
+            \Log::warning("Stock in transit partially received. Remaining in transit: $remainingQty units for product $productId, engineer $engineerId");
+        }
+
     }
 
 
@@ -775,7 +810,7 @@ class TransactionService
                 'requested_qty' => $issuedQty,
                 'issued_qty' => $issuedQty
             ];
-            $this->createStockTransaction($centralStore->id, $productId, $materialRequest->engineer_id, $issuedQty, StockMovement::TRANSIT, StockMovementType::MR, $request->dn_number);
+            //   $this->createStockTransaction($centralStore->id, $productId, $materialRequest->engineer_id, $issuedQty, StockMovement::TRANSIT, StockMovementType::MR, $request->dn_number);
         }
 
         $this->createCentralStockTransfer($request->dn_number, $materialRequest, $centralStore->id, $centralToSiteItems);

@@ -137,7 +137,7 @@ class PurchaseRequestService
             );
         }
     }
-    public function updateOnHoldCentralToSiteTransctions($shipmentItems, $materialRequest, $request)
+    public function updateOnHoldCentralToSiteTransactions($shipmentItems, $materialRequest, $request)
     {
         $centralStore = Store::where('type', 'central')->firstOrFail();
         $fromStoreId = $centralStore->id;
@@ -288,8 +288,6 @@ class PurchaseRequestService
         $productId = $shipmentItem->product_id;
         $quantity = $shipmentItem->quantity_delivered;
 
-        // Stock Transactions: OUT
-        $this->createStockTransaction($centralStore->id, $productId, $engineerId, $quantity, $lpo->lpo_number, $transferDnNumber, StockMovement::TRANSIT);
 
         // Update Stock: OUT 
         $this->stockTransferService->updateStock($centralStore->id, $productId, -abs($quantity));
@@ -307,7 +305,7 @@ class PurchaseRequestService
             ->where('product_id', $productId)
             ->firstOrFail();
 
-        $this->stockTransferService->createStockInTransit(new StockInTransitData(
+        $stockInTransit = $this->stockTransferService->createStockInTransit(new StockInTransitData(
             stockTransferId: $stockTransfer->id,
             stockTransferItemId: $transferItem->id,
             productId: $productId,
@@ -317,19 +315,34 @@ class PurchaseRequestService
             materialReturnId: null,
             materialReturnItemId: null
         ));
+
+        // Stock Transactions: OUT
+        $this->createStockTransaction(
+            $centralStore->id,
+            $productId,
+            $engineerId,
+            $quantity,
+            $lpo->lpo_number,
+            $transferDnNumber,
+            StockMovement::TRANSIT,
+            $stockInTransit->id,
+            StockMovementType::MR
+        );
+
     }
 
-    public function createStockTransaction($storeId, $productId, $engineerId, $quantity, $lpoNumber, $dnNumber, $movement)
+    public function createStockTransaction($storeId, $productId, $engineerId, $quantity, $lpoNumber, $dnNumber, $movement, $stockInTransitId = null, $stockMovementType = StockMovementType::PR)
     {
         $stockTransactionData = new StockTransactionData(
             $storeId,
             $productId,
             $engineerId,
             $quantity,
-            StockMovementType::PR,
+            $stockMovementType,
             $movement,
             $lpoNumber,
-            $dnNumber
+            $dnNumber,
+            $stockInTransitId
         );
 
         $this->stockTransferService->createStockTransaction($stockTransactionData);

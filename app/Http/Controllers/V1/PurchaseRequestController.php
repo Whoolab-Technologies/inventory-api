@@ -340,7 +340,7 @@ class PurchaseRequestController extends Controller
             );
             $shipmentItems = $this->purchaseRequestService->getShipmentItems($shipments);
 
-            $this->purchaseRequestService->updateOnHoldCentralToSiteTransctions(
+            $this->purchaseRequestService->updateOnHoldCentralToSiteTransactions(
                 $shipmentItems,
                 $materialRequest,
                 $request
@@ -394,7 +394,7 @@ class PurchaseRequestController extends Controller
                 $materialRequest
             );
 
-            $this->purchaseRequestService->updateOnHoldCentralToSiteTransctions(
+            $this->purchaseRequestService->updateOnHoldCentralToSiteTransactions(
                 $shipment->items,
                 $materialRequest,
                 $request
