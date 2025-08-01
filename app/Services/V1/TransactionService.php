@@ -543,12 +543,12 @@ class TransactionService
             foreach ($request->items as $item) {
                 $productId = $item->product_id;
                 $itemId = $item->id;
-                $newReceivedQuantity = $item->received_quantity;
+                $receivedQuantity = $item->received_quantity;
                 $stockInTransit = $stockInTransitRecords[$itemId] ?? null;
                 if (!$stockInTransit) {
                     continue;
                 }
-                $stockInTransit->increment('received_quantity', $newReceivedQuantity);
+                $stockInTransit->increment('received_quantity', $receivedQuantity);
                 // Update stock in transit
                 // $stockInTransit->received_quantity = $newReceivedQuantity;
                 $newReceivedQuantity = $stockInTransit->refresh()->received_quantity;
@@ -563,9 +563,9 @@ class TransactionService
                     $receivedCompletely = false;
                     //  $fromStock = $this->stockTransferService->updateStock($fromStoreId, $productId, $remainingQuantity);
                 }
-                $toStock = $this->stockTransferService->updateStock($toStoreId, $productId, $newReceivedQuantity, $engineerId);
-                $this->stockTransferService->updateStockTransferItem($item->id, $newReceivedQuantity);
-                $this->handleStockMovement($fromStoreId, $toStoreId, $productId, $engineerId, $newReceivedQuantity, StockMovementType::MR, $dnNumber, $stockInTransit->id);
+                $toStock = $this->stockTransferService->updateStock($toStoreId, $productId, $receivedQuantity, $engineerId);
+                $this->stockTransferService->updateStockTransferItem($item->id, $receivedQuantity);
+                $this->handleStockMovement($fromStoreId, $toStoreId, $productId, $engineerId, $receivedQuantity, StockMovementType::MR, $dnNumber);
             }
             if ($receivedCompletely) {
                 $stockTransfer->status_id = StatusEnum::COMPLETED->value;
@@ -579,16 +579,14 @@ class TransactionService
         }
 
     }
-    protected function handleStockMovement($fromStoreId, $toStoreId, $productId, $engineerId, $quantity, $movementType, $dnNumber, $stockInTransitId)
+    protected function handleStockMovement($fromStoreId, $toStoreId, $productId, $engineerId, $quantity, $movementType, $dnNumber)
     {
         StockTransaction::where('store_id', $fromStoreId)
             ->where('product_id', $productId)
             ->where('engineer_id', $engineerId)
             ->where('stock_movement', StockMovement::TRANSIT)
             ->where('type', $movementType)
-            ->where('stock_in_transit_id', $stockInTransitId)
             ->delete();
-
         $this->createStockTransaction(
             $fromStoreId,
             $productId,
