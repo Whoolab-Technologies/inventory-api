@@ -564,7 +564,7 @@ class TransactionService
                     //  $fromStock = $this->stockTransferService->updateStock($fromStoreId, $productId, $remainingQuantity);
                 }
                 $toStock = $this->stockTransferService->updateStock($toStoreId, $productId, $receivedQuantity, $engineerId);
-                $this->stockTransferService->updateStockTransferItem($item->id, $receivedQuantity);
+                $this->stockTransferService->updateStockTransferItem($item->id, $newReceivedQuantity);
                 $this->handleStockMovement($fromStoreId, $toStoreId, $productId, $engineerId, $receivedQuantity, StockMovementType::MR, $dnNumber);
             }
             if ($receivedCompletely) {
