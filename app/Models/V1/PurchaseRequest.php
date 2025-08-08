@@ -108,5 +108,12 @@ class PurchaseRequest extends BaseModel
         return $query;
     }
 
-
+    public function engineer()
+    {
+        return $this->materialRequest->engineer;
+    }
+    public function store()
+    {
+        return $this->materialRequest->store;
+    }
 }

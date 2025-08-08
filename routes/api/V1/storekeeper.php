@@ -62,6 +62,7 @@ Route::prefix('storekeeper')->group(function () {
         Route::put('locations/{id}', [LocationController::class, 'update']);
         Route::delete('locations/{id}', [LocationController::class, 'destroy']);
         Route::get('materials', [CommonController::class, 'getProducts']);
+        Route::get('materials/{id}', [CommonController::class, 'getProduct']);
         Route::post('fcm', [CommonController::class, 'saveFcmToken']);
         Route::post('suppliers', [SupplierController::class, 'index']);
 

@@ -69,7 +69,7 @@ class AdminAuthController extends Controller
             }
             return Helpers::sendResponse(status: 401, messages: 'Invalid credentials', );
         } catch (\Throwable $th) {
-            return Helpers::sendResponse(status: 400, messages: $th->getMessage(), );
+            return Helpers::sendResponse(status: 400, data: [], messages: $th->getMessage(), );
         }
     }
 

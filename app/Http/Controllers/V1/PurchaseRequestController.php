@@ -89,7 +89,9 @@ class PurchaseRequestController extends Controller
 
             foreach ($purchaseRequests as $request) {
                 $request->items = $request->prItems;
-                unset($request->prItems);
+                $request->store = $request->store();
+                $request->engineer = $request->engineer();
+                unset($request->prItems, $request->materialRequest);
             }
 
 

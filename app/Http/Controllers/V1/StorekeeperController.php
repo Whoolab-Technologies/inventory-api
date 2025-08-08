@@ -1126,7 +1126,7 @@ class StorekeeperController extends Controller
 
             return Helpers::sendResponse(200, $purchaseRequest, 'Material return created successfully');
         } catch (\Throwable $th) {
-            return Helpers::sendResponse(500, $th->getMessage());
+            return Helpers::sendResponse(500, [], $th->getMessage());
         }
     }
 
@@ -1142,7 +1142,7 @@ class StorekeeperController extends Controller
                 messages: 'Material Request not found',
             );
         } catch (\Throwable $th) {
-            return Helpers::sendResponse(500, $th->getMessage());
+            return Helpers::sendResponse(500, [], $th->getMessage());
         }
     }
 
@@ -1150,6 +1150,13 @@ class StorekeeperController extends Controller
     {
         try {
             \DB::beginTransaction();
+            $request->validate([
+                'dn_number' => ['required', 'string'],
+                'items' => ['required', 'array', 'min:1'],
+                'items.*.itemId' => ['required', 'integer'],
+                'items.*.productId' => ['required', 'integer'],
+            ]);
+
             $materialRequest = $this->transactionService->createManualTransaction($request, $id);
             $this->notificationService->sendNotificationOnMaterialIssued($materialRequest);
             $materialRequest = $this->mapStockItemsProduct($materialRequest);
@@ -1169,7 +1176,7 @@ class StorekeeperController extends Controller
         } catch (\Throwable $th) {
             \Log::info('createManualTransaction ', ['error' => $th->getMessage()]);
 
-            return Helpers::sendResponse(500, $th->getMessage());
+            return Helpers::sendResponse(500, [], $th->getMessage());
         }
     }
 

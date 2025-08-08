@@ -274,5 +274,14 @@ class CommonController extends Controller
             return Helpers::sendResponse(500, [], $e->getMessage());
         }
     }
+    public function getProduct(Request $request, $id)
+    {
+        try {
+            $products = Product::where('id', $id)->get();
+            return Helpers::sendResponse(200, $products, 'Products retrieved successfully');
+        } catch (\Exception $e) {
+            return Helpers::sendResponse(500, [], $e->getMessage());
+        }
+    }
 
 }
