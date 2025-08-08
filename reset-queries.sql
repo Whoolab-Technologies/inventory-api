@@ -149,7 +149,7 @@ INSERT INTO `categories` (`id`, `category_id`, `name`, `description`, `created_b
 
 
 ALTER TABLE `stock_transactions` CHANGE `type` `type` ENUM('DIRECT','MR','PR','SS-RETURN','ENGG-RETURN','DISPATCH') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'DIRECT';
-php artisan make:migration create_material_request_files_table --create=material_return_files --path=database/migrations/V1/pr
+php artisan make:migration create_lpo__files_table --create=lpo_files --path=database/migrations/V1/pr
 
 php artisan make:model V1/LpoItems
 php artisan make:controller V1/SupplierController

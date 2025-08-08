@@ -80,7 +80,7 @@ Route::prefix('storekeeper')->group(function () {
         Route::prefix('lpos')->group(function () {
             Route::get('/', [PurchaseRequestController::class, 'getLpos']);
             Route::get('/{id}', [PurchaseRequestController::class, 'getLpo']);
-            Route::put('/{id}', [PurchaseRequestController::class, 'storeLpoShipment']);
+            Route::post('/{id}', [PurchaseRequestController::class, 'storeLpoShipment']);
         });
         Route::prefix('shipments')->group(function () {
             Route::get('/', [PurchaseRequestController::class, 'getShipments']);

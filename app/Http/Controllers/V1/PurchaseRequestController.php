@@ -217,7 +217,7 @@ class PurchaseRequestController extends Controller
     public function getLpo(Request $request, $id)
     {
         try {
-            $lpo = Lpo::with(['items.product', 'supplier', 'status', 'shipments.status'])
+            $lpo = Lpo::with(['items.product', 'supplier', 'status', 'shipments.status', 'shipments.files'])
                 ->findOrFail($id);
 
             $response['lpo'] = $this->formatLpo($lpo);
@@ -229,7 +229,7 @@ class PurchaseRequestController extends Controller
     public function getLpos(Request $request, )
     {
         try {
-            $query = Lpo::with(['items.product', 'supplier', 'status', 'shipments.status']);
+            $query = Lpo::with(['items.product', 'supplier', 'status', 'shipments.status', 'shipments.files']);
 
             if ($request->has('pr_id')) {
                 $query->where('pr_id', $request->input('pr_id'));
@@ -271,20 +271,27 @@ class PurchaseRequestController extends Controller
             'status' => $lpo->status,
             'date' => $lpo->date,
             'shipments' => $lpo->shipments,
+            'files' => $lpo->files,
             'items' => $lpoItems,
         ];
     }
 
     public function storeLpoShipment(Request $request, $id)
     {
+        if (is_string($request->items)) {
+            $decoded = json_decode($request->items, true);
+            $request->merge(['items' => $decoded]);
+        }
         $this->purchaseRequestService->validateShipmentRequest($request);
 
         \DB::beginTransaction();
 
         try {
+
             // 1. Create shipment
             $shipment = $this->purchaseRequestService->createLpoShipment($request);
             $this->purchaseRequestService->createShipmentItems($shipment->id, $request->items);
+            $this->purchaseRequestService->uploadLpoShipmentFiles($request, $shipment);
             $this->purchaseRequestService->updateLpoStatusIfAllItemsReceived($request->lpo_id);
 
             if ($shipment->status_id == StatusEnum::IN_TRANSIT) {
@@ -293,7 +300,8 @@ class PurchaseRequestController extends Controller
                 $shipment->save();
             }
 
-            $shipment->load(['items', 'status']);
+            $shipment = LpoShipment::with(['items', 'status', 'files'])->findOrFail($id);
+
             // 2. Fetch updated LPO with required relations
             $lpo = Lpo::with([
                 'items.product',
@@ -308,13 +316,14 @@ class PurchaseRequestController extends Controller
                 'lpo' => $this->formatLpo($lpo),
                 'shipment' => $shipment
             ];
+            \Log::info("shipment ", ['shipment' => $shipment]);
             \DB::commit();
             return Helpers::sendResponse(200, $response, 'Shipment created successfully');
 
         } catch (\Throwable $e) {
             \DB::rollBack();
             \Log::info($e->getMessage());
-            return Helpers::sendResponse(500, $e->getMessage());
+            return Helpers::sendResponse(500, [], $e->getMessage());
         }
     }
 
@@ -374,7 +383,7 @@ class PurchaseRequestController extends Controller
     public function getShipment(Request $request, $id)
     {
         try {
-            $shipment = LpoShipment::with(['status', 'items.product'])->findOrFail($id);
+            $shipment = LpoShipment::with(['status', 'items.product', 'files'])->findOrFail($id);
             return Helpers::sendResponse(200, $shipment, '');
         } catch (\Throwable $e) {
             return Helpers::sendResponse(500, [], $e->getMessage());

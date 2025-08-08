@@ -33,4 +33,8 @@ class LpoShipment extends Model
     {
         return $this->hasMany(LpoShipmentItem::class, 'lpo_shipment_id');
     }
+    public function files()
+    {
+        return $this->hasMany(LpoFile::class, 'lpo_shipment_id');
+    }
 }

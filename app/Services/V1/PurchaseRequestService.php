@@ -10,6 +10,7 @@ use App\Models\V1\Store;
 use App\Models\V1\LpoItem;
 use App\Models\V1\LpoShipmentItem;
 use App\Models\V1\LpoShipment;
+use App\Models\V1\LpoFile;
 use App\Models\V1\StockTransferFile;
 use App\Models\V1\MaterialRequestStock;
 
@@ -373,6 +374,31 @@ class PurchaseRequestService
             'status_id' => StatusEnum::ON_HOLD->value,
         ]);
     }
+
+    public function uploadLpoShipmentFiles(Request $request, $shipment, )
+    {
+        $files = $request->file('files')
+            ?? [];
+
+        if (empty($files) || !is_array($files)) {
+            return;
+        }
+
+        foreach ($files as $file) {
+            $mimeType = $file->getMimeType();
+            $filePath = Helpers::uploadFile($file, "images/lpo/{$request->lpo_id}");
+
+            LpoFile::create([
+                'lpo_id' => $request->lpo_id,
+                'lpo_shipment_id' => $shipment->id,
+                'file' => $filePath,
+                'file_mime_type' => $mimeType,
+            ]);
+        }
+    }
+
+
+
 
     public function createShipmentItems($shipmentId, $items)
     {
