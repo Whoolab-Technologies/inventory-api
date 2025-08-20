@@ -12,6 +12,7 @@ use App\Services\Helpers;
 use App\Models\V1\Engineer;
 use App\Models\V1\Product;
 use App\Models\V1\Store;
+use App\Models\V1\Stock;
 use App\Models\V1\StockTransfer;
 use App\Models\V1\MaterialReturn;
 use App\Services\V1\NotificationService;
@@ -202,50 +203,24 @@ class EngineerController extends Controller
                     },
                     'stocks.engineer',
                     'stocks.store'
-                ]);
+                ])
+                ->withSum([
+                    'stocks as stock_with_others' => function ($q) use ($engineerId) {
+                        $q->where('engineer_id', '!=', 0)
+                            ->where('engineer_id', '!=', $engineerId);
+                    }
+                ], 'quantity');
 
             if ($searchTerm) {
                 $productsQuery->search($searchTerm);
             }
 
             $products = $productsQuery->get()->map(function ($product) use ($engineerId) {
-
                 $product->total_stock = $product->stocks->where('engineer_id', 0)->sum('quantity');
                 $product->engineer_stock = $product->stocks->where('engineer_id', $engineerId)->sum('quantity');
-                $product->stock_with_others = $product->stocks
-                    ->where('engineer_id', '!=', 0)
-                    ->where('engineer_id', '!=', $engineerId)
-                    ->sum('quantity');
-
+                $product->stock_with_others = (int) $product->stock_with_others;
                 return $product;
             });
-
-
-            // $productsQuery = Product::
-            //     whereHas('engineerStocks', function ($query) use ($engineerId) {
-            //         //  $query->where('quantity', '>', 0);
-            //         if ($engineerId) {
-            //             $query->where('engineer_id', $engineerId);
-            //         }
-            //     })
-            //     ->with([
-            //         'engineerStocks' => function ($query) use ($user, $isHisShock, $engineerId) {
-
-            //             $query->where('quantity', '>', 0)
-            //                 ->where('store_id', $user->store_id);
-            //             if (!$isHisShock && $engineerId) {
-            //                 $query->where('engineer_id', $engineerId);
-            //             }
-            //         },
-            //         'engineerStocks.engineer',
-            //         'stocks' => function ($query) use ($user) {
-            //             $query->where('store_id', $user->store_id);
-            //         },
-            //     ]);
-
-            // if ($searchTerm) {
-            //     $productsQuery->search($searchTerm);
-            // }
 
             // $products = $productsQuery->get()->map(function ($product) use ($user, $engineerId, $isHisShock) {
             //     $product->total_stock = $product->stocks->sum('quantity');

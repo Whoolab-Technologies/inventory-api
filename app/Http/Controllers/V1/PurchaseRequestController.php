@@ -300,14 +300,15 @@ class PurchaseRequestController extends Controller
                 $shipment->save();
             }
 
-            $shipment = LpoShipment::with(['items', 'status', 'files'])->findOrFail($id);
+            $shipment = LpoShipment::with(['items', 'status', 'files'])->findOrFail($shipment->id);
 
             // 2. Fetch updated LPO with required relations
             $lpo = Lpo::with([
                 'items.product',
                 'supplier',
                 'status',
-                'shipments.status'
+                'shipments.status',
+                'shipments.files'
             ])->findOrFail($id);
 
             $purchaseRequest = $this->getFormatedPurchaseRequest($lpo->pr_id);

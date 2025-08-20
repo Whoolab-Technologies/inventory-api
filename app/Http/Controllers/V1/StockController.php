@@ -41,9 +41,16 @@ class StockController extends Controller
                 ->where('store_id', $id)
                 ->select('id', 'store_id', 'product_id', 'quantity')
                 ->get()
-                ->map(function ($stock) {
-                    return $this->createStockData($stock);
-                });
+                ->groupBy('product_id')
+                ->map(function ($group) {
+                    $first = $group->first();
+                    $first->quantity = $group->sum('quantity');
+                    return $this->createStockData($first);
+                })
+                ->values();
+            // ->map(function ($stock) {
+            //     return $this->createStockData($stock);
+            // });
             $response = ['products' => $products, 'store' => $store];
             return Helpers::sendResponse(200, $response);
         } catch (\Exception $e) {
