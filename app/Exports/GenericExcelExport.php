@@ -5,11 +5,12 @@ namespace App\Exports;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithDrawings;
+use Maatwebsite\Excel\Concerns\WithTitle;
 use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use Carbon\Carbon;
 
-class GenericExcelExport implements FromArray, WithStyles, WithDrawings
+class GenericExcelExport implements FromArray, WithStyles, WithDrawings, WithTitle
 {
     protected array $data;
     protected array $headers;
@@ -25,8 +26,12 @@ class GenericExcelExport implements FromArray, WithStyles, WithDrawings
         $this->data = $data;
         $this->headers = $headers;
         $this->title = $title;
-    }
 
+    }
+    public function title(): string
+    {
+        return substr($this->title, 0, 31);
+    }
     public function array(): array
     {
         $rows = [

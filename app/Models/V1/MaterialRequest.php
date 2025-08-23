@@ -18,6 +18,7 @@ class MaterialRequest extends BaseModel
         'store_id',
         'qr_code',
         'status_id',
+        'approved_date',
     ];
     protected $appends = ['has_on_hold_shipment'];
 

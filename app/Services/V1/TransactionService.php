@@ -333,7 +333,7 @@ class TransactionService
 
         } catch (\Throwable $e) {
             \DB::rollBack();
-            // throw $e;
+            throw $e;
         }
     }
 
@@ -647,7 +647,6 @@ class TransactionService
 
     public function createInventoryDispatch(Request $request, $storekeeper)
     {
-        \DB::beginTransaction();
         try {
 
             // Validate request
@@ -766,10 +765,10 @@ class TransactionService
             StockTransaction::insert($stockTransactions);
             StockTransferItem::insert($stockTransferItems);
 
-            \DB::commit();
+            //    \DB::commit();
             return $inventoryDispatch->load(['items.product', 'store', 'engineer', 'files']);
         } catch (\Throwable $e) {
-            \DB::rollBack();
+
             throw $e;
         }
     }

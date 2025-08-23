@@ -2,17 +2,20 @@
 
 namespace App\Http\Controllers\V1;
 
+use App\Exports\GenericMultiSheetExport;
 use App\Http\Controllers\Controller;
 
+use App\Services\V1\MrDeliveryDetailsFormatter;
 use App\Services\V1\NotificationService;
 use Illuminate\Http\Request;
 use App\Services\Helpers;
+use App\Services\V1\MrStatusExcelFormatter;
 use App\Models\V1\Admin;
 use App\Models\V1\Engineer;
 use App\Models\V1\Storekeeper;
 use App\Models\V1\Product;
 use App\Models\V1\MaterialRequest;
-use \App\Models\V1\UserToken;
+use App\Models\V1\UserToken;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
@@ -21,6 +24,10 @@ use App\Mail\PasswordResetLink;
 use Illuminate\Support\Facades\Crypt;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
+use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
+use App\Exports\GenericExcelExport;
 class CommonController extends Controller
 {
 
@@ -282,6 +289,59 @@ class CommonController extends Controller
         } catch (\Exception $e) {
             return Helpers::sendResponse(500, [], $e->getMessage());
         }
+    }
+    public function exportMrStatus($id)
+    {
+        //  try {
+
+        $materialRequest = MaterialRequest::with([
+            'stockTransfers' => function ($query) {
+                $query->where('transaction_type', 'CS-SS');
+            },
+            'stockTransfers.stockTransferItems',
+            'items',
+            'items.product',
+            'purchaseRequests',
+            'purchaseRequests.items',
+            'purchaseRequests.lpos',
+            'purchaseRequests.lpos.items',
+            'purchaseRequests.lpos.shipments',
+            'purchaseRequests.lpos.shipments.items',
+            'purchaseRequests.lpos.supplier',
+            'store',
+            'engineer'
+        ])->findOrFail($id);
+        $mrStatusRows = MrStatusExcelFormatter::toExcelRows($materialRequest);
+        $mrDeliveryDetailsRows = MrDeliveryDetailsFormatter::toExcelRows($materialRequest);
+
+        $title = $materialRequest->request_number;
+        $fileName = $title . "_" . now()->format('Ymd_His') . '.xlsx';
+        $relativePath = "export/$fileName";
+
+        $sheetData = [
+            [
+                'data' => $mrDeliveryDetailsRows,
+                'headers' => MrDeliveryDetailsFormatter::HEADERS,
+                'title' => 'MR DELIVERY DETAILS',
+            ],
+
+            [
+                'data' => $mrStatusRows,
+                'headers' => MrStatusExcelFormatter::HEADERS,
+                'title' => 'MR STATUS',
+            ],
+        ];
+
+        // $filePath = storage_path('app/public/' . $relativePath);
+        Excel::store(new GenericMultiSheetExport($sheetData), $relativePath, 'public');
+        //return Helpers::download($filePath);
+        return Helpers::sendResponse(200, URL::to(Storage::url($relativePath)), 'Transactions retrieved successfully');
+
+        // } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+        //     return Helpers::sendResponse(404, [], 'Material Request not found.');
+        // } catch (\Exception $e) {
+        //     return Helpers::sendResponse(500, [], $e->getMessage());
+        // }
     }
 
 }

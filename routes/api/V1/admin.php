@@ -112,6 +112,7 @@ Route::prefix('admin')->group(function () {
         Route::get('prs', [PurchaseRequestController::class, 'index']);
         Route::get('prs/{id}', [PurchaseRequestController::class, 'show']);
         Route::get('mrs', [CommonController::class, 'getMaterialRequests']);
+        Route::get('mrs/{id}/export', [CommonController::class, 'exportMrStatus']);
 
         Route::prefix('reports')->group(function () {
             Route::get('material-in-out', [ReportsController::class, 'transactionReport']);

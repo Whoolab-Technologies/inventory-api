@@ -634,13 +634,16 @@ class StorekeeperController extends Controller
     public function createInventoryDispatch(Request $request)
     {
         try {
+            \DB::beginTransaction();
             $storekeeper = auth()->user();
             $pickup = $this->transactionService->createInventoryDispatch($request, $storekeeper);
             if ($pickup->self ?? false) {
                 $this->notificationService->sendNotificationOnMaterialPickup($pickup);
             }
+            \DB::commit();
             return Helpers::sendResponse(200, $pickup, 'Dispatch created successfully');
         } catch (\Throwable $th) {
+            \DB::rollBack();
             return Helpers::sendResponse(500, [], $th->getMessage());
         }
     }

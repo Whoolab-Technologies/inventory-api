@@ -2,6 +2,7 @@
 
 namespace App\Services\V1;
 
+use App\Enums\StatusEnum;
 use App\Models\V1\MaterialRequest;
 use App\Models\V1\MaterialRequestFile;
 use App\Data\PurchaseRequestData;
@@ -58,6 +59,9 @@ class MaterialRequestService
             $materialRequest = MaterialRequest::findOrFail($id);
             $materialRequest->status_id = $request->status_id;
             $materialRequest->description = $request->description;
+            if ($request->status_id == StatusEnum::APPROVED->value) {
+                $materialRequest->approved_date = \Carbon\Carbon::now();
+            }
             $materialRequest->save();
             if ($request->create_pr) {
                 $missingItems = [];
