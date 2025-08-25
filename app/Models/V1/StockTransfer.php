@@ -21,10 +21,14 @@ class StockTransfer extends BaseModel
         'received_by',
         'receiver_role',
         'note',
+        'is_store_transfer',
     ];
 
     protected $hidden = ['created_by', 'created_type', 'updated_by', 'updated_type', 'created_at', 'updated_at'];
     protected $appends = ['date'];
+    protected $casts = [
+        'is_store_transfer' => 'boolean',
+    ];
     protected static function booted()
     {
         static::creating(function ($model) {

@@ -22,6 +22,7 @@ class StockTransferData
         public ?int $receivedBy = null,
         public ?string $receiverRole = null,
         public ?string $note = null,
+        public ?bool $isStoreTransfer = false,
     ) {
     }
 }

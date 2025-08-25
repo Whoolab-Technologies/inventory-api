@@ -155,4 +155,4 @@ php artisan make:model V1/LpoItems
 php artisan make:controller V1/SupplierController
 php artisan make:migration create_product_min_stocks_table  --create=product_min_stocks --path=database/migrations/V1/pr
 
-php artisan make:migration add_approved_date_to_material_requests_table --table=material_requests --path=database/migrations/V1/pr
+php artisan make:migration add_is_store_transfer_to_stock_transfers_table --table=stock_transfers --path=database/migrations/V1/pr
