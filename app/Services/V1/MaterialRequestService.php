@@ -95,7 +95,7 @@ class MaterialRequestService
     public function mapStockItemsProduct($materialRequest)
     {
 
-        $stockItems = collect($materialRequest->stockTransfers ?? [])
+        $stockItems = collect($materialRequest->mrStockTransfers ?? [])
             ->pluck('items')
             ->flatten(1)
             ->groupBy('product_id');

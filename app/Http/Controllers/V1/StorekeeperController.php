@@ -418,7 +418,7 @@ class StorekeeperController extends Controller
                 ->map(function ($request) {
                     // Normalize stockTransfers to a collection of items
                     $stockTransfers =
-                        $request->stockTransfers;
+                        $request->mrStockTransfers;
 
                     $allStockItems = $stockTransfers
                         ->pluck('items')
@@ -949,8 +949,6 @@ class StorekeeperController extends Controller
 
         }
     }
-
-
 
     public function getReturnableProducts(Request $request, $id)
     {

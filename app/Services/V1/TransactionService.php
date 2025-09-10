@@ -345,7 +345,7 @@ class TransactionService
             return;
         }
         // Fetch all relevant stock transfers
-        $allStockTransfers = $materialRequest->stockTransfers()
+        $allStockTransfers = $materialRequest->mrStockTransfers()
             ->with('items')
             ->where('transaction_type', TransactionType::CS_SS->value)
             ->get();

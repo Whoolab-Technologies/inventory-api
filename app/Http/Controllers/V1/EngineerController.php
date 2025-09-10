@@ -324,7 +324,7 @@ class EngineerController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->get()
                 ->map(function ($mr) {
-                    $stockItemsGrouped = collect($mr->stockTransfers)
+                    $stockItemsGrouped = collect($mr->mrStockTransfers)
                         ->flatMap(function ($transfer) {
                             return $transfer->items;
                         })

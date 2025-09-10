@@ -182,7 +182,7 @@ class PurchaseRequestController extends Controller
         });
         $materialRequest = $pr->materialRequest;
         $stockTransfers =
-            $materialRequest->stockTransfers;
+            $materialRequest->mrStockTransfers;
 
         $allStockItems = $stockTransfers
             ->pluck('items')

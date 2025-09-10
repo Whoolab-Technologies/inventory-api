@@ -177,6 +177,7 @@ class StockTransferService
             'received_by' => $data->receivedBy,
             'receiver_role' => $data->receiverRole,
             'note' => $data->note,
+            'is_store_transfer' => $data->isStoreTransfer,
         ]);
     }
 
@@ -185,6 +186,7 @@ class StockTransferService
     public function createMaterialReturnWithItems(MaterialReturnData $data)
     {
         $materialReturn = new MaterialReturn();
+        $materialReturn->return_number = 'IR-' . date('Y') . '-' . str_pad(MaterialReturn::max('id') + 1, 3, '0', STR_PAD_LEFT);
         $materialReturn->from_store_id = $data->fromStoreId;
         $materialReturn->to_store_id = $data->toStoreId;
         $materialReturn->dn_number = $data->dn_number ?? null;

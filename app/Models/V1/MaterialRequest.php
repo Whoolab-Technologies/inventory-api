@@ -1,6 +1,7 @@
 <?php
 namespace App\Models\V1;
 
+use App\Enums\RequestType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use App\Enums\StatusEnum;
 
@@ -116,6 +117,13 @@ class MaterialRequest extends BaseModel
             'id'
         );
     }
+
+
+    public function mrStockTransfers()
+    {
+        return $this->stockTransfers()->whereIn('request_type', [RequestType::MR, RequestType::PR]);
+    }
+
     public function purchaseRequests()
     {
         return $this->hasMany(
