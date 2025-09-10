@@ -1,6 +1,7 @@
 <?php
 namespace App\Models\V1;
 
+use App\Enums\RequestType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 class StockTransfer extends BaseModel
 {
@@ -120,6 +121,16 @@ class StockTransfer extends BaseModel
         return $this->belongsTo(MaterialRequest::class, 'request_id', 'id');
     }
 
+    public function materialReturn()
+    {
+        return $this->belongsTo(MaterialReturn::class, 'request_id', 'id');
+    }
+
+    public function inventoryDispatch()
+    {
+        return $this->belongsTo(InventoryDispatch::class, 'request_id', 'id');
+    }
+
     public function purchaseRequest()
     {
         return $this->belongsTo(PurchaseRequest::class, 'request_id', 'material_request_id');
@@ -131,5 +142,30 @@ class StockTransfer extends BaseModel
     public function getDateAttribute()
     {
         return $this->created_at ? $this->created_at->format('Y-m-d h:i a') : null;
+    }
+
+
+    public function getRequestAttribute()
+    {
+        return match ($this->request_type) {
+            RequestType::MR->value => $this->materialRequest,
+            RequestType::PR->value => $this->purchaseRequest->materialRequest,
+            RequestType::SS_RETURN->value => $this->materialReturn,
+            RequestType::ENGG_RETURN->value => $this->materialReturn,
+            RequestType::DISPATCH->value => $this->inventoryDispatch,
+            default => null,
+        };
+    }
+
+    public function getRequestNumberAttribute()
+    {
+        return match ($this->request_type) {
+            RequestType::DISPATCH->value => $this->inventoryDispatch?->dispatch_number,
+            RequestType::SS_RETURN->value,
+            RequestType::ENGG_RETURN->value => $this->materialReturn?->return_number,
+            RequestType::MR->value => $this->materialRequest?->request_number,
+            RequestType::PR->value => $this->purchaseRequest?->purchase_request_number,
+            default => null,
+        };
     }
 }

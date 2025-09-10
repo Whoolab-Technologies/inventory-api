@@ -2,6 +2,7 @@
 
 
 use App\Http\Controllers\V1\CommonController;
+use App\Http\Controllers\V1\DashboardController;
 use App\Http\Controllers\V1\DepartmentController;
 use App\Http\Controllers\V1\EngineerController;
 use App\Http\Controllers\V1\ReportsController;
@@ -131,5 +132,9 @@ Route::prefix('admin')->group(function () {
         Route::get('suppliers/{id}', [SupplierController::class, 'show']);
         Route::put('suppliers/{id}', [SupplierController::class, 'update']);
         Route::delete('suppliers/{id}', [SupplierController::class, 'destroy']);
+
+
+        Route::get('dashboard', [DashboardController::class, 'index']);
+
     });
 });
