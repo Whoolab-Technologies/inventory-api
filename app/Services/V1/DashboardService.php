@@ -104,7 +104,10 @@ class DashboardService
     public function getLowStockProducts()
     {
         $lowStockProducts = ProductMinStock::select(
-            'product_min_stocks.*',
+            'product_min_stocks.id',
+            'product_min_stocks.product_id',
+            'product_min_stocks.store_id',
+            'product_min_stocks.min_stock_qty',
             \DB::raw('SUM(stock.quantity) as total_stock')
         )
             ->join('stock', function ($join) {
