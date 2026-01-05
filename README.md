@@ -56,6 +56,18 @@ It manages:
 
 ---
 
+## 🏷️ License
+
+This project is open-source for learning and evaluation purposes.
+
+❗ Commercial use, resale, hosting as a service, or redistribution is not permitted.
+
+For commercial licensing, customization, or deployment:
+
+📩 mail@whoolab.com
+
+---
+
 ## 🚀 Deployment
 
 (This section will be updated soon!)
