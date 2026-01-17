@@ -18,7 +18,7 @@ It manages:
 ## 🧩 Part of the Centralized Inventory Platform
 
 - Platform Overview  
-  👉 https://github.com/Whoolab-Technologies/inventory-platform
+  👉 https://github.com/Whoolab-Technologies/multistore-inventory-platform
 - Shared Mobile Components  
   👉 https://github.com/Whoolab-Technologies/inventory-flutter-common
 - Admin Web App  
