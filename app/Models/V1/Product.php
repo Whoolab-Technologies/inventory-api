@@ -97,16 +97,18 @@ class Product extends BaseModel
             ->where("status", "in_transit");
     }
 
-    public function scopeSearch($query, $term)
+    public function scopeSearch($query, $searchKey)
     {
-        $term = "%{$term}%";
-        return $query->where('item', 'LIKE', $term)
-            ->orWhere('description', 'LIKE', $term)
-            ->orWhere('cat_id', 'LIKE', $term)
-            ->orWhereHas('unit', function ($q) use ($term) {
-                $q->where('name', 'LIKE', $term)
-                    ->orWhere('symbol', 'LIKE', $term);
-            });
+        $term = "%{$searchKey}%";
+        return
+            $query->where('id', $searchKey)
+                ->orWhere('item', 'LIKE', $term)
+                ->orWhere('description', 'LIKE', $term)
+                ->orWhere('cat_id', 'LIKE', $term)
+                ->orWhereHas('unit', function ($q) use ($term) {
+                    $q->where('name', 'LIKE', $term)
+                        ->orWhere('symbol', 'LIKE', $term);
+                });
 
         //     $term = "%{$term}%";
         // return $query->where(function ($q) use ($term) {
