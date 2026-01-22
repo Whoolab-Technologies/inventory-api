@@ -22,7 +22,10 @@ class MigrateAll extends Command
         // Migrate migrations in v1 directory
         $this->call('migrate', ['--path' => 'database/migrations/V1']);
 
+
         $this->call('migrate', ['--path' => 'database/migrations/V1/pr']);
+
+        $this->call('migrate', ['--path' => 'database/migrations/V1/demo-updates']);
 
         // Migrate migrations in v2 directory
         //  $this->call('migrate', ['--path' => 'database/migrations/v2']);

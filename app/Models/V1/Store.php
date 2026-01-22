@@ -2,6 +2,8 @@
 
 namespace App\Models\V1;
 
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Store extends BaseModel
@@ -10,9 +12,14 @@ class Store extends BaseModel
 
     protected $table = 'stores';
     protected $hidden = ['created_by', 'created_type', 'updated_by', 'updated_type', 'created_at', 'updated_at'];
-    protected $fillable = ['name', 'location', 'type'];
+    protected $fillable = [
+        'name',
+        'location',
+        'type',
+        'image',
+    ];
 
-    protected $appends = ['is_central_store'];
+    protected $appends = ['is_central_store', 'image_url'];
 
 
     public function engineers()
@@ -66,6 +73,13 @@ class Store extends BaseModel
     public function minStockForProduct($productId)
     {
         return $this->minStocks()->where('product_id', $productId)->first();
+    }
+    public function getImageUrlAttribute()
+    {
+        if (!empty($this->image)) {
+            return URL::to(Storage::url($this->image));
+        }
+        return "";
     }
 }
 

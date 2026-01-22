@@ -42,7 +42,7 @@ Route::prefix('admin')->group(function () {
         Route::post('stores', [StoreController::class, 'store']);
         Route::get('stores', [StoreController::class, 'index']);
         Route::get('stores/{id}', [StoreController::class, 'show']);
-        Route::put('stores/{id}', [StoreController::class, 'update']);
+        Route::post('stores/{id}', [StoreController::class, 'update']);
         Route::delete('stores/{id}', [StoreController::class, 'destroy']);
 
         Route::get('min-stock', [StoreController::class, 'getProductMinStock']);

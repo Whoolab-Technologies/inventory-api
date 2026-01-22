@@ -22,6 +22,7 @@ class RollbackAll extends Command
         // Rollback migrations in v1 directory
         $this->call('migrate:rollback', ['--path' => 'database/migrations/V1']);
         $this->call('migrate:rollback', ['--path' => 'database/migrations/V1/pr']);
+        $this->call('migrate:rollback', ['--path' => 'database/migrations/V1/demo-updates']);
 
         // Rollback migrations in v2 directory
         // $this->call('migrate:rollback', ['--path' => 'database/migrations/v2']);

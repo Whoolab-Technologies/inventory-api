@@ -41,6 +41,14 @@ class StoreController extends Controller
             ]);
 
             $store = Store::create($request->all());
+            $itemId = str_pad($store->id, 2, '0', STR_PAD_LEFT);
+            if ($request->hasFile('image')) {
+                $imagePath = Helpers::uploadFile($request->file('image'), "stores/images/$itemId");
+                \Log::info("Store create ", ['imagePath' => $imagePath]);
+                $store->image = $imagePath;
+                $store->save();
+            }
+
             return Helpers::sendResponse(
                 status: 200,
                 data: $store,
@@ -90,6 +98,14 @@ class StoreController extends Controller
             ]);
 
             $store->update($request->all());
+            if ($request->hasFile('image')) {
+                $itemId = str_pad($store->id, 2, '0', STR_PAD_LEFT);
+                $imagePath = Helpers::uploadFile($request->file('image'), "stores/images/$itemId");
+                \Log::info("Store create ", ['imagePath' => $imagePath]);
+                $store->image = $imagePath;
+                $store->save();
+            }
+
             return Helpers::sendResponse(
                 status: 200,
                 data: $store,
