@@ -72,7 +72,7 @@ class ProductController extends Controller
                 ->style('dot')
                 ->eye('circle')
                 ->color(0, 0, 255)
-                ->margin(1)
+                ->margin(2)
                 ->generate($itemId);
             $folderPath = "qrcodes/products/$itemId";
             $fileName = $item->id . '.png';
