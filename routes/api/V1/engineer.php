@@ -28,5 +28,6 @@ Route::prefix('engineer')->group(function () {
         Route::get('stores_engineers', [EngineerController::class, 'getEngineersAndStores']);
         Route::post('fcm', [CommonController::class, 'saveFcmToken']);
         Route::get('materials', [CommonController::class, 'getProducts']);
+        Route::get('materials/{id}', [CommonController::class, 'getProduct']);
     });
 });
