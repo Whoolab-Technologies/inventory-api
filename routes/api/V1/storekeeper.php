@@ -94,5 +94,7 @@ Route::prefix('storekeeper')->group(function () {
             Route::get('/{id}', [StorekeeperController::class, 'getMaterialRequestStock']);
         });
 
+        Route::post('profile-pic', [StorekeeperAuthController::class, 'updateProfilePic']);
+
     });
 });

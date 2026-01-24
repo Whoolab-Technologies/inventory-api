@@ -347,6 +347,20 @@ class StorekeeperController extends Controller
                     ->orderBy('created_at', 'desc')
                     ->get();
                 $data['material_requests'] = $materialRequests;
+            } else {
+                $transactions = StockTransfer::with([
+                    'items.product',
+                    'fromStore',
+                    'toStore',
+                    'files',
+                    'materialRequest',
+                    'purchaseRequest',
+                    'status',
+                ])
+                    ->where('to_store_id', $storekeeper->store->id)
+                    ->where('request_type', RequestType::MR)
+                    ->where('status_id', StatusEnum::IN_TRANSIT->value)->get();
+                $data['transactions'] = $transactions;
             }
 
             $data['low_stock_products'] = $this->getLowStockProductsForStore($storekeeper->store->id);

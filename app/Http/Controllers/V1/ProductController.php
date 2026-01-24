@@ -9,7 +9,6 @@ use App\Models\V1\Product;
 use App\Models\V1\Brand;
 use App\Models\V1\Stock;
 use App\Services\Helpers;
-use Illuminate\Support\Facades\Validator;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Illuminate\Support\Facades\DB;
 class ProductController extends Controller
