@@ -1,11 +1,13 @@
-* text=auto eol=lf
+# Auto-detect text files and normalize line endings
+* text=auto
 
-*.blade.php diff=html
-*.css diff=css
-*.html diff=html
-*.md diff=markdown
-*.php diff=php
+# Force LF for source files
+*.php        text eol=lf
+*.blade.php  text eol=lf
+*.css        text eol=lf
+*.html       text eol=lf
+*.md         text eol=lf
 
-/.github export-ignore
-CHANGELOG.md export-ignore
-.styleci.yml export-ignore
+# Better diffs
+*.blade.php  diff=html
+*.css        diff=*
