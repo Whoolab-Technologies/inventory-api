@@ -21,8 +21,7 @@ class NotificationService
 
     protected function getAccessToken(): string
     {
-        $serviceAccountPath = storage_path('firebase/inventory-manager-57a62-firebase-adminsdk-fbsvc-4aef60ed37.json');
-
+        $serviceAccountPath = config('services.firebase.credentials');
         $client = new Google_Client();
         $client->setAuthConfig($serviceAccountPath);
         $client->addScope('https://www.googleapis.com/auth/firebase.messaging');

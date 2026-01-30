@@ -34,6 +34,7 @@ return [
     'fcm' => [
         "project_id" => env('PROJECT_ID'),
         'server_key' => env('FCM_SERVER_KEY'),
+        'credentials' => env('ADMIN_SDK_SERVICE_FILE'),
     ],
 
 ];
